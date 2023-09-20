@@ -10,7 +10,8 @@ def get_seq_ids(input_file):
 # Define the workflow
 rule all:
     input:
-        expand("data/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids("input_alignment.fasta"))
+        expand("data/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids("input_alignment.fasta")),
+        "data/input_alignment.fasta.treefile"
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -35,18 +36,6 @@ rule extract_model_for_full_iqtree_run:
     shell:
         """
         echo $(grep "Best-fit model" {input.msa} | cut -d ":" -f 2) > {output.model}
-        """
-
-# Define the rule to run IQ-TREE on the full MSA and get model parameters
-rule run_iqtree_on_full_dataset:
-    input:
-        msa="input_alignment.fasta",
-        full_model=rules.extract_model_for_full_iqtree_run.output.model
-    output:
-        filename="data/input.alignment.fasta.treefile"
-    shell:
-        """
-        iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix data/{input.msa}
         """
 
 # Define the rule to remove a sequence from the MSA and write the reduced MSA to a file
@@ -84,3 +73,16 @@ rule run_iqtree_restricted_alignments:
         """
         iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa}
         """
+
+# Define the rule to run IQ-TREE on the full MSA and get model parameters
+rule run_iqtree_on_full_dataset:
+    input:
+        msa="input_alignment.fasta",
+        full_model=rules.extract_model_for_full_iqtree_run.output.model
+    output:
+        tree="data/input_alignment.fasta.treefile"
+    shell:
+        """
+        iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix data/{input.msa}
+        """
+
