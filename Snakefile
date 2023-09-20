@@ -40,12 +40,13 @@ rule extract_model_for_full_iqtree_run:
 # Define the rule to run IQ-TREE on the full MSA and get model parameters
 rule run_iqtree_on_full_dataset:
     input:
-        msa="input_alignment.fasta"
+        msa="input_alignment.fasta",
+        full_model=rules.extract_model_for_full_iqtree_run.output.model
     output:
-        filename="data/input_alignment.fasta.iqtree"
+        filename="data/input.alignment.fasta.treefile"
     shell:
         """
-        iqtree -s {input.msa} --prefix data/{input.msa}
+        iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix data/{input.msa}
         """
 
 # Define the rule to remove a sequence from the MSA and write the reduced MSA to a file
@@ -73,7 +74,7 @@ rule remove_sequence:
 
 
 # Define the rule to run IQ-TREE on the reduced MSA
-rule run_iqtree:
+rule run_iqtree_restricted_alignments:
     input:
         reduced_msa=rules.remove_sequence.output.reduced_msa,
         full_model=rules.extract_model_for_full_iqtree_run.output.model
