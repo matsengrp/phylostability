@@ -10,7 +10,7 @@ def get_seq_ids(input_file):
 # Define the workflow
 rule all:
     input:
-        expand("reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids("data/input_alignment.fasta"))
+        expand("reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids("input_alignment.fasta"))
 
 
 # Define the rule to remove a sequence from the MSA and write the reduced MSA to a file
@@ -38,19 +38,21 @@ rule remove_sequence:
 
 
 # Define the rule to run IQ-TREE on the reduced MSA
-rule run_iqtree:
+rule run_iqtree_on_full_dataset:
     input:
-        reduced_msa=rules.remove_sequence.output.reduced_msa
+        msa="input_alignment.fasta"
     output:
-        tree="reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile"
+        touch("data/run_iqtree_on_full_dataset.done"),
+        tree="data/input_alignment.fasta.treefile"
     shell:
-        "iqtree -s {input.reduced_msa}"
+        "iqtree -s {input.msa} --prefix data/input_alignment.fasta"
 
 
 rule get_restricted_trees:
     input:
+        "data/run_iqtree_on_full_dataset.done",
         full_tree="data/input_alignment.fasta.treefile"
     output:
-        restricted_trees=expand("reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids("data/input_alignment.fasta"))
+        restricted_trees=expand("reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids("input_alignment.fasta"))
     script:
         "scripts/create_restricted_trees.py"
