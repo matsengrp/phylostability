@@ -4,7 +4,7 @@ full_tree_file = snakemake.input.full_tree
 restricted_tree_files = snakemake.output.restricted_trees
 
 full_tree = Tree(full_tree_file)
-leaf_names = [filename.split("/")[1] for filename in restricted_tree_files]
+leaf_names = [filename.split("/")[-2] for filename in restricted_tree_files]
 
 for i in range(len(leaf_names)):
     leaf_name = leaf_names[i]

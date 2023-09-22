@@ -1,6 +1,7 @@
 import os
 from Bio import SeqIO
 
+output_folder="data/"
 
 # Retrieve all sequence IDs from the input multiple sequence alignment
 def get_seq_ids(input_file):
@@ -10,7 +11,7 @@ def get_seq_ids(input_file):
 # Define the workflow
 rule all:
     input:
-        expand("reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids("input_alignment.fasta"))
+        expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids("input_alignment.fasta"))
 
 
 # Define the rule to remove a sequence from the MSA and write the reduced MSA to a file
@@ -18,7 +19,7 @@ rule remove_sequence:
     input:
         msa="input_alignment.fasta"
     output:
-        reduced_msa=temp("reduced_alignments/{seq_id}/reduced_alignment.fasta")
+        reduced_msa=temp(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta")
     params:
         seq_id=lambda wildcards: wildcards.seq_id
     run:
@@ -42,17 +43,17 @@ rule run_iqtree_on_full_dataset:
     input:
         msa="input_alignment.fasta"
     output:
-        touch("data/run_iqtree_on_full_dataset.done"),
-        tree="data/input_alignment.fasta.treefile"
+        touch(output_folder+"run_iqtree_on_full_dataset.done"),
+        tree=output_folder+"input_alignment.fasta.treefile"
     shell:
-        "iqtree -s {input.msa} --prefix data/input_alignment.fasta"
+        "iqtree -s {input.msa} --prefix {output_folder}input_alignment.fasta"
 
 
 rule get_restricted_trees:
     input:
-        "data/run_iqtree_on_full_dataset.done",
-        full_tree="data/input_alignment.fasta.treefile"
+        output_folder+"run_iqtree_on_full_dataset.done",
+        full_tree=output_folder+"input_alignment.fasta.treefile"
     output:
-        restricted_trees=expand("reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids("input_alignment.fasta"))
+        restricted_trees=expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids("input_alignment.fasta"))
     script:
         "scripts/create_restricted_trees.py"
