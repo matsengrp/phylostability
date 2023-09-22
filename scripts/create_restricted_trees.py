@@ -11,5 +11,4 @@ for i in range(len(leaf_names)):
     restricted_tree = full_tree.copy()
     target_leaf = restricted_tree.search_nodes(name=leaf_name)[0]
     target_leaf.delete()
-    restricted_tree.write(outfile = restricted_tree_files[i])
-    
+    restricted_tree.write(outfile=restricted_tree_files[i])
