@@ -126,28 +126,11 @@ rule reattach_removed_sequence:
         rules.run_iqtree_restricted_alignments.output.done,
         reduced_tree_nwk=rules.run_iqtree_restricted_alignments.output.tree
     output:
-        output_topology=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk"
+        toplogies=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk"
     params:
         seq_id=lambda wildcards: wildcards.seq_id
-    run:
-        # open the newick and save the topology
-        with open(input.reduced_tree_nwk, "r") as f:
-            nh_string = f.readlines()[0].strip()
-        reduced_topology = Tree(nh_string)
-
-        # for each node(considered as the child of its parent edge), create a copy of
-        # the original topology and attach the pruned taxon as a sister of that node
-        # (i.e. attach the pruned taxon at that edge), and write new topology to file
-        lookup_val=0
-        taxon_name="{seq_id}"
-        for node in reduced_topology.traverse("postorder"):
-            if not node.is_root():
-                node.add_features(lookup_key=str(lookup_val))
-                augmented_topology = reduced_topology.copy(method="deepcopy")
-                sibling = augmented_topology.search_nodes(lookup_key=str(lookup_val))[0]
-                sibling.add_sister(name=taxon_name)
-                augmented_topology.write(format=1, outfile=output.output_topology)
-                lookup_val += 1
+    script:
+        "scripts/reattach_removed_sequence.py"
 
 
 ##rule run_iqtree_on_augmented_topologies:
