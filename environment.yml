@@ -1,9 +1,9 @@
 name: phylostability
 channels:
   - conda-forge
-  - bioconda
 dependencies:
-  - python
-  - biopython
   - iqtree
   - snakemake
+  - biopython
+  - python
+  - ete3

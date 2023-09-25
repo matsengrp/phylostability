@@ -1,6 +1,7 @@
 import os
 from Bio import SeqIO
 
+output_folder="data/"
 
 # input/output file names
 input_alignment="input_alignment.fasta"
@@ -14,6 +15,7 @@ def get_seq_ids(input_file):
 # Define the workflow
 rule all:
     input:
+        expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids("input_alignment.fasta")),
         expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
         output_folder+input_alignment+".treefile"
 
@@ -66,6 +68,16 @@ rule remove_sequence:
             SeqIO.write(reduced_sequences, f_out, "fasta")
 
 
+rule get_restricted_trees:
+    input:
+        output_folder+"run_iqtree_on_full_dataset.done",
+        full_tree=output_folder+"input_alignment.fasta.treefile"
+    output:
+        restricted_trees=expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids("input_alignment.fasta"))
+    script:
+        "scripts/create_restricted_trees.py"
+
+
 # Define the rule to run IQ-TREE on the reduced MSA
 rule run_iqtree_restricted_alignments:
     input:
@@ -91,4 +103,3 @@ rule run_iqtree_on_full_dataset:
         cp {input.msa} {output_folder}
         iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {output_folder}{input.msa} -bb 1000
         """
-
