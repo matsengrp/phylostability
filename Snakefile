@@ -70,7 +70,7 @@ rule remove_sequence:
     params:
         seq_id=lambda wildcards: wildcards.seq_id
     script:
-        "scripts/write_reduced_fastas.py"
+        "scripts/remove_sequence.py"
 
 
 # Define the rule to run IQ-TREE on the full MSA and get model parameters
