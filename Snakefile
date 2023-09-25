@@ -138,7 +138,7 @@ rule reattach_removed_sequence:
     input:
         reduced_tree_nwk=rules.run_iqtree_restricted_alignments.output.tree
     output:
-        output_topology=temp(expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk", edge=get_branch_lengths(input.reduced_tree_nwk)))
+        output_topology=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk", edge=get_branch_lengths(input.reduced_tree_nwk))
     params:
         seq_id=lambda wildcards: wildcards.seq_id
     run:
@@ -154,7 +154,7 @@ rule reattach_removed_sequence:
         taxon_name="{seq_id}"
         for node in reduced_topology.traverse("postorder"):
             if not node.is_root():
-                node.add_features(lookup_key=str(lookup_val)))
+                node.add_features(lookup_key=str(lookup_val))
                 augmented_topology = reduced_topology.copy(method="deepcopy")
                 augmented_topology.search_nodes(lookup_key=str(lookup_val)).add_sister(taxon_name)
                 augmented_topology.write(format=1, outfile=output.output_topology)
@@ -203,9 +203,10 @@ rule aggregate_reattachment_data_per_taxon:
 
 
 rule write_reattachment_data_to_file:
-    inputs:
-        expand(output_folder+"reduced_alignments/{seq_id}/aggregate_attachment_data_per_taxon.done", seq_id=get_taxon_)
-    outputs:
+    input:
+        expand(output_folder+"reduced_alignments/{seq_id}/aggregate_attachment_data_per_taxon.done", seq_id=get_seq_ids())
+    output:
+        output_folder+"reduced_alignments/reattachment_data.csv"
     run:
         pd.DataFrame(sequence_reattachment_data.items(),\
                      columns=["branch lengths",\
