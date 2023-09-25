@@ -17,9 +17,17 @@ def get_seq_ids(input_file):
     return [record.id for record in SeqIO.parse(input_file, "fasta")]
 
 
+def get_attachment_edge_indices(input_file):
+    num_sequences = 0
+    for record in SeqIO.parse(input_file, "fasta"):
+        num_sequences += 1
+    return range(1, 2*(num_sequences-1)-2)
+
+
 # Define the workflow
 rule all:
     input:
+        expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices("input_alignment.fasta")),
         expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
         output_folder+input_alignment+".treefile"
@@ -61,8 +69,8 @@ rule remove_sequence:
         reduced_msa=temp(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta")
     params:
         seq_id=lambda wildcards: wildcards.seq_id
-    run:
-        write_reduced_fastas({input.msa}, {output.reduced_msa}, {params.seq_id})
+    script:
+        "scripts/write_reduced_fastas.py"
 
 
 # Define the rule to run IQ-TREE on the full MSA and get model parameters
@@ -100,6 +108,7 @@ rule run_iqtree_restricted_alignments:
         reduced_msa=rules.remove_sequence.output.reduced_msa,
         full_model=rules.extract_model_for_full_iqtree_run.output.model
     output:
+        done=touch(output_folder+"reduced_alignment/{seq_id}/run_iqtree_restricted_alignments.done"),
         tree=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile"
     shell:
         """
@@ -114,15 +123,16 @@ rule run_iqtree_restricted_alignments:
 # Define the rule to attach the pruned taxon at each edge
 rule reattach_removed_sequence:
     input:
+        rules.run_iqtree_restricted_alignments.output.done,
         reduced_tree_nwk=rules.run_iqtree_restricted_alignments.output.tree
     output:
-        output_topology=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk")
+        output_topology=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk"
     params:
         seq_id=lambda wildcards: wildcards.seq_id
     run:
         # open the newick and save the topology
         with open(input.reduced_tree_nwk, "r") as f:
-            nh_string = next(f.readlines())
+            nh_string = f.readlines()[0].strip()
         reduced_topology = Tree(nh_string)
 
         # for each node(considered as the child of its parent edge), create a copy of
@@ -134,7 +144,8 @@ rule reattach_removed_sequence:
             if not node.is_root():
                 node.add_features(lookup_key=str(lookup_val))
                 augmented_topology = reduced_topology.copy(method="deepcopy")
-                augmented_topology.search_nodes(lookup_key=str(lookup_val)).add_sister(taxon_name)
+                sibling = augmented_topology.search_nodes(lookup_key=str(lookup_val))[0]
+                sibling.add_sister(name=taxon_name)
                 augmented_topology.write(format=1, outfile=output.output_topology)
                 lookup_val += 1
 
