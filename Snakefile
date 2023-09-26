@@ -27,7 +27,7 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices("input_alignment.fasta")),
+        expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
         output_folder+input_alignment+".treefile"
@@ -108,7 +108,7 @@ rule run_iqtree_restricted_alignments:
         reduced_msa=rules.remove_sequence.output.reduced_msa,
         full_model=rules.extract_model_for_full_iqtree_run.output.model
     output:
-        done=touch(output_folder+"reduced_alignment/{seq_id}/run_iqtree_restricted_alignments.done"),
+        done=touch(output_folder+"reduced_alignments/{seq_id}/run_iqtree_restricted_alignments.done"),
         tree=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile"
     shell:
         """
@@ -126,29 +126,29 @@ rule reattach_removed_sequence:
         rules.run_iqtree_restricted_alignments.output.done,
         reduced_tree_nwk=rules.run_iqtree_restricted_alignments.output.tree
     output:
-        toplogies=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk"
+        topology=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk"
     params:
         seq_id=lambda wildcards: wildcards.seq_id
     script:
         "scripts/reattach_removed_sequence.py"
 
 
-##rule run_iqtree_on_augmented_topologies:
-##    input:
-##        msa=input_alignment,
-##        topology_file=rules.reattach_removed_sequence.output_topology,
-##        full_model=rules.extract_model_for_full_iqtree_run.output.model
-##    output:
-##        alldone=touch(input.topology_file+"_branch_length.done"),
-##        tree=temp(input.topology_file+"_branch_length.treefile")
-##    shell:
-##        """
-##        if test -f "{input.topology_file}_branch_length.iqtree"; then
-##          echo "Ignoring iqtree run on {input.topology_file}_branch_length, since it is already done."
-##        else
-##          iqtree -s {input.msa} -m $(cat {input.full_model}) -te {input.topology_file} --prefix {input.topology_file}_branch_length
-##        fi
-##        """
+rule run_iqtree_on_augmented_topologies:
+   input:
+       msa=input_alignment,
+       topology_file=rules.reattach_removed_sequence.output.topology,
+       full_model=rules.extract_model_for_full_iqtree_run.output.model
+   output:
+       alldone=touch(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done"),
+       tree=temp(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile")
+   shell:
+       """
+       if test -f "{input.topology_file}_branch_length.iqtree"; then
+         echo "Ignoring iqtree run on {input.topology_file}_branch_length, since it is already done."
+       else
+         iqtree -s {input.msa} -m $(cat {input.full_model}) -te {input.topology_file} --prefix {input.topology_file}_branch_length
+       fi
+        """
 ##
 ##
 ### this rule adds a specific key to the global dictionary
