@@ -6,6 +6,7 @@ from ete3 import Tree
 # input/output file names
 input_alignment="input_alignment.fasta"
 output_folder="data/"
+IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
 
 # dictionary to hold the outputs of rules reattach_removed_sequence
@@ -38,7 +39,7 @@ rule model_test_iqtree:
     input:
         msa=input_alignment
     output:
-        touch(output_folder+"model-test-iqtree.done"),
+        temp(touch(output_folder+"model-test-iqtree.done")),
         modeltest=output_folder+"input_alignment.fasta_model.iqtree"
     shell:
         """
@@ -79,7 +80,7 @@ rule run_iqtree_on_full_dataset:
         msa=input_alignment,
         full_model=rules.extract_model_for_full_iqtree_run.output.model
     output:
-        touch(output_folder+"run_iqtree_on_full_dataset.done"),
+        temp(touch(output_folder+"run_iqtree_on_full_dataset.done")),
         tree=output_folder+input_alignment+".treefile"
     shell:
         """
@@ -108,7 +109,7 @@ rule run_iqtree_restricted_alignments:
         reduced_msa=rules.remove_sequence.output.reduced_msa,
         full_model=rules.extract_model_for_full_iqtree_run.output.model
     output:
-        done=touch(output_folder+"reduced_alignments/{seq_id}/run_iqtree_restricted_alignments.done"),
+        done=temp(touch(output_folder+"reduced_alignments/{seq_id}/run_iqtree_restricted_alignments.done")),
         tree=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile"
     shell:
         """
@@ -139,8 +140,8 @@ rule run_iqtree_on_augmented_topologies:
        topology_file=rules.reattach_removed_sequence.output.topology,
        full_model=rules.extract_model_for_full_iqtree_run.output.model
    output:
-       alldone=touch(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done"),
-       tree=temp(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile")
+       done=temp(touch(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done")),
+       tree=temp(expand(output_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{{edge}}.nwk_branch_length.{suffix}", suffix=IQTREE_SUFFIXES))
    shell:
        """
        if test -f "{input.topology_file}_branch_length.iqtree"; then
@@ -149,6 +150,7 @@ rule run_iqtree_on_augmented_topologies:
          iqtree -s {input.msa} -m $(cat {input.full_model}) -te {input.topology_file} --prefix {input.topology_file}_branch_length
        fi
         """
+
 ##
 ##
 ### this rule adds a specific key to the global dictionary
