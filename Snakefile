@@ -30,6 +30,7 @@ rule all:
         expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
+        expand(output_folder+"reduced_aligntments/{seq_id}/aggregate_reattachment_data_per_taxon_edge_{edge}.done", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment)),
         output_folder+input_alignment+".treefile"
 
 
@@ -140,7 +141,8 @@ rule run_iqtree_on_augmented_topologies:
        full_model=rules.extract_model_for_full_iqtree_run.output.model
    output:
        alldone=touch(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done"),
-       tree=temp(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile")
+       treefile=temp(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile"),
+       mlfile=temp(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.iqtree")
    shell:
        """
        if test -f "{input.topology_file}_branch_length.iqtree"; then
@@ -149,21 +151,23 @@ rule run_iqtree_on_augmented_topologies:
          iqtree -s {input.msa} -m $(cat {input.full_model}) -te {input.topology_file} --prefix {input.topology_file}_branch_length
        fi
         """
-##
-##
-### this rule adds a specific key to the global dictionary
-##rule aggregate_reattachment_data_per_taxon:
-##    input:
-##        ready_to_run=rules.run_iqtree_on_augmented_topologies.output.alldone,
-##        treefile=rules.run_iqtree_on_augmented_topologies.output.treefile,
-##        mlfile=rules.run_iqtree_on_augmented_topologies.output.iqtree
-##    output:
-##        alldone=temp(touch(output_folder+"reduced_aligntments/{seq_id}/aggregate_reattachment_data_per_taxon.done"))
-##    params:
-##        seq_id=lambda wildcards: wildcards.seq_id,
-##        edge=lambda wildcards: wildcards.edge
-##    script:
-##        "scripts/extract_data_from_iqtree_runs.py"
+
+
+# this rule adds a specific key to the global dictionary
+rule aggregate_reattachment_data_per_taxon_edge:
+    input:
+        ready_to_run=rules.run_iqtree_on_augmented_topologies.output.alldone,
+        treefile=rules.run_iqtree_on_augmented_topologies.output.treefile,
+        mlfile=rules.run_iqtree_on_augmented_topologies.output.mlfile
+    output:
+        alldone=touch(output_folder+"reduced_aligntments/{seq_id}/aggregate_reattachment_data_per_taxon_edge_{edge}.done")
+    params:
+        seq_id=lambda wildcards: wildcards.seq_id,
+        edge = lambda wildcards: wildcards.edge,
+        global_dictionary = sequence_reattachment_data
+    script:
+        "scripts/extract_data_from_iqtree_runs.py"
+
 ##    run:
 ##        with open(inputfile, "r") as f:
 ##            nh_str = f.readlines()[0]
