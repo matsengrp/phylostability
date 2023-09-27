@@ -19,6 +19,10 @@ for node in reduced_topology.traverse("postorder"):
         node.add_features(lookup_key=str(lookup_val))
         augmented_topology = reduced_topology.copy(method="deepcopy")
         sibling = augmented_topology.search_nodes(lookup_key=str(lookup_val))[0]
-        sibling.add_sister(name=seq_id)
+        # add new node on edge (sibling.parent,sibling) to reattach taxon
+        new_node = sibling.add_sister()
+        sibling.detach()
+        new_node.add_child(sibling)
+        new_node.add_child(name=seq_id)
         augmented_topology.write(format=1, outfile=output_file)
         lookup_val += 1
