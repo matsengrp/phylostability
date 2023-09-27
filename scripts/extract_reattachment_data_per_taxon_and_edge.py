@@ -29,7 +29,7 @@ def get_taxon_likelihood(input_file):
     with open(input_file, "r") as f:
         for line in f.readlines()[0]:
             if ll_str in line:
-                likelihood = line.split(ll_str)[-1].split(" ")[0]
+                likelihood = float(line.split(ll_str)[-1].split(" ")[0])
                 break
     return likelihood
 
