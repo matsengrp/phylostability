@@ -1,6 +1,7 @@
 import pandas as pd
 from ete3 import Tree
 
+full_tree_file = snakemake.input.full_treefile
 all_tree_files = snakemake.input.treefiles
 reduced_tree_files = snakemake.input.reduced_treefile
 reduced_tree_mlfiles = snakemake.input.reduced_tree_mlfile
@@ -11,7 +12,7 @@ output_file = snakemake.output.output_csv
 
 def attachment_branch_length_proportion(node, above=True):
     """
-       This function eturns the proportion of the branch above
+       This function returns the proportion of the branch above
        the input ete3.TreeNode "node" at which the new taxon was attached.
 
        Note: this function should be called for any TreeNode in the augmented
@@ -67,6 +68,10 @@ def get_likelihood(input_file):
                 break
     return likelihood
 
+
+with open(full_tree_file, "r") as f:
+    full_tree = Tree(f.readlines()[0])
+
 all_taxa_df = {}
 for idx, seq_id in enumerate(seq_ids):
     tree_files = [x for x in all_tree_files if seq_id in x]
@@ -118,8 +123,9 @@ for idx, seq_id in enumerate(seq_ids):
                 edpl += dist(n1, n2, node_lookup1["node"], node_lookup2["node"])*node_lookup1["likelihood"]*node_lookup2["likelihood"]
 
     edpl /= get_likelihood(reduced_tree_mlfile)
-    all_taxa_df[seq_id] = [edpl, get_likelihood(reduced_tree_mlfile)]
+    tii = main_tree.robinson_foulds(full_tree, unrooted_trees = True)[0]
+    all_taxa_df[seq_id] = [edpl, get_likelihood(reduced_tree_mlfile), tii]
 
 all_taxa_df = pd.DataFrame(all_taxa_df).transpose()
-all_taxa_df.columns = ["edpl", "likelihood"]
+all_taxa_df.columns = ["edpl", "likelihood", "tii"]
 all_taxa_df.to_csv(output_file, index=False)
