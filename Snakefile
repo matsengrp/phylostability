@@ -161,7 +161,7 @@ rule extract_reattachment_data_per_taxon_and_edge:
     input:
         ready_to_run=rules.run_iqtree_on_augmented_topologies.output.alldone,
         treefile=rules.run_iqtree_on_augmented_topologies.output.treefile,
-        reduced_treefile=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
+        full_tree_file=rules.run_iqtree_on_full_dataset.output.tree,
         mlfile=rules.run_iqtree_on_augmented_topologies.output.mlfile
     output:
         alldone=touch(output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge_{edge}.done")
@@ -177,9 +177,9 @@ rule aggregate_reattachment_data_per_taxon:
     input:
         ready_to_run1=rules.run_iqtree_on_augmented_topologies.output.alldone,
         ready_to_run2=rules.extract_reattachment_data_per_taxon_and_edge.output.alldone,
-        full_tree_file=rules.run_iqtree_on_full_dataset.output.tree,
         treefiles=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile", edge=get_attachment_edge_indices(input_alignment)),
         mlfiles=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.iqtree", edge=get_attachment_edge_indices(input_alignment))
+        reduced_treefile=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
     output:
         output_file=touch(output_folder+"reduced_alignments/{seq_id}/aggregate_reattachment_data_per_taxon.done")
     params:
