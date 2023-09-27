@@ -31,7 +31,7 @@ rule all:
         expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
-        expand(output_folder+"reduced_alignments/{seq_id}/aggregate_reattachment_data_per_taxon_edge_{edge}.done", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment)),
+        expand(output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge_{edge}.done", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment)),
         output_folder+input_alignment+".treefile"
 
 
@@ -157,52 +157,39 @@ rule run_iqtree_on_augmented_topologies:
 
 
 # this rule adds a specific key to the global dictionary
-rule aggregate_reattachment_data_per_taxon_edge:
+rule extract_reattachment_data_per_taxon_and_edge:
     input:
         ready_to_run=rules.run_iqtree_on_augmented_topologies.output.alldone,
         treefile=rules.run_iqtree_on_augmented_topologies.output.treefile,
-        full_tree_file=rules.run_iqtree_on_full_dataset.output.tree,
+        reduced_treefile=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
         mlfile=rules.run_iqtree_on_augmented_topologies.output.mlfile
     output:
-        alldone=touch(output_folder+"reduced_alignments/{seq_id}/aggregate_reattachment_data_per_taxon_edge_{edge}.done")
+        alldone=touch(output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge_{edge}.done")
     params:
-        seq_id = lambda wildcards: wildcards.seq_id,
-        edge = lambda wildcards: wildcards.edge,
-        global_dictionary = sequence_reattachment_data,
+        seq_id=lambda wildcards: wildcards.seq_id,
+        edge=lambda wildcards: wildcards.edge,
+        global_dictionary=sequence_reattachment_data,
     script:
-        "scripts/extract_data_from_iqtree_runs.py" # rename to be aggregate_reattachment_data_per_taxon_edge.py
+        "scripts/extract_reattachment_data_per_taxon_and_edge.py"
+
 
 rule aggregate_reattachment_data_per_taxon:
     input:
         ready_to_run1=rules.run_iqtree_on_augmented_topologies.output.alldone,
-        ready_to_run2=rules.aggregate_reattachment_data_per_taxon_edge.output.alldone,
-        treefiles=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile", edge=get_edge_indices()),
-        mlfiles=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.iqtree", edge=get_edge_indices())
+        ready_to_run2=rules.extract_reattachment_data_per_taxon_and_edge.output.alldone,
+        full_tree_file=rules.run_iqtree_on_full_dataset.output.tree,
+        treefiles=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile", edge=get_attachment_edge_indices(input_alignment)),
+        mlfiles=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.iqtree", edge=get_attachment_edge_indices(input_alignment))
     output:
-        alldone=touch(output_folder+"reduced_aligntments/{seq_id}/aggregate_reattachment_data_per_taxon.done")
+        output_file=touch(output_folder+"reduced_alignments/{seq_id}/aggregate_reattachment_data_per_taxon.done")
     params:
-        seq_id = lambda wildcards: wildcards.seq_id,
-        edges = get_attachment_edge_indices(...),
-        global_dictionary = sequence_reattachment_data,
+        seq_id=lambda wildcards: wildcards.seq_id,
+        edges=get_attachment_edge_indices(input_alignment),
+        global_dictionary=sequence_reattachment_data,
     script:
         "scripts/aggregate_reattachment_data_per_taxon.py"
 
-##    run:
-##        with open(inputfile, "r") as f:
-##            nh_str = f.readlines()[0]
-##            this_tree = Tree(nh_str)
-##
-##        branchlengths = get_branch_lengths(input.treefile)
-##        taxon_height = calculate_taxon_height(this_tree, {seq_id})
-##        likelihood = get_taxon_likelihood(input.mlfile)
-##        topology = nh_str
-##
-##        sequence_reattachment_data["{seq_id}_{edge}"] = [branchlengths,
-##                                                        taxon_height,
-##                                                        likelihood,
-##                                                        topology]
-##
-##
+
 ##rule write_reattachment_data_to_file:
 ##    input:
 ##        expand(output_folder+"reduced_alignments/{seq_id}/aggregate_attachment_data_per_taxon.done", seq_id=get_seq_ids())

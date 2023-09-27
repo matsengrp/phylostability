@@ -61,7 +61,6 @@ branchlengths = get_branch_lengths(tree_file)
 taxon_height = calculate_taxon_height(tree_file, seq_id)
 likelihood = get_taxon_likelihood(ml_file)
 rf_distance = get_distance_to_full_tree(tree_file, full_tree_file)
-# rf distance to full tree (need to make full tree file into a params for this rule)
 
 # df is actually a dictionary whose values are lists, each list should be a row in the dataframe
 df[seq_id+"_"+edge_id] = [branchlengths, taxon_height, likelihood, rf_distance]
