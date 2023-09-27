@@ -11,6 +11,7 @@ IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
 # dictionary to hold the outputs of rules reattach_removed_sequence
 sequence_reattachment_data = {}
+data_for_each_taxon = {}
 
  
 # Retrieve all sequence IDs from the input multiple sequence alignment
@@ -28,11 +29,11 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        expand(output_folder+"reduced_alignments/{seq_id}/aggregate_reattachment_data_per_taxon.done", seq_id=get_seq_ids(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
-        expand(output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge_{edge}.done", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment)),
+        expand(output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id = get_seq_ids(input_alignment)),
+        output_folder+"reduced_alignments/reattachment_data_per_taxon.csv",
         output_folder+input_alignment+".treefile"
 
 
@@ -160,44 +161,27 @@ rule run_iqtree_on_augmented_topologies:
 # this rule adds a specific key to the global dictionary
 rule extract_reattachment_data_per_taxon_and_edge:
     input:
-        ready_to_run=rules.run_iqtree_on_augmented_topologies.output.alldone,
-        treefile=rules.run_iqtree_on_augmented_topologies.output.treefile,
-        full_tree_file=rules.run_iqtree_on_full_dataset.output.tree,
-        mlfile=rules.run_iqtree_on_augmented_topologies.output.mlfile
+        ready_to_run=expand(output_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done", edge=get_attachment_edge_indices(input_alignment)),
+        treefiles=expand(output_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile", edge=get_attachment_edge_indices(input_alignment)),
+        mlfiles=expand(output_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.iqtree", edge=get_attachment_edge_indices(input_alignment)),
+        full_tree_file=rules.run_iqtree_on_full_dataset.output.tree
     output:
-        alldone=touch(output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge_{edge}.done")
+        csv_name=output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv"
     params:
-        seq_id=lambda wildcards: wildcards.seq_id,
-        edge=lambda wildcards: wildcards.edge,
-        global_dictionary=sequence_reattachment_data,
+        seq_id=lambda wildcards: wildcards.seq_id
     script:
         "scripts/extract_reattachment_data_per_taxon_and_edge.py"
 
 
 rule aggregate_reattachment_data_per_taxon:
     input:
-        ready_to_run=expand(output_folder+"reduced_alignments/{{seq_id}}/extract_reattachment_data_per_taxon_and_edge_{edge}.done", edge=get_attachment_edge_indices(input_alignment)),
-        treefiles=expand(output_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile", edge=get_attachment_edge_indices(input_alignment)),
-        reduced_treefile=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile"
+        treefiles=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile", edge=get_attachment_edge_indices(input_alignment), seq_id=get_seq_ids(input_alignment)),
+        reduced_treefile=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
+        taxon_dictionary=expand(output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment))
     output:
-        output_file=touch(output_folder+"reduced_alignments/{seq_id}/aggregate_reattachment_data_per_taxon.done")
+        output_csv=output_folder+"reduced_alignments/reattachment_data_per_taxon.csv"
     params:
-        seq_id=lambda wildcards: wildcards.seq_id,
+        seq_ids=get_seq_ids(input_alignment),
         edges=get_attachment_edge_indices(input_alignment),
-        global_dictionary=sequence_reattachment_data,
     script:
         "scripts/aggregate_reattachment_data_per_taxon.py"
-
-
-##rule write_reattachment_data_to_file:
-##    input:
-##        expand(output_folder+"reduced_alignments/{seq_id}/aggregate_attachment_data_per_taxon.done", seq_id=get_seq_ids())
-##    output:
-##        output_folder+"reduced_alignments/reattachment_data.csv"
-##    run:
-##        pd.DataFrame(sequence_reattachment_data.items(),\
-##                     columns=["branch lengths",\
-##                              "taxon height",\
-##                              "log-likelihood",\
-##                              "topology"]\
-##                     ).to_csv(output_folder+"reduced_alignments/reattachment_data.csv")

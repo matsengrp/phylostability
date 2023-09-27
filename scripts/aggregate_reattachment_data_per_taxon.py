@@ -1,50 +1,12 @@
 import pandas as pd
 from ete3 import Tree
 
-tree_files = snakemake.input.treefiles
-reduced_tree_file = snakemake.input.reduced_treefile
-seq_id = snakemake.params.seq_id
+all_tree_files = snakemake.input.treefiles
+reduced_tree_files = snakemake.input.reduced_treefile
+seq_ids = snakemake.params.seq_ids
 edge_ids = snakemake.params.edges
-df = pd.DataFrame(snakemake.params.global_dictionary).transpose()
-df.columns=["branchlengths", "taxon_height", "likelihood", "rf_distance"]
-df["seq_id"] = df.index.to_series().str.split("_").str[0]
-df["likelihood_ratio"] = df.groupby("seq_id")["likelihood"].transform(lambda x: (x/x.mean()))
-
-
-# load tree on full taxon set
-with open(reduced_tree_file, "r") as f:
-    main_tree = Tree(f.readlines()[0])
-
-# create a lookup dictionary between the main tree's nodes and its copy as the child node 
-# of a reattachment edge for the corresponding tree in one of the tree_files
-node_lookup_dictionary = {n:{"leafset":set(), "node":n, "likelihood":0} for n in main_tree.traverse("postorder")}
-
-# leafset is used to create correspondence between nodes in different trees
-node_lookup_dictionary.pop(main_tree.get_tree_root())
-for node, node_lookup in node_lookup_dictionary.items():
-    lfst = node_lookup.leafset
-    lfst = set([l.name for l in node.get_leaves()])
-
-# load all of the reattached-taxon trees for the specific seq_id
-for tree_file in tree_files:
-    with open(tree_file, "r") as f:
-        other_tree = Tree(f.readlines()[0])
-
-    # get the "edge" wildcard corrdesponding to the current tree_file
-    reattachment_edge = tree_file.split("edge_")[-1].split(".")[0]
-    seq_id_taxon = other_tree & seq_id
-    reattachment_node = [x for x in seq_id_taxon.get_ancestors()[0].get_children() if x != seq_id_taxon][0]
-    reattachment_node_lfst = set([l.name for l in reattachment_node.get_leaves()])
-
-    # find the node corresponding to 'reattachment_node' in 'main_tree', and update dictionary entry
-    for node, node_lookup in node_lookup_dictionary.items():
-        lfst = node_lookup.leafset
-        if lfst == reattachment_node_lfst:
-            lhd = node_lookup.likelihood
-            other_node = node_lookup.node
-            lhd = df.loc[seq_id + "_" + reattachment_edge, "relative_likelihood"]
-            other_node = reattachment_node
-            break
+taxon_dfs = snakemake.input.taxon_dictionary
+output_file = snakemake.output.output_csv
 
 def attachment_branch_length_proportion(node, above=True):
     """
@@ -60,6 +22,8 @@ def attachment_branch_length_proportion(node, above=True):
          - the "grandparent node" that corresponds to the parent node of the original 
            reattachment edge location in the reduced topology.
     """
+    if len(node.get_ancestors()) < 2:
+        return 0
     parent_dist = node.get_ancestors()[0].get_distance(node)
     gp_dist = node.get_ancestors()[1].get_distance(node.get_ancestors()[0])
     if above:
@@ -93,11 +57,58 @@ def dist(n1, n2, alt_n1, alt_n2):
              - n2_branch_len*attachment_branch_length_proportion(alt_n2, False)
 
 
-# Calculate EDPL for the taxon seq_id:
-edpl = 0
-for n1, node_lookup1 in node_lookup_dictionary.items():
-    for n2, node_lookup2 in node_lookup_dictionary.items():
-        if n1 != n2:
-            edpl += dist(n1, n2, node_lookup1["node"], node_lookup2["node"])*node_lookup1["likelihood"]*node_lookup2["likelihood"]
+all_taxa_df = {}
+for idx, seq_id in enumerate(seq_ids):
+    tree_files = [x for x in all_tree_files if seq_id in x]
+    reduced_tree_file = reduced_tree_files[idx]
+    df = pd.read_csv(taxon_dfs[idx])
 
-# edpl /= likelihood(reduced_tree_file)???
+    # load tree on full taxon set
+    with open(reduced_tree_file, "r") as f:
+        main_tree = Tree(f.readlines()[0])
+
+    # create a lookup dictionary between the main tree's nodes and its copy as the child node 
+    # of a reattachment edge for the corresponding tree in one of the tree_files
+    node_lookup_dictionary = {n:{"leafset":set(), "node":n, "likelihood":0} for n in main_tree.traverse("postorder")}
+
+    # leafset is used to create correspondence between nodes in different trees
+    node_lookup_dictionary.pop(main_tree.get_tree_root())
+    for node, node_lookup in node_lookup_dictionary.items():
+        lfst = node_lookup["leafset"]
+        lfst = set([l.name for l in node.get_leaves()])
+
+    # load all of the reattached-taxon trees for the specific seq_id
+    for tree_file in tree_files:
+        with open(tree_file, "r") as f:
+            other_tree = Tree(f.readlines()[0])
+
+        # get the "edge" wildcard corrdesponding to the current tree_file
+        reattachment_edge = tree_file.split("edge_")[-1].split(".")[0]
+        seq_id_taxon = other_tree & seq_id
+        reattachment_node = [x for x in seq_id_taxon.get_ancestors()[0].get_children() if x != seq_id_taxon][0]
+        reattachment_node_lfst = set([l.name for l in reattachment_node.get_leaves()])
+
+        # find the node corresponding to 'reattachment_node' in 'main_tree', and update dictionary entry
+        for node, node_lookup in node_lookup_dictionary.items():
+            lfst = node_lookup["leafset"]
+            if lfst == reattachment_node_lfst:
+                lhd = node_lookup["likelihood"]
+                other_node = node_lookup["node"]
+                lhd = df.loc[seq_id + "_" + reattachment_edge, "likelihood_ratio"]
+                other_node = reattachment_node
+                break
+
+
+    # Calculate EDPL for the taxon seq_id:
+    edpl = 0
+    for n1, node_lookup1 in node_lookup_dictionary.items():
+        for n2, node_lookup2 in node_lookup_dictionary.items():
+            if n1 != n2:
+                edpl += dist(n1, n2, node_lookup1["node"], node_lookup2["node"])*node_lookup1["likelihood"]*node_lookup2["likelihood"]
+
+    # edpl /= likelihood(reduced_tree_file)???
+    all_taxa_df[seq_id] = [edpl]
+
+all_taxa_df = pd.DataFrame(all_taxa_df).transpose()
+all_taxa_df.columns = ["edpl"]
+all_taxa_df.to_csv(output_file)

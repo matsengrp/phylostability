@@ -1,11 +1,11 @@
+import pandas as pd
 from ete3 import Tree
 
-tree_file = snakemake.input[1]
-full_tree_file = snakemake.input[2]
-ml_file = snakemake.input[3]
+tree_files = snakemake.input.treefiles
+ml_files = snakemake.input.mlfiles
+full_tree_file = snakemake.input.full_tree_file
+df_name = snakemake.output.csv_name
 seq_id = snakemake.params.seq_id
-edge_id = snakemake.params.edge
-df = snakemake.params.global_dictionary
 
 
 # extract a dictionary of branch lengths keyed on the child node name of the corresponding branch
@@ -29,7 +29,7 @@ def get_taxon_likelihood(input_file):
     with open(input_file, "r") as f:
         for line in f.readlines()[0]:
             if ll_str in line:
-                likelihood = float(line.split(ll_str)[-1].split(" ")[0])
+                likelihood = float(line.split(ll_str)[-1].split(" ")[0].strip())
                 break
     return likelihood
 
@@ -55,10 +55,19 @@ def get_distance_to_full_tree(reattached_tree_file, full_tree_file):
     return reattached_tree.robinson_foulds(full_tree, unrooted_trees=True)[0]
 
 
-branchlengths = get_branch_lengths(tree_file)
-taxon_height = calculate_taxon_height(tree_file, seq_id)
-likelihood = get_taxon_likelihood(ml_file)
-rf_distance = get_distance_to_full_tree(tree_file, full_tree_file)
 
+df = {}
 # df is actually a dictionary whose values are lists, each list should be a row in the dataframe
-df[seq_id+"_"+edge_id] = [branchlengths, taxon_height, likelihood, rf_distance]
+for i, tree_file in enumerate(tree_files):
+    ml_file = ml_files[i]
+    branchlengths = get_branch_lengths(tree_file)
+    taxon_height = calculate_taxon_height(tree_file, seq_id)
+    likelihood = get_taxon_likelihood(ml_file)
+    rf_distance = get_distance_to_full_tree(tree_file, full_tree_file)
+    df[seq_id+"_"+str(i+1)] = [branchlengths, taxon_height, likelihood, rf_distance]
+
+df = pd.DataFrame(df).transpose()
+df.columns = ["branchlengths", "taxon_height", "likelihood", "rf_distance"]
+df["seq_id"] = df.index.to_series().str.split("_").str[0]
+df["likelihood_ratio"] = df.likelihood/(df.likelihood.sum() if df.likelihood.sum() != 0 else 1)
+df.to_csv(df_name)
