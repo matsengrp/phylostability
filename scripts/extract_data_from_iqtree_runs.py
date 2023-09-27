@@ -47,4 +47,4 @@ likelihood = get_taxon_likelihood(ml_file)
 # rf distance to full tree (need to make full tree file into a params for this rule)
 
 # df is actually a dictionary whose values are lists, each list should be a row in the dataframe
-df[seq_id] = [branchlengths, taxon_height, likelihood]
+df[seq_id+"_"+edge_id] = [branchlengths, taxon_height, likelihood]
