@@ -28,6 +28,7 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
+        expand(output_folder+"reduced_alignments/{seq_id}/aggregate_reattachment_data_per_taxon.done", seq_id=get_seq_ids(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids(input_alignment)),
         expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
@@ -175,8 +176,7 @@ rule extract_reattachment_data_per_taxon_and_edge:
 
 rule aggregate_reattachment_data_per_taxon:
     input:
-        ready_to_run1=rules.run_iqtree_on_augmented_topologies.output.alldone,
-        ready_to_run2=rules.extract_reattachment_data_per_taxon_and_edge.output.alldone,
+        ready_to_run=expand(output_folder+"reduced_alignments/{{seq_id}}/extract_reattachment_data_per_taxon_and_edge_{edge}.done", edge=get_attachment_edge_indices(input_alignment)),
         treefiles=expand(output_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile", edge=get_attachment_edge_indices(input_alignment)),
         reduced_treefile=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile"
     output:

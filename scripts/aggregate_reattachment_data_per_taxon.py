@@ -5,7 +5,10 @@ tree_files = snakemake.input.treefiles
 reduced_tree_file = snakemake.input.reduced_treefile
 seq_id = snakemake.params.seq_id
 edge_ids = snakemake.params.edges
-df = snakemake.params.global_dictionary
+df = pd.DataFrame(snakemake.params.global_dictionary, columns=["branchlengths", "taxon_height", "likelihood", "rf_distance"])
+df["seq_id"] = df.index.to_series().str.split("_").str[0]
+df["likelihood_ratio"] = df.groupby("seq_id")["likelihood"].transform(lambda x: (x/x.mean()))
+
 
 # load tree on full taxon set
 with open(full_tree_file, "r") as f:
@@ -16,13 +19,10 @@ with open(full_tree_file, "r") as f:
 node_lookup_dictionary = {n:{"leafset":set(), "node":n, "likelihood":0} for n in main_tree.traverse("postorder")}
 
 # leafset is used to create correspondence between nodes in different trees
+node_lookup_dictionary.pop(main_tree.get_tree_root())
 for node, node_lookup in node_lookup_dictionary.items():
     lfst = node_lookup.leafset
-    if node.is_leaf():
-        leafname = node.name
-        lfst = set([leafname])
-    else:
-        lfst = set([l.name for l in node.get_leaves()])
+    lfst = set([l.name for l in node.get_leaves()])
 
 # load all of the reattached-taxon trees for the specific seq_id
 for tree_file in tree_files:
@@ -41,7 +41,7 @@ for tree_file in tree_files:
         if lfst == reattachment_node_lfst:
             lhd = node_lookup.likelihood
             other_node = node_lookup.node
-            lhd = df[seq_id + "_" + reattachment_edge][2]
+            lhd = df.loc[seq_id + "_" + reattachment_edge, "relative_likelihood"]
             other_node = reattachment_node
             break
 
