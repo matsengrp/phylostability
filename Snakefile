@@ -177,6 +177,7 @@ rule aggregate_reattachment_data_per_taxon:
     input:
         treefiles=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile", edge=get_attachment_edge_indices(input_alignment), seq_id=get_seq_ids(input_alignment)),
         reduced_treefile=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
+        reduced_tree_mlfile=expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.iqtree", seq_id=get_seq_ids(input_alignment)),
         taxon_dictionary=expand(output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment))
     output:
         output_csv=output_folder+"reduced_alignments/reattachment_data_per_taxon.csv"

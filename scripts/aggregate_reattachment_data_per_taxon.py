@@ -3,6 +3,7 @@ from ete3 import Tree
 
 all_tree_files = snakemake.input.treefiles
 reduced_tree_files = snakemake.input.reduced_treefile
+reduced_tree_mlfiles = snakemake.input.reduced_tree_mlfile
 seq_ids = snakemake.params.seq_ids
 edge_ids = snakemake.params.edges
 taxon_dfs = snakemake.input.taxon_dictionary
@@ -56,11 +57,21 @@ def dist(n1, n2, alt_n1, alt_n2):
              - n1_branch_len*attachment_branch_length_proportion(alt_n1, False) \
              - n2_branch_len*attachment_branch_length_proportion(alt_n2, False)
 
+def get_likelihood(input_file):
+    likelihood = 0
+    ll_str = "Log-likelihood"
+    with open(input_file, "r") as f:
+        for line in f.readlines():
+            if ll_str in line:
+                likelihood = float(line.split(": ")[-1].split(" ")[0].strip())
+                break
+    return likelihood
 
 all_taxa_df = {}
 for idx, seq_id in enumerate(seq_ids):
     tree_files = [x for x in all_tree_files if seq_id in x]
     reduced_tree_file = reduced_tree_files[idx]
+    reduced_tree_mlfile = reduced_tree_mlfiles[idx]
     df = pd.read_csv(taxon_dfs[idx])
 
     # load tree on full taxon set
@@ -106,9 +117,9 @@ for idx, seq_id in enumerate(seq_ids):
             if n1 != n2:
                 edpl += dist(n1, n2, node_lookup1["node"], node_lookup2["node"])*node_lookup1["likelihood"]*node_lookup2["likelihood"]
 
-    # edpl /= likelihood(reduced_tree_file)???
-    all_taxa_df[seq_id] = [edpl]
+    edpl /= get_likelihood(reduced_tree_mlfile)
+    all_taxa_df[seq_id] = [edpl, get_likelihood(reduced_tree_mlfile)]
 
 all_taxa_df = pd.DataFrame(all_taxa_df).transpose()
-all_taxa_df.columns = ["edpl"]
-all_taxa_df.to_csv(output_file)
+all_taxa_df.columns = ["edpl", "likelihood"]
+all_taxa_df.to_csv(output_file, index=False)
