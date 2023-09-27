@@ -25,11 +25,11 @@ def get_branch_lengths(input_tree_file):
 
 def get_taxon_likelihood(input_file):
     likelihood = 0
-    ll_str = "Log-likelihood of the tree: "
+    ll_str = "Log-likelihood"
     with open(input_file, "r") as f:
-        for line in f.readlines()[0]:
+        for line in f.readlines():
             if ll_str in line:
-                likelihood = float(line.split(ll_str)[-1].split(" ")[0].strip())
+                likelihood = float(line.split(": ")[-1].split(" ")[0].strip())
                 break
     return likelihood
 
@@ -69,5 +69,5 @@ for i, tree_file in enumerate(tree_files):
 df = pd.DataFrame(df).transpose()
 df.columns = ["branchlengths", "taxon_height", "likelihood", "rf_distance"]
 df["seq_id"] = df.index.to_series().str.split("_").str[0]
-df["likelihood_ratio"] = df.likelihood/(df.likelihood.sum() if df.likelihood.sum() != 0 else 1)
-df.to_csv(df_name)
+df["likelihood_ratio"] = df.likelihood / (df.likelihood.sum() if df.likelihood.sum() != 0 else 1)
+df.to_csv(df_name, index=False)
