@@ -12,7 +12,7 @@ df["likelihood_ratio"] = df.groupby("seq_id")["likelihood"].transform(lambda x: 
 
 
 # load tree on full taxon set
-with open(full_tree_file, "r") as f:
+with open(reduced_tree_file, "r") as f:
     main_tree = Tree(f.readlines()[0])
 
 # create a lookup dictionary between the main tree's nodes and its copy as the child node 
@@ -98,6 +98,6 @@ edpl = 0
 for n1, node_lookup1 in node_lookup_dictionary.items():
     for n2, node_lookup2 in node_lookup_dictionary.items():
         if n1 != n2:
-            edpl += dist(n1, n2, node_lookup1.node, node_lookup2.node)*node_lookup1.likelihood*node_lookup2.likelihood
+            edpl += dist(n1, n2, node_lookup1["node"], node_lookup2["node"])*node_lookup1["likelihood"]*node_lookup2["likelihood"]
 
 # edpl /= likelihood(reduced_tree_file)???
