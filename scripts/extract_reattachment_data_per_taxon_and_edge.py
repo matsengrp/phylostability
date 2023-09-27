@@ -45,16 +45,14 @@ def calculate_taxon_height(input_tree_file, taxon_name):
     return taxon_parent.get_closest_leaf()[1]
 
 
-def get_distance_to_full_tree(small_tree_file, full_tree_file):
-    with open(small_tree_file, "r") as f:
-        small_tree_nwk = f.readlines()[0].strip()
-    small_tree = Tree(small_tree_nwk)
+def get_distance_to_full_tree(reattached_tree_file, full_tree_file):
+    with open(reattached_tree_file, "r") as f:
+        reattached_tree_nwk = f.readlines()[0].strip()
+    reattached_tree = Tree(reattached_tree_nwk)
     with open(full_tree_file, "r") as f:
         full_tree_nwk = f.readlines()[0].strip()
     full_tree = Tree(full_tree_nwk)
-    print(small_tree)
-    print(full_tree)
-    return small_tree.robinson_foulds(full_tree, unrooted_trees=True)[0]
+    return reattached_tree.robinson_foulds(full_tree, unrooted_trees=True)[0]
 
 
 branchlengths = get_branch_lengths(tree_file)
