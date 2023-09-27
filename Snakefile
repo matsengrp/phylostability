@@ -130,7 +130,7 @@ rule reattach_removed_sequence:
         rules.run_iqtree_restricted_alignments.output.done,
         reduced_tree_nwk=rules.run_iqtree_restricted_alignments.output.tree
     output:
-        topology=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk"
+        topologies=expand(output_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk", edge=get_attachment_edge_indices(input_alignment))
     params:
         seq_id=lambda wildcards: wildcards.seq_id
     script:
@@ -140,11 +140,11 @@ rule reattach_removed_sequence:
 rule run_iqtree_on_augmented_topologies:
    input:
        msa=input_alignment,
-       topology_file=rules.reattach_removed_sequence.output.topology,
+       topology_file=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk",
        full_model=rules.extract_model_for_full_iqtree_run.output.model
    output:
        alldone=temp(touch(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done")),
-       treefile=temp(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile"),
+       treefile=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile",
        mlfile=temp(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.iqtree"),
        other=temp(expand(output_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{{edge}}.nwk_branch_length.{suffix}",
         suffix=[suf for suf in IQTREE_SUFFIXES if suf not in ["iqtree", "treefile"]]))

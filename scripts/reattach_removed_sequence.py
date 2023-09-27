@@ -1,7 +1,7 @@
 from ete3 import Tree
 
 tree_nwk = snakemake.input[1]
-output_file = snakemake.output[0]
+output_files = snakemake.output.topologies
 seq_id = snakemake.params[0]
 
 
@@ -24,5 +24,5 @@ for node in reduced_topology.traverse("postorder"):
         sibling.detach()
         new_node.add_child(sibling)
         new_node.add_child(name=seq_id)
-        augmented_topology.write(format=1, outfile=output_file)
+        augmented_topology.write(format=1, outfile=output_files[lookup_val])
         lookup_val += 1
