@@ -10,7 +10,15 @@ edge_ids = snakemake.params.edges
 taxon_dfs = snakemake.input.taxon_dictionary
 output_file = snakemake.output.output_csv
 
-def attachment_branch_length_proportion(node, above=True):
+def ete_dist(node1, node2, topology_only=False):
+    if node2 in node1.get_ancestors():
+        leaf = node1.get_leaves()[0]
+        return node2.get_distance(leaf, topology_only=topology_only) - node1.get_distance(leaf, topology_only=topology_only)
+    else:
+        leaf = node2.get_leaves()[0]
+        return node1.get_distance(leaf, topology_only=topology_only) - node2.get_distance(leaf, topology_only=topology_only)
+
+def attachment_branch_length_proportion(node, seq_id, above=True, topology_only=False):
     """
        This function returns the proportion of the branch above
        the input ete3.TreeNode "node" at which the new taxon was attached.
@@ -24,16 +32,20 @@ def attachment_branch_length_proportion(node, above=True):
          - the "grandparent node" that corresponds to the parent node of the original 
            reattachment edge location in the reduced topology.
     """
-    if len(node.get_ancestors()) < 2:
-        return 0
-    parent_dist = node.get_ancestors()[0].get_distance(node)
-    gp_dist = node.get_ancestors()[1].get_distance(node.get_ancestors()[0])
+    parent = node.get_ancestors()[0]
+    if len(parent.get_ancestors()) > 0:
+        gp = parent.get_ancestors()[0]
+    else:
+        gp = [x for x in parent.get_children() if (x != node and seq_id not in [l.name for l in x.get_leaves()])][0]
+    leaf_below_node = node.get_leaves()[0]
+    parent_dist = ete_dist(node, parent, topology_only)
+    gp_dist = ete_dist(parent, gp, topology_only)
     if above:
         return gp_dist / (parent_dist + gp_dist)
     else:
         return parent_dist / (parent_dist + gp_dist)
 
-def dist(n1, n2, alt_n1, alt_n2):
+def dist(n1, n2, alt_n1, alt_n2, seq_id, topology_only=False):
     """
         Returns the path distance between two nodes n1 and n2, adjusted by the 
         amount of the path that would be removed by reattaching a taxon at an
@@ -42,21 +54,22 @@ def dist(n1, n2, alt_n1, alt_n2):
         tree, and so they correspond to the "alternative" nodes alt_n1 and alt_n2 resp.
     """
     # get the lengths of the branches above n1 and n2
-    n1_branch_len = n1.get_ancestors()[0].get_distance(n1)
-    n2_branch_len = n2.get_ancestors()[0].get_distance(n2)
+    n1_branch_len = ete_dist(n1, n1.get_ancestors()[0], topology_only)
+    n2_branch_len = ete_dist(n2, n2.get_ancestors()[0], topology_only)
     # adjust the distance calculation based on how far along each branch the reattachment happens
+
     if n1 in n2.get_ancestors():
-        return n1.get_distance(n2) \
-             + n1_branch_len*attachment_branch_length_proportion(alt_n1, True) \
-             - n2_branch_len*attachment_branch_length_proportion(alt_n2, False)
+        return ete_dist(n2, n1, topology_only) \
+             + n1_branch_len*attachment_branch_length_proportion(alt_n1, seq_id, True, topology_only) \
+             - n2_branch_len*attachment_branch_length_proportion(alt_n2, seq_id, False, topology_only)
     elif n2 in n1.get_ancestors():
-        return n1.get_distance(n2) \
-             - n1_branch_len*attachment_branch_length_proportion(alt_n1, False) \
-             + n2_branch_len*attachment_branch_length_proportion(alt_n2, True)
+        return ete_dist(n1, n2, topology_only) \
+             - n1_branch_len*attachment_branch_length_proportion(alt_n1, seq_id, False, topology_only) \
+             + n2_branch_len*attachment_branch_length_proportion(alt_n2, seq_id, True, topology_only)
     else:
-        return n1.get_distance(n2) \
-             - n1_branch_len*attachment_branch_length_proportion(alt_n1, False) \
-             - n2_branch_len*attachment_branch_length_proportion(alt_n2, False)
+        return ete_dist(n1, n2, topology_only) \
+             - n1_branch_len*attachment_branch_length_proportion(alt_n1, seq_id, False, topology_only) \
+             - n2_branch_len*attachment_branch_length_proportion(alt_n2, seq_id, False, topology_only)
 
 def get_likelihood(input_file):
     likelihood = 0
@@ -77,7 +90,7 @@ for idx, seq_id in enumerate(seq_ids):
     tree_files = [x for x in all_tree_files if seq_id in x]
     reduced_tree_file = reduced_tree_files[idx]
     reduced_tree_mlfile = reduced_tree_mlfiles[idx]
-    df = pd.read_csv(taxon_dfs[idx])
+    df = pd.read_csv(taxon_dfs[idx], index_col=0)
 
     # load tree on full taxon set
     with open(reduced_tree_file, "r") as f:
@@ -90,8 +103,7 @@ for idx, seq_id in enumerate(seq_ids):
     # leafset is used to create correspondence between nodes in different trees
     node_lookup_dictionary.pop(main_tree.get_tree_root())
     for node, node_lookup in node_lookup_dictionary.items():
-        lfst = node_lookup["leafset"]
-        lfst = set([l.name for l in node.get_leaves()])
+        node_lookup["leafset"] = set([l.name for l in node.get_leaves()])
 
     # load all of the reattached-taxon trees for the specific seq_id
     for tree_file in tree_files:
@@ -108,19 +120,18 @@ for idx, seq_id in enumerate(seq_ids):
         for node, node_lookup in node_lookup_dictionary.items():
             lfst = node_lookup["leafset"]
             if lfst == reattachment_node_lfst:
-                lhd = node_lookup["likelihood"]
-                other_node = node_lookup["node"]
-                lhd = df.loc[seq_id + "_" + reattachment_edge, "likelihood_ratio"]
-                other_node = reattachment_node
+                node_lookup["likelihood"] = df.loc[seq_id + "_" + reattachment_edge, "likelihood_ratio"]
+                node_lookup["node"] = reattachment_node
                 break
-
 
     # Calculate EDPL for the taxon seq_id:
     edpl = 0
     for n1, node_lookup1 in node_lookup_dictionary.items():
         for n2, node_lookup2 in node_lookup_dictionary.items():
             if n1 != n2:
-                edpl += dist(n1, n2, node_lookup1["node"], node_lookup2["node"])*node_lookup1["likelihood"]*node_lookup2["likelihood"]
+                edpl += dist(n1, n2, node_lookup1["node"], node_lookup2["node"], seq_id) \
+                      * node_lookup1["likelihood"] \
+                      * node_lookup2["likelihood"]
 
     edpl /= get_likelihood(reduced_tree_mlfile)
     tii = main_tree.robinson_foulds(full_tree, unrooted_trees = True)[0]
@@ -128,4 +139,4 @@ for idx, seq_id in enumerate(seq_ids):
 
 all_taxa_df = pd.DataFrame(all_taxa_df).transpose()
 all_taxa_df.columns = ["edpl", "likelihood", "tii"]
-all_taxa_df.to_csv(output_file, index=False)
+all_taxa_df.to_csv(output_file)
