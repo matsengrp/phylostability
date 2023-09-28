@@ -70,4 +70,4 @@ df = pd.DataFrame(df).transpose()
 df.columns = ["branchlengths", "taxon_height", "likelihood", "rf_distance"]
 df["seq_id"] = df.index.to_series().str.split("_").str[0]
 df["likelihood_ratio"] = df.likelihood / (df.likelihood.sum() if df.likelihood.sum() != 0 else 1)
-df.to_csv(df_name, index=False)
+df.to_csv(df_name)
