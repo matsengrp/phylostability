@@ -87,7 +87,7 @@ rule run_iqtree_on_full_dataset:
           echo "Ignoring iqtree run on {input.msa}, since it is already done."
         else
           cp {input.msa} {output_folder}
-          iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {output_folder}{input.msa}
+          iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {output_folder}{input.msa} -bb 1000
         fi
         """
 
@@ -116,7 +116,7 @@ rule run_iqtree_restricted_alignments:
         if [[ -f "{input.reduced_msa}.iqtree" ]]; then
           echo "Ignoring iqtree run on {input.reduced_msa}, since it is already done."
         else
-          iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa}
+          iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa} -bb 1000
         fi
         """
 
