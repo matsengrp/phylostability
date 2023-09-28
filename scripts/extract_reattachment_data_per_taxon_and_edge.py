@@ -18,7 +18,7 @@ def get_branch_lengths(input_tree_file):
     for node in input_tree.traverse("postorder"):
         if len(node.get_ancestors()) > 0:
             node_str = ",".join(sorted(list([l.name for l in node.get_leaves()])))
-            lengths[str(ctr)] = [node_str, node.get_ancestors()[0].get_distance(node)]
+            lengths[str(ctr)] = [node_str, node.up.get_distance(node)]
         ctr += 1
     return lengths
 
@@ -40,7 +40,7 @@ def calculate_taxon_height(input_tree_file, taxon_name):
         tree_nwk = f.readlines()[0].strip()
     input_tree = Tree(tree_nwk)
     taxon = input_tree & taxon_name
-    taxon_parent = taxon.get_ancestors()[0]
+    taxon_parent = taxon.up
     input_tree.delete(taxon)
     return taxon_parent.get_closest_leaf()[1]
 

@@ -32,9 +32,9 @@ def attachment_branch_length_proportion(node, seq_id, above=True, topology_only=
          - the "grandparent node" that corresponds to the parent node of the original 
            reattachment edge location in the reduced topology.
     """
-    parent = node.get_ancestors()[0]
+    parent = node.up
     if len(parent.get_ancestors()) > 0:
-        gp = parent.get_ancestors()[0]
+        gp = parent.up
     else:
         gp = [x for x in parent.get_children() if (x != node and seq_id not in [l.name for l in x.get_leaves()])][0]
     leaf_below_node = node.get_leaves()[0]
@@ -54,18 +54,18 @@ def dist(n1, n2, alt_n1, alt_n2, seq_id, topology_only=False):
         tree, and so they correspond to the "alternative" nodes alt_n1 and alt_n2 resp.
     """
     # get the lengths of the branches above n1 and n2
-    n1_branch_len = ete_dist(n1, n1.get_ancestors()[0], topology_only)
-    n2_branch_len = ete_dist(n2, n2.get_ancestors()[0], topology_only)
+    n1_branch_len = ete_dist(n1, n1.up, topology_only)
+    n2_branch_len = ete_dist(n2, n2.up, topology_only)
     # adjust the distance calculation based on how far along each branch the reattachment happens
 
     if n1 in n2.get_ancestors():
         return ete_dist(n2, n1, topology_only) \
-             + n1_branch_len*attachment_branch_length_proportion(alt_n1, seq_id, True, topology_only) \
+             + n1_branch_len*attachment_branch_length_proportion(alt_n1, seq_id, False, topology_only) \
              - n2_branch_len*attachment_branch_length_proportion(alt_n2, seq_id, False, topology_only)
     elif n2 in n1.get_ancestors():
         return ete_dist(n1, n2, topology_only) \
              - n1_branch_len*attachment_branch_length_proportion(alt_n1, seq_id, False, topology_only) \
-             + n2_branch_len*attachment_branch_length_proportion(alt_n2, seq_id, True, topology_only)
+             + n2_branch_len*attachment_branch_length_proportion(alt_n2, seq_id, False, topology_only)
     else:
         return ete_dist(n1, n2, topology_only) \
              - n1_branch_len*attachment_branch_length_proportion(alt_n1, seq_id, False, topology_only) \
@@ -81,6 +81,13 @@ def get_likelihood(input_file):
                 break
     return likelihood
 
+def tree_branch_length_sum(tree):
+    result = 0
+    for node in tree.traverse("postorder"):
+        if not node.is_root():
+            result += ete_dist(node, node.up)
+    return result
+
 
 with open(full_tree_file, "r") as f:
     full_tree = Tree(f.readlines()[0])
@@ -92,7 +99,7 @@ for idx, seq_id in enumerate(seq_ids):
     reduced_tree_mlfile = reduced_tree_mlfiles[idx]
     df = pd.read_csv(taxon_dfs[idx], index_col=0)
 
-    # load tree on full taxon set
+    # load tree on reduced taxon set
     with open(reduced_tree_file, "r") as f:
         main_tree = Tree(f.readlines()[0])
 
@@ -113,7 +120,7 @@ for idx, seq_id in enumerate(seq_ids):
         # get the "edge" wildcard corrdesponding to the current tree_file
         reattachment_edge = tree_file.split("edge_")[-1].split(".")[0]
         seq_id_taxon = other_tree & seq_id
-        reattachment_node = [x for x in seq_id_taxon.get_ancestors()[0].get_children() if x != seq_id_taxon][0]
+        reattachment_node = [x for x in seq_id_taxon.up.get_children() if x != seq_id_taxon][0]
         reattachment_node_lfst = set([l.name for l in reattachment_node.get_leaves()])
 
         # find the node corresponding to 'reattachment_node' in 'main_tree', and update dictionary entry
@@ -133,7 +140,7 @@ for idx, seq_id in enumerate(seq_ids):
                       * node_lookup1["likelihood"] \
                       * node_lookup2["likelihood"]
 
-    edpl /= get_likelihood(reduced_tree_mlfile)
+    edpl /= tree_branch_length_sum(main_tree)
     tii = main_tree.robinson_foulds(full_tree, unrooted_trees = True)[0]
     all_taxa_df[seq_id] = [edpl, get_likelihood(reduced_tree_mlfile), tii]
 

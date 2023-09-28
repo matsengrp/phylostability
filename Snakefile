@@ -29,12 +29,7 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment)),
-        expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids(input_alignment)),
-        expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
-        expand(output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id = get_seq_ids(input_alignment)),
-        output_folder+"reduced_alignments/reattachment_data_per_taxon.csv",
-        output_folder+input_alignment+".treefile"
+        output_folder+"reduced_alignments/reattachment_data_per_taxon.csv"
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -91,7 +86,7 @@ rule run_iqtree_on_full_dataset:
           echo "Ignoring iqtree run on {input.msa}, since it is already done."
         else
           cp {input.msa} {output_folder}
-          iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {output_folder}{input.msa}
+          iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {output_folder}{input.msa} -bb 1000
         fi
         """
 
@@ -120,7 +115,7 @@ rule run_iqtree_restricted_alignments:
         if [[ -f "{input.reduced_msa}.iqtree" ]]; then
           echo "Ignoring iqtree run on {input.reduced_msa}, since it is already done."
         else
-          iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa}
+          iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa} -bb 1000
         fi
         """
 
@@ -154,7 +149,7 @@ rule run_iqtree_on_augmented_topologies:
        if test -f "{input.topology_file}_branch_length.iqtree"; then
          echo "Ignoring iqtree run on {input.topology_file}_branch_length, since it is already done."
        else
-         iqtree -s {input.msa} -m $(cat {input.full_model}) -te {input.topology_file} --prefix {input.topology_file}_branch_length
+         iqtree -s {input.msa} -m $(cat {input.full_model}) -te {input.topology_file} --prefix {input.topology_file}_branch_length -bb 1000
        fi
         """
 
