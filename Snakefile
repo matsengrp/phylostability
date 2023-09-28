@@ -4,7 +4,7 @@ from ete3 import Tree
 
 
 # input/output file names
-input_alignment="input_alignment.fasta"
+input_alignment="test_input_alignment.fasta"
 output_folder="data/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
@@ -29,12 +29,8 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment)),
-        expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids(input_alignment)),
-        expand(output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
-        expand(output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id = get_seq_ids(input_alignment)),
-        output_folder+"reduced_alignments/reattachment_data_per_taxon.csv",
-        output_folder+input_alignment+".treefile"
+        "plots/edpl_vs_tii.pdf",
+        expand("plots/{seq_id}/likelihood_ratio_swarmplot_seq.pdf", seq_id = get_seq_ids(input_alignment))
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -43,7 +39,7 @@ rule model_test_iqtree:
         msa=input_alignment
     output:
         temp(touch(output_folder+"model-test-iqtree.done")),
-        modeltest=output_folder+"input_alignment.fasta_model.iqtree"
+        modeltest=output_folder+input_alignment+"_model.iqtree"
     shell:
         """
         if [[ -f "{output_folder}{input.msa}_model.iqtree" ]]; then
@@ -99,7 +95,7 @@ rule run_iqtree_on_full_dataset:
 rule get_restricted_trees:
     input:
         output_folder+"run_iqtree_on_full_dataset.done",
-        full_tree=output_folder+"input_alignment.fasta.treefile"
+        full_tree=output_folder+input_alignment+".treefile"
     output:
         restricted_trees=expand(output_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids(input_alignment))
     script:
@@ -188,3 +184,15 @@ rule aggregate_reattachment_data_per_taxon:
         edges=get_attachment_edge_indices(input_alignment),
     script:
         "scripts/aggregate_reattachment_data_per_taxon.py"
+
+
+# create plots
+rule create_plots:
+    input:
+        taxon_df_csv=rules.aggregate_reattachment_data_per_taxon.output.output_csv,
+        taxon_edge_df_csv=expand(output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment))
+    output:
+        "plots/edpl_vs_tii.pdf",
+        expand("plots/{seq_id}/likelihood_ratio_swarmplot_seq.pdf", seq_id = get_seq_ids(input_alignment))
+    script:
+        "scripts/create_plots.py"
