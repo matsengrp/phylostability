@@ -113,7 +113,8 @@ rule run_iqtree_restricted_alignments:
         full_model=rules.extract_model_for_full_iqtree_run.output.model
     output:
         done=temp(touch(output_folder+"reduced_alignments/{seq_id}/run_iqtree_restricted_alignments.done")),
-        tree=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile"
+        tree=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
+        mlfile=output_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.iqtree"
     shell:
         """
         if [[ -f "{input.reduced_msa}.iqtree" ]]; then
