@@ -149,7 +149,7 @@ rule run_iqtree_on_augmented_topologies:
        if test -f "{input.topology_file}_branch_length.iqtree"; then
          echo "Ignoring iqtree run on {input.topology_file}_branch_length, since it is already done."
        else
-         iqtree -s {input.msa} -m $(cat {input.full_model}) -te {input.topology_file} --prefix {input.topology_file}_branch_length -bb 1000
+         iqtree -s {input.msa} -m $(cat {input.full_model}) -te {input.topology_file} --prefix {input.topology_file}_branch_length
        fi
         """
 
