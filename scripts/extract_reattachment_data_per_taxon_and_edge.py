@@ -18,7 +18,7 @@ def get_branch_lengths(input_tree_file):
     for node in input_tree.traverse("postorder"):
         if len(node.get_ancestors()) > 0:
             node_str = ",".join(sorted(list([l.name for l in node.get_leaves()])))
-            lengths[str(ctr)] = [node_str, node.up.get_distance(node)]
+            lengths[str(ctr)] = [node_str, node.dist]
         ctr += 1
     return lengths
 

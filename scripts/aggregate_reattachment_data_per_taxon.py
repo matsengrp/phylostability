@@ -120,7 +120,7 @@ for idx, seq_id in enumerate(seq_ids):
         # get the "edge" wildcard corrdesponding to the current tree_file
         reattachment_edge = tree_file.split("edge_")[-1].split(".")[0]
         seq_id_taxon = other_tree & seq_id
-        reattachment_node = [x for x in seq_id_taxon.up.get_children() if x != seq_id_taxon][0]
+        reattachment_node = seq_id_taxon.get_sisters()[0]
         reattachment_node_lfst = set([l.name for l in reattachment_node.get_leaves()])
 
         # find the node corresponding to 'reattachment_node' in 'main_tree', and update dictionary entry
