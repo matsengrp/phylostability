@@ -30,7 +30,7 @@ def get_attachment_edge_indices(input_file):
 rule all:
     input:
         "plots/edpl_vs_tii.pdf",
-        expand("plots/{seq_id}/likelihood_swarmplot_seq.pdf", seq_id = get_seq_ids(input_alignment))
+        "plots/likelihood_swarmplots.pdf"
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -193,6 +193,6 @@ rule create_plots:
         taxon_edge_df_csv=expand(output_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment))
     output:
         "plots/edpl_vs_tii.pdf",
-        expand("plots/{seq_id}/likelihood_swarmplot_seq.pdf", seq_id = get_seq_ids(input_alignment))
+        "plots/likelihood_swarmplots.pdf"
     script:
         "scripts/create_plots.py"
