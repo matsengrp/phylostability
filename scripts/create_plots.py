@@ -8,6 +8,8 @@ from ete3 import Tree
 taxon_df_csv = snakemake.input.taxon_df_csv
 taxon_edge_df_csv = snakemake.input.taxon_edge_df_csv
 reduced_tree_files = snakemake.input.reduced_trees
+mldist_file = snakemake.input.mldist_file
+plots_folder = snakemake.params.plots_folder
 
 taxon_df = pd.read_csv(taxon_df_csv, index_col=0)
 taxon_df.index.name = "taxon_name"
@@ -126,22 +128,50 @@ def bootstrap_swarmplot(reduced_tree_files, plot_filepath):
     plt.clf()
 
 
+def taxon_height_swarmplot(taxon_edge_df_csv, sorted_taxon_tii_list, plot_filepath):
+    num_plots = len(sorted_taxon_tii_list)
+    fig, axes = get_plot_layout(num_plots)
+
+    # Iterate through CSV files and taxon names
+    for i, (taxon_name, tii) in enumerate(sorted_taxon_tii_list):
+        # Find the corresponding CSV file
+        csv_file = [file for file in taxon_edge_df_csv if taxon_name in file][0]
+        df = pd.read_csv(csv_file)
+
+        sns.swarmplot(data=df["taxon_height"], ax=axes[i])
+        axes[i].set_title(f"{taxon_name}")
+        axes[i].set_xlabel(f"TII = {tii}")
+        axes[i].set_ylabel("Reattachment height")
+        axes[i].set_xticklabels([])
+        axes[i].xaxis.set_ticks_position("none")
+
+    plt.tight_layout()
+    # Save the plot to pdf
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 # plot edpl vs TII for each taxon
-edpl_filepath = os.path.join("plots", "edpl_vs_tii.pdf")
+edpl_filepath = os.path.join(plots_folder, "edpl_vs_tii.pdf")
 edpl_vs_tii_scatterplot(taxon_df, edpl_filepath)
 
 # swarmplot likelihoods of reattached trees for each taxon, sort by TII
-ll_filepath = os.path.join("plots", "likelihood_swarmplots.pdf")
+ll_filepath = os.path.join(plots_folder, "likelihood_swarmplots.pdf")
 likelihood_swarmplots(sorted_taxon_tii_list, taxon_edge_df_csv, ll_filepath)
 
 # swarmplot sequence distances from mldist files for each taxon, sort by TII
-seq_distance_filepath = os.path.join("plots", "seq_distance_vs_tii.pdf")
+seq_distance_filepath = os.path.join(plots_folder, "seq_distance_vs_tii.pdf")
 seq_distance_swarmplot(
-    "data/test_input_alignment.fasta.mldist",
+    mldist_file,
     sorted_taxon_tii_list,
     seq_distance_filepath,
 )
 
 # swarmplot bootstrap support reduced tree for each taxon, sort by TII
-bootstrap_plot_filepath = os.path.join("plots", "bootstrap_vs_tii.pdf")
+bootstrap_plot_filepath = os.path.join(plots_folder, "bootstrap_vs_tii.pdf")
 bootstrap_swarmplot(reduced_tree_files, bootstrap_plot_filepath)
+
+taxon_height_plot_filepath = os.path.join(plots_folder, "taxon_height_vs_tii.pdf")
+taxon_height_swarmplot(
+    taxon_edge_df_csv, sorted_taxon_tii_list, taxon_height_plot_filepath
+)

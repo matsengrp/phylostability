@@ -55,7 +55,6 @@ def get_distance_to_full_tree(reattached_tree_file, full_tree_file):
     return reattached_tree.robinson_foulds(full_tree, unrooted_trees=True)[0]
 
 
-
 df = {}
 # df is actually a dictionary whose values are lists, each list should be a row in the dataframe
 for i, tree_file in enumerate(tree_files):
@@ -64,10 +63,17 @@ for i, tree_file in enumerate(tree_files):
     taxon_height = calculate_taxon_height(tree_file, seq_id)
     likelihood = get_taxon_likelihood(ml_file)
     rf_distance = get_distance_to_full_tree(tree_file, full_tree_file)
-    df[seq_id+"_"+str(i+1)] = [branchlengths, taxon_height, likelihood, rf_distance]
+    df[seq_id + "_" + str(i + 1)] = [
+        branchlengths,
+        taxon_height,
+        likelihood,
+        rf_distance,
+    ]
 
 df = pd.DataFrame(df).transpose()
 df.columns = ["branchlengths", "taxon_height", "likelihood", "rf_distance"]
 df["seq_id"] = df.index.to_series().str.split("_").str[0]
-df["likelihood_ratio"] = df.likelihood / (df.likelihood.sum() if df.likelihood.sum() != 0 else 1)
+df["likelihood_ratio"] = df.likelihood / (
+    df.likelihood.sum() if df.likelihood.sum() != 0 else 1
+)
 df.to_csv(df_name)
