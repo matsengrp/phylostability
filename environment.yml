@@ -1,10 +1,10 @@
 name: phylostability
 channels:
-  - conda-forge
+  - defaults
 dependencies:
-  - iqtree
   - snakemake
+  - iqtree
   - biopython
-  - python
   - ete3
-  - pandas
+  - seaborn
+  - matplotlib
