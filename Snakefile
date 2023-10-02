@@ -1,6 +1,4 @@
-import os
 from Bio import SeqIO
-from ete3 import Tree
 
 
 # input/output file names
@@ -10,11 +8,6 @@ plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
 
-# dictionary to hold the outputs of rules reattach_removed_sequence
-sequence_reattachment_data = {}
-data_for_each_taxon = {}
-
- 
 # Retrieve all sequence IDs from the input multiple sequence alignment
 def get_seq_ids(input_file):
     return [record.id for record in SeqIO.parse(input_file, "fasta")]
@@ -74,7 +67,6 @@ rule remove_sequence:
     script:
         "scripts/remove_sequence.py"
 
-
 # Define the rule to run IQ-TREE on the full MSA and get model parameters
 rule run_iqtree_on_full_dataset:
     input:
@@ -82,7 +74,8 @@ rule run_iqtree_on_full_dataset:
         full_model=rules.extract_model_for_full_iqtree_run.output.model
     output:
         temp(touch(data_folder+"run_iqtree_on_full_dataset.done")),
-        tree=data_folder+input_alignment+".treefile"
+        tree=data_folder+input_alignment+".treefile",
+        mldist=data_folder+input_alignment+".mldist"
     shell:
         """
         if [[ -f "{data_folder}{input.msa}.iqtree" ]]; then
@@ -93,7 +86,6 @@ rule run_iqtree_on_full_dataset:
         fi
         """
 
-
 rule get_restricted_trees:
     input:
         data_folder+"run_iqtree_on_full_dataset.done",
@@ -102,7 +94,6 @@ rule get_restricted_trees:
         restricted_trees=expand(data_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids(input_alignment))
     script:
         "scripts/create_restricted_trees.py"
-
 
 # Define the rule to run IQ-TREE on the reduced MSA
 rule run_iqtree_restricted_alignments:
@@ -122,7 +113,6 @@ rule run_iqtree_restricted_alignments:
         fi
         """
 
-
 # Define the rule to attach the pruned taxon at each edge
 rule reattach_removed_sequence:
     input:
@@ -134,7 +124,6 @@ rule reattach_removed_sequence:
         seq_id=lambda wildcards: wildcards.seq_id
     script:
         "scripts/reattach_removed_sequence.py"
-
 
 rule run_iqtree_on_augmented_topologies:
    input:
@@ -156,7 +145,6 @@ rule run_iqtree_on_augmented_topologies:
        fi
         """
 
-
 # this rule adds a specific key to the global dictionary
 rule extract_reattachment_data_per_taxon_and_edge:
     input:
@@ -170,7 +158,6 @@ rule extract_reattachment_data_per_taxon_and_edge:
         seq_id=lambda wildcards: wildcards.seq_id
     script:
         "scripts/extract_reattachment_data_per_taxon_and_edge.py"
-
 
 rule aggregate_reattachment_data_per_taxon:
     input:
@@ -186,7 +173,6 @@ rule aggregate_reattachment_data_per_taxon:
         edges=get_attachment_edge_indices(input_alignment),
     script:
         "scripts/aggregate_reattachment_data_per_taxon.py"
-
 
 # create plots
 rule create_plots:
