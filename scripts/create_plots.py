@@ -3,6 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import os
 from ete3 import Tree
+import numpy as np
 
 
 taxon_df_csv = snakemake.input.taxon_df_csv
@@ -26,7 +27,7 @@ def aggregate_taxon_edge_dfs(csv_list):
         taxon_df = pd.read_csv(csv_file)
         dfs.append(taxon_df)
     df = pd.concat(dfs, ignore_index=True)
-    df = df.rename(columns={0:"seq_id"})
+    df = df.rename(columns={0: "seq_id"})
     return df
 
 
@@ -38,23 +39,33 @@ def edpl_vs_tii_scatterplot(taxon_df, filepath):
 
 def likelihood_swarmplots(sorted_taxon_tii_list, all_taxon_edge_df, filepath):
     """
-    For each taxon, plot the likelihood of all optimised reattachments as swarmplot,
+    For each taxon, plot the log likelihood of all optimised reattachments as swarmplot,
     sorted according to increasing TII
     """
-    all_taxon_edge_df['seq_id'] = pd.Categorical(all_taxon_edge_df['seq_id'], 
-                                         categories=[pair[0] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])], 
-                                         ordered=True)
-    all_taxon_edge_df = all_taxon_edge_df.sort_values('seq_id')
+    all_taxon_edge_df["seq_id"] = pd.Categorical(
+        all_taxon_edge_df["seq_id"],
+        categories=[
+            pair[0] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+        ordered=True,
+    )
+    all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
     plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-    sns.swarmplot(data=all_taxon_edge_df, x='seq_id', y='likelihood')
+    sns.stripplot(data=all_taxon_edge_df, x="seq_id", y="likelihood")
 
     # Set labels and title
-    plt.xlabel('taxa (sorted by TII)')
-    plt.ylabel('Likelihood')
-    plt.title('swarmplot of likelihood vs. taxa sorted by TII')
+    plt.xlabel("taxa (sorted by TII)")
+    plt.ylabel("Log likelihood")
+    plt.title("stripplot of log likelihood vs. taxa sorted by TII")
 
-    plt.xticks(range(len(sorted_taxon_tii_list)), [pair[1] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])])
-    plt.xticks(rotation=45)
+    plt.xticks(
+        range(len(sorted_taxon_tii_list)),
+        [
+            str(pair[0]) + " " + str(pair[1])
+            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+    )
+    plt.xticks(rotation=90)
 
     plt.tight_layout()
     plt.savefig(filepath)
@@ -69,24 +80,34 @@ def seq_distance_swarmplot(distance_filepath, sorted_taxon_tii_list, plot_filepa
     distances = pd.read_table(
         distance_filepath, skiprows=[0], header=None, delim_whitespace=True, index_col=0
     )
+    np.fill_diagonal(distances.values, np.nan)
 
     # Add seq_id as a column
     distances["seq_id"] = distances.index
 
     # Reshape the DataFrame into long format
-    df_long = pd.melt(distances, id_vars=['seq_id'], var_name='variable', value_name='value')
+    df_long = pd.melt(
+        distances, id_vars=["seq_id"], var_name="variable", value_name="value"
+    )
 
     # Create the swarmplot
     plt.figure(figsize=(10, 6))
-    sns.swarmplot(data=df_long, x='seq_id', y='value')  # Specify y='value'
+    sns.stripplot(data=df_long, x="seq_id", y="value")
 
     # Set labels and title
-    plt.xlabel('taxa (sorted by TII)')
-    plt.ylabel('distances')
-    plt.title('swarmplot of sequence distances vs. taxa sorted by TII')
+    plt.xlabel("taxa (sorted by TII)")
+    plt.ylabel("distances")
+    plt.title("stripplot of sequence distances vs. taxa sorted by TII")
 
     # Set x-axis ticks and labels
-    plt.xticks(range(len(sorted_taxon_tii_list)), [pair[1] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])], rotation=45)
+    plt.xticks(
+        range(len(sorted_taxon_tii_list)),
+        [
+            str(pair[0]) + " " + str(pair[1])
+            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+        rotation=90,
+    )
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
@@ -102,23 +123,31 @@ def bootstrap_swarmplot(reduced_tree_files, sorted_taxon_tii_list, plot_filepath
         with open(treefile, "r") as f:
             tree = Tree(f.readlines()[0].strip())
         seq_id = treefile.split("/")[-2]
-        tii = [p[1] for p in sorted_taxon_tii_list if p[0]==seq_id][0]
+        tii = [p[1] for p in sorted_taxon_tii_list if p[0] == seq_id][0]
         for node in tree.traverse("postorder"):
             if not node.is_leaf() and not node.is_root():
                 bootstrap_df.append([seq_id, node.support, tii])
-    bootstrap_df = pd.DataFrame(bootstrap_df, columns=["seq_id", "bootstrap_support", "tii"])
-    bootstrap_df = bootstrap_df.sort_values('tii')
+    bootstrap_df = pd.DataFrame(
+        bootstrap_df, columns=["seq_id", "bootstrap_support", "tii"]
+    )
+    bootstrap_df = bootstrap_df.sort_values("tii")
 
     plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-    sns.swarmplot(data=bootstrap_df, x = "seq_id", y = "bootstrap_support")
+    sns.stripplot(data=bootstrap_df, x="seq_id", y="bootstrap_support")
 
     # Set labels and title
-    plt.xlabel('taxa (sorted by TII)')
-    plt.ylabel('bootstrap support')
-    plt.title('swarmplot of bootstrap support vs. taxa sorted by TII')
+    plt.xlabel("taxa (sorted by TII)")
+    plt.ylabel("bootstrap support")
+    plt.title("stripplot of bootstrap support vs. taxa sorted by TII")
 
-    plt.xticks(range(len(sorted_taxon_tii_list)), [pair[1] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])])
-    plt.xticks(rotation=45)
+    plt.xticks(
+        range(len(sorted_taxon_tii_list)),
+        [
+            str(pair[0]) + " " + str(pair[1])
+            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+    )
+    plt.xticks(rotation=90)
 
     plt.tight_layout()
     plt.savefig(plot_filepath)
@@ -130,20 +159,30 @@ def taxon_height_swarmplot(all_taxon_edge_df, sorted_taxon_tii_list, plot_filepa
     For each taxon, plot the height of the reattachment for all possible reattachment
     edges as a swarmplot vs its TII values
     """
-    all_taxon_edge_df['seq_id'] = pd.Categorical(all_taxon_edge_df['seq_id'], 
-                                         categories=[pair[0] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])], 
-                                         ordered=True)
-    all_taxon_edge_df = all_taxon_edge_df.sort_values('seq_id')
+    all_taxon_edge_df["seq_id"] = pd.Categorical(
+        all_taxon_edge_df["seq_id"],
+        categories=[
+            pair[0] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+        ordered=True,
+    )
+    all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
     plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-    sns.swarmplot(data=all_taxon_edge_df, x='seq_id', y='likelihood')
+    sns.stripplot(data=all_taxon_edge_df, x="seq_id", y="taxon_height")
 
     # Set labels and title
-    plt.xlabel('taxa (sorted by TII)')
-    plt.ylabel('Likelihood')
-    plt.title('swarmplot of likelihood vs. taxa sorted by TII')
+    plt.xlabel("taxa (sorted by TII)")
+    plt.ylabel("reattachment height")
+    plt.title("stripplot of reattachment height vs. taxa sorted by TII")
 
-    plt.xticks(range(len(sorted_taxon_tii_list)), [pair[1] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])])
-    plt.xticks(rotation=45)
+    plt.xticks(
+        range(len(sorted_taxon_tii_list)),
+        [
+            str(pair[0]) + " " + str(pair[1])
+            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+    )
+    plt.xticks(rotation=90)
 
     plt.tight_layout()
     plt.savefig(plot_filepath)
