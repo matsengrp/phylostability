@@ -2,8 +2,8 @@ from Bio import SeqIO
 
 
 # input/output file names
-input_alignment="input_alignment.fasta"
 data_folder="data/"
+input_alignment="input_alignment.fasta"
 plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
@@ -26,7 +26,8 @@ rule all:
         plots_folder+"edpl_vs_tii.pdf",
         plots_folder+"likelihood_swarmplots.pdf",
         plots_folder+"seq_distance_vs_tii.pdf",
-        plots_folder+"bootstrap_vs_tii.pdf"
+        plots_folder+"bootstrap_vs_tii.pdf",
+        data_folder+"benchmarking_data.csv"
 
 # Define the rule to extract the best model for iqtree on the full MSA
 rule model_test_iqtree:
@@ -35,6 +36,8 @@ rule model_test_iqtree:
     output:
         temp(touch(data_folder+"model-test-iqtree.done")),
         modeltest=data_folder+input_alignment+"_model.iqtree"
+    benchmark:
+        temp(data_folder+"benchmarking/benchmark_model_test_iqtree.txt")
     shell:
         """
         if [[ -f "{data_folder}{input.msa}_model.iqtree" ]]; then
@@ -62,6 +65,8 @@ rule remove_sequence:
         msa=input_alignment
     output:
         reduced_msa=temp(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta")
+    benchmark:
+        temp(data_folder+"benchmarking/benchmark_remove_sequence_{seq_id}.txt")
     params:
         seq_id=lambda wildcards: wildcards.seq_id
     script:
@@ -76,6 +81,8 @@ rule run_iqtree_on_full_dataset:
         temp(touch(data_folder+"run_iqtree_on_full_dataset.done")),
         tree=data_folder+input_alignment+".treefile",
         mldist=data_folder+input_alignment+".mldist"
+    benchmark:
+        temp(data_folder+"benchmarking/benchmark_run_iqtree_on_full_dataset.txt")
     shell:
         """
         if [[ -f "{data_folder}{input.msa}.iqtree" ]]; then
@@ -104,6 +111,8 @@ rule run_iqtree_restricted_alignments:
         done=temp(touch(data_folder+"reduced_alignments/{seq_id}/run_iqtree_restricted_alignments.done")),
         tree=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
         mlfile=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.iqtree"
+    benchmark:
+        temp(data_folder+"benchmarking/benchmark_run_iqtree_restricted_alignments_{seq_id}.txt")
     shell:
         """
         if [[ -f "{input.reduced_msa}.iqtree" ]]; then
@@ -122,27 +131,31 @@ rule reattach_removed_sequence:
         topologies=expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk", edge=get_attachment_edge_indices(input_alignment))
     params:
         seq_id=lambda wildcards: wildcards.seq_id
+    benchmark:
+        temp(data_folder+"benchmarking/benchmark_reattach_removed_sequence_{seq_id}.txt")
     script:
         "scripts/reattach_removed_sequence.py"
 
 rule run_iqtree_on_augmented_topologies:
-   input:
-       msa=input_alignment,
-       topology_file=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk",
-       full_model=rules.extract_model_for_full_iqtree_run.output.model
-   output:
-       alldone=temp(touch(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done")),
-       treefile=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile",
-       mlfile=temp(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.iqtree"),
-       other=temp(expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{{edge}}.nwk_branch_length.{suffix}",
+    input:
+        msa=input_alignment,
+        topology_file=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk",
+        full_model=rules.extract_model_for_full_iqtree_run.output.model
+    output:
+        alldone=temp(touch(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done")),
+        treefile=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile",
+        mlfile=temp(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.iqtree"),
+        other=temp(expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{{edge}}.nwk_branch_length.{suffix}",
         suffix=[suf for suf in IQTREE_SUFFIXES if suf not in ["iqtree", "treefile"]]))
-   shell:
-       """
-       if test -f "{input.topology_file}_branch_length.iqtree"; then
-         echo "Ignoring iqtree run on {input.topology_file}_branch_length, since it is already done."
-       else
-         iqtree -s {input.msa} -m $(cat {input.full_model}) -te {input.topology_file} --prefix {input.topology_file}_branch_length
-       fi
+    benchmark:
+        temp(data_folder+"benchmarking/benchmark_run_iqtree_on_augmented_topologies_{seq_id}_{edge}.txt")
+    shell:
+        """
+        if test -f "{input.topology_file}_branch_length.iqtree"; then
+          echo "Ignoring iqtree run on {input.topology_file}_branch_length, since it is already done."
+        else
+          iqtree -s {input.msa} -m $(cat {input.full_model}) -te {input.topology_file} --prefix {input.topology_file}_branch_length
+        fi
         """
 
 # this rule adds a specific key to the global dictionary
@@ -192,3 +205,24 @@ rule create_plots:
         plots_folder=plots_folder
     script:
         "scripts/create_plots.py"
+
+# create single file with timing breakdowns for the rules
+rule combine_benchmark_outputs:
+    input:
+        iqtree_model=data_folder+"benchmarking/benchmark_model_test_iqtree.txt",
+        remove_taxon=expand(data_folder+"benchmarking/benchmark_remove_sequence_{seq_id}.txt", seq_id=get_seq_ids(input_alignment)),
+        iqtree_whole_taxon_set=data_folder+"benchmarking/benchmark_run_iqtree_on_full_dataset.txt",
+        iqtree_restricted_taxon_set=expand(data_folder+"benchmarking/benchmark_run_iqtree_restricted_alignments_{seq_id}.txt", seq_id=get_seq_ids(input_alignment)),
+        reattach_taxon=expand(data_folder+"benchmarking/benchmark_reattach_removed_sequence_{seq_id}.txt", seq_id=get_seq_ids(input_alignment)),
+        iqtree_augmented_topologies=expand(data_folder+"benchmarking/benchmark_run_iqtree_on_augmented_topologies_{seq_id}_{edge}.txt", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment))
+    output:
+        output_file=data_folder+"benchmarking_data.csv"
+    params:
+        iqtree_model=data_folder+"benchmarking/benchmark_model_test_iqtree.txt",
+        remove_taxon=expand(data_folder+"benchmarking/benchmark_remove_sequence_{seq_id}.txt", seq_id=get_seq_ids(input_alignment)),
+        iqtree_whole_taxon_set=data_folder+"benchmarking/benchmark_run_iqtree_on_full_dataset.txt",
+        iqtree_restricted_taxon_set=expand(data_folder+"benchmarking/benchmark_run_iqtree_restricted_alignments_{seq_id}.txt", seq_id=get_seq_ids(input_alignment)),
+        reattach_taxon=expand(data_folder+"benchmarking/benchmark_reattach_removed_sequence_{seq_id}.txt", seq_id=get_seq_ids(input_alignment)),
+        iqtree_augmented_topologies=expand(data_folder+"benchmarking/benchmark_run_iqtree_on_augmented_topologies_{seq_id}_{edge}.txt", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment))
+    script:
+        "scripts/combine_benchmark_outputs.py"
