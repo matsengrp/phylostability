@@ -216,8 +216,10 @@ rule combine_benchmark_outputs:
         reattach_taxon=expand(data_folder+"benchmarking/benchmark_reattach_removed_sequence_{seq_id}.txt", seq_id=get_seq_ids(input_alignment)),
         iqtree_augmented_topologies=expand(data_folder+"benchmarking/benchmark_run_iqtree_on_augmented_topologies_{seq_id}_{edge}.txt", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment))
     output:
+        plots_folder+"CPU_time_breakdown.pdf",
         output_file=data_folder+"benchmarking_data.csv"
     params:
+        output_plot_path=plots_folder,
         iqtree_model=data_folder+"benchmarking/benchmark_model_test_iqtree.txt",
         remove_taxon=expand(data_folder+"benchmarking/benchmark_remove_sequence_{seq_id}.txt", seq_id=get_seq_ids(input_alignment)),
         iqtree_whole_taxon_set=data_folder+"benchmarking/benchmark_run_iqtree_on_full_dataset.txt",
