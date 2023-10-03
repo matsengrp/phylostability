@@ -31,6 +31,31 @@ def aggregate_taxon_edge_dfs(csv_list):
     return df
 
 
+def aggregate_and_filter_by_likelihood(taxon_edge_csv_list, p):
+    """
+    Reads and aggregates taxon_edge_csv_list dataframes for all taxa, while
+    also filtering out by likelihood.
+    p is a value between 0 and 1, so that only taxon reattachments whose trees have
+    likelihood greater than max_likelihood - p * (max_likelihood - min_likelihood)
+    are added to the aggregated dataframe.
+    """
+    dfs = []
+    for csv_file in taxon_edge_csv_list:
+        taxon_df = pd.read_csv(csv_file)
+        # filter by likelihood
+        min_likelihood = taxon_df["likelihood"].min()
+        max_likelihood = taxon_df["likelihood"].max()
+        threshold = max_likelihood - p * (max_likelihood - min_likelihood)
+        filtered_df = taxon_df[taxon_df["likelihood"] >= threshold]
+        if len(filtered_df) > 5:
+            filtered_df = filtered_df.nlargest(5, "likelihood")
+        # append to df for all taxa
+        dfs.append(filtered_df)
+    df = pd.concat(dfs, ignore_index=True)
+    df = df.rename(columns={0: "seq_id"})
+    return df
+
+
 def edpl_vs_tii_scatterplot(taxon_df, filepath):
     sns.scatterplot(data=taxon_df, x="tii", y="edpl")
     plt.savefig(filepath)
@@ -52,6 +77,9 @@ def likelihood_swarmplots(sorted_taxon_tii_list, all_taxon_edge_df, filepath):
     all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
     plt.figure(figsize=(10, 6))  # Adjust figure size if needed
     sns.stripplot(data=all_taxon_edge_df, x="seq_id", y="likelihood")
+    # Add a horizontal line at the maximum likelihood value
+    max_likelihood = all_taxon_edge_df["likelihood"].max()
+    plt.axhline(y=max_likelihood, color="r")
 
     # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
@@ -168,12 +196,18 @@ def taxon_height_swarmplot(all_taxon_edge_df, sorted_taxon_tii_list, plot_filepa
     )
     all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
     plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-    sns.stripplot(data=all_taxon_edge_df, x="seq_id", y="taxon_height")
+    ax = sns.scatterplot(
+        data=all_taxon_edge_df,
+        x="seq_id",
+        y="taxon_height",
+        hue="likelihood",
+    )
 
     # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
     plt.ylabel("reattachment height")
     plt.title("stripplot of reattachment height vs. taxa sorted by TII")
+    ax.legend(loc="center left", bbox_to_anchor=(1, 0.5), title="log likelihood")
 
     plt.xticks(
         range(len(sorted_taxon_tii_list)),
@@ -181,15 +215,15 @@ def taxon_height_swarmplot(all_taxon_edge_df, sorted_taxon_tii_list, plot_filepa
             str(pair[0]) + " " + str(pair[1])
             for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
         ],
+        rotation=90,
     )
-    plt.xticks(rotation=90)
 
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
 
 
-all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
+all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.1)
 
 # plot edpl vs TII for each taxon
 edpl_filepath = os.path.join(plots_folder, "edpl_vs_tii.pdf")
