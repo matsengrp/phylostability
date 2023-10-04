@@ -27,7 +27,8 @@ rule all:
         plots_folder+"likelihood_swarmplots.pdf",
         plots_folder+"seq_distance_vs_tii.pdf",
         plots_folder+"bootstrap_vs_tii.pdf",
-        data_folder+"benchmarking_data.csv"
+        plots_folder+"CPU_time_breakdown.pdf",
+        plots_folder+"runtime_breakdown.pdf",
 
 # Define the rule to extract the best model for iqtree on the full MSA
 rule model_test_iqtree:
@@ -217,6 +218,7 @@ rule combine_benchmark_outputs:
         iqtree_augmented_topologies=expand(data_folder+"benchmarking/benchmark_run_iqtree_on_augmented_topologies_{seq_id}_{edge}.txt", seq_id=get_seq_ids(input_alignment), edge=get_attachment_edge_indices(input_alignment))
     output:
         plots_folder+"CPU_time_breakdown.pdf",
+        plots_folder+"runtime_breakdown.pdf",
         output_file=data_folder+"benchmarking_data.csv"
     params:
         output_plot_path=plots_folder,
