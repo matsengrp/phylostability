@@ -2,9 +2,9 @@ from Bio import SeqIO
 
 
 # input/output file names
-input_alignment="test_input_alignment.fasta"
-data_folder="test_data/"
-plots_folder="test_plots/"
+input_alignment="input_alignment.fasta"
+data_folder="data/"
+plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
 
