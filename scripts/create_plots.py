@@ -12,7 +12,7 @@ taxon_edge_df_csv = snakemake.input.taxon_edge_df_csv
 reduced_tree_files = snakemake.input.reduced_trees
 mldist_file = snakemake.input.mldist_file
 plots_folder = snakemake.params.plots_folder
-reattachments_distance_csv = snakemake.input.reattachment_distance_csv
+reattachment_distance_csv = snakemake.input.reattachment_distance_csv
 taxon_df = pd.read_csv(taxon_df_csv, index_col=0)
 taxon_df.index.name = "taxon_name"
 
@@ -161,14 +161,14 @@ def find_reattachment_edge(branchlength_str, seq_id):
         return max(matches, key=lambda s: s.count(","))
 
 
-def get_reattachment_distances(df, seq_id):
+def get_reattachment_distances(df, reattachment_distance_csv, seq_id):
     """
     Return dataframe with distances between reattachment locations that are represented
     in df for taxon seq_id.
     """
     filtered_df = df[df["seq_id"] == seq_id]
     reattachment_distances_file = [
-        csv for csv in reattachments_distance_csv if seq_id in csv
+        csv for csv in reattachment_distance_csv if seq_id in csv
     ][0]
 
     all_taxa = df["seq_id"].unique()
@@ -204,23 +204,63 @@ def get_reattachment_distances(df, seq_id):
     return filtered_reattachments
 
 
-def likelihood_vs_reattachment_distance(
-    sorted_taxon_tii_list, all_taxon_edge_df, filepath
+def dist_of_likely_reattachments(
+    sorted_taxon_tii_list, all_taxon_edge_df, reattachment_distance_csv, filepath
 ):
     """
-    Compute scatterplot of log likelihood vs distance between reattachment locations.
-    For each TII value, we creat a separate plot and colour the datapoints by taxon.
+    Compute ratio of minimum to maximum distance between most likely reattachment locations,
+    which we assume are the only ones present in all_taxon_edge_df.
+    We plot those values for each taxon, sorted according to increasing TII.
     """
-    all_taxon_edge_df["seq_id"] = pd.Categorical(
-        all_taxon_edge_df["seq_id"],
-        categories=[
-            pair[0] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
-        ],
-        ordered=True,
+    dist_ratios = {}
+    # create DataFrame containing min_dist/max_dist ratio as well as
+    # max difference between all good likelihood values
+    for i, (seq_id, tii) in enumerate(sorted_taxon_tii_list):
+        reattachment_distances = get_reattachment_distances(
+            all_taxon_edge_df, reattachment_distance_csv, seq_id
+        )
+        max_ll_diff = (
+            reattachment_distances["likelihoods"].max()
+            - reattachment_distances["likelihoods"].min()
+        )
+        reattachment_distances.drop(columns=["likelihoods"], inplace=True)
+        np.fill_diagonal(reattachment_distances.values, np.nan)
+        if len(reattachment_distances) > 1:
+            dist_ratios[str(seq_id) + " " + str(tii)] = [
+                reattachment_distances.min().min() / reattachment_distances.max().max(),
+                max_ll_diff,
+            ]
+        else:
+            dist_ratios[str(seq_id) + " " + str(tii)] = [np.nan, np.nan]
+
+    dist_ratios = pd.DataFrame(dist_ratios).transpose()
+    dist_ratios = dist_ratios.rename(columns={0: "dist_ratio", 1: "max_ll_diff"})
+    # plot distance ratios and colour markers by max difference in loglikelihood
+    fig, ax = plt.subplots(figsize=(10, 6))
+    scatter = sns.scatterplot(
+        data=dist_ratios,
+        x=dist_ratios.index,
+        y="dist_ratio",
+        hue="max_ll_diff",
+        palette="viridis",
+        alpha=0.7,
     )
-    all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
-    for seq_id in all_taxon_edge_df["seq_id"].unique():
-        reattachment_distances = get_reattachment_distances(all_taxon_edge_df, seq_id)
+    # Create a colorbar
+    norm = plt.Normalize(
+        dist_ratios["max_ll_diff"].min(), dist_ratios["max_ll_diff"].max()
+    )
+    sm = plt.cm.ScalarMappable(cmap="viridis", norm=norm)
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=ax, pad=0.1)
+    cbar.set_label("max_ll_diff")
+
+    plt.legend([], [], frameon=False)
+    plt.ylabel("min_dist/max_dist of reattachment locations")
+    plt.title("Ratio of min/max distance between optimal reattachment locations")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(filepath)
+    plt.clf()
 
 
 def bootstrap_swarmplot(reduced_tree_files, sorted_taxon_tii_list, plot_filepath):
@@ -309,10 +349,13 @@ all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.1)
 
 # plot log likelihood vs distance of reattachment locations
 likelihood_distance_filepath = os.path.join(
-    plots_folder, "likelihood_vs_reattachment_distance.pdf"
+    plots_folder, "dist_of_likely_reattachments.pdf"
 )
-likelihood_vs_reattachment_distance(
-    sorted_taxon_tii_list, all_taxon_edge_df, likelihood_distance_filepath
+dist_of_likely_reattachments(
+    sorted_taxon_tii_list,
+    all_taxon_edge_df,
+    reattachment_distance_csv,
+    likelihood_distance_filepath,
 )
 
 # plot edpl vs TII for each taxon
