@@ -37,17 +37,21 @@ df = pd.concat(dfs, ignore_index=True)
 df.to_csv(output_file)
 
 
-summed = df.groupby("rule").sum()
-counts = list(df.groupby("rule").count().cpu_time)
+df["count"] = 1
+
+colname = "cpu_time"
+summed = df.groupby("rule").sum().sort_values(colname)
+counts = list(summed["count"])
 rulenames = list(summed.index)
-
-thecol=list(summed.cpu_time)
-thetitle="CPU time breakdown"
 thename=os.path.join(output_plot_path, "CPU_time_breakdown.pdf")
-
-fig, ax = plt.subplots()
-these_bars = ax.bar(rulenames, thecol)
+thecol=list(summed[colname])
+thetitle="CPU time breakdown\n total time: {}".format(sum(thecol))
+fig, ax = plt.subplots(figsize=(10,5))
+these_bars = ax.bar(rulenames, thecol, width=0.8)
 ax.set(title=thetitle)
 ax.bar_label(these_bars, labels=["{:d}calls\n{:.3f} per run".format(x, float(list(thecol)[i])/float(x if x != 0 else 1)) for i, x in enumerate(counts)])
 plt.xticks(rotation=30, ha="right")
+plt.ylabel(colname)
+plt.ylim(min(thecol) - 0.5, max(thecol)*1.2)
+fig.tight_layout()
 plt.savefig(thename)
