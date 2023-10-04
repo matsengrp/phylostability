@@ -167,7 +167,8 @@ rule aggregate_reattachment_data_per_taxon:
         reduced_tree_mlfile=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.iqtree", seq_id=get_seq_ids(input_alignment)),
         taxon_dictionary=expand(data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment))
     output:
-        output_csv=data_folder+"reduced_alignments/reattachment_data_per_taxon.csv"
+        output_csv=data_folder+"reduced_alignments/reattachment_data_per_taxon.csv",
+        reattachment_distance_csv=expand(data_folder+"reduced_alignments/{seq_id}/reattachment_distances.csv", seq_id=get_seq_ids(input_alignment))
     params:
         seq_ids=get_seq_ids(input_alignment),
         edges=get_attachment_edge_indices(input_alignment),
