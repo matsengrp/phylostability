@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import os
 from ete3 import Tree
 import numpy as np
+import re
 
 
 taxon_df_csv = snakemake.input.taxon_df_csv
@@ -11,7 +12,7 @@ taxon_edge_df_csv = snakemake.input.taxon_edge_df_csv
 reduced_tree_files = snakemake.input.reduced_trees
 mldist_file = snakemake.input.mldist_file
 plots_folder = snakemake.params.plots_folder
-
+reattachments_distance_csv = snakemake.input.reattachment_distance_csv
 taxon_df = pd.read_csv(taxon_df_csv, index_col=0)
 taxon_df.index.name = "taxon_name"
 
@@ -141,6 +142,87 @@ def seq_distance_swarmplot(distance_filepath, sorted_taxon_tii_list, plot_filepa
     plt.clf()
 
 
+def find_reattachment_edge(branchlength_str, seq_id):
+    pattern = rf"\['(([\w/.]+,)+[\w/.]+)'"
+    matches = re.findall(pattern, branchlength_str)
+    matches = [m[0] for m in matches]
+    seq_id_clusters = [m for m in matches if seq_id in m]
+    if len(seq_id_clusters) > 0:
+        new_seq_id_clusters = []
+        for cluster in seq_id_clusters:
+            cluster_list = cluster.split(",")
+            if seq_id in cluster_list:
+                cluster_list.remove(seq_id)
+            new_seq_id_clusters.append(",".join(cluster_list))
+        return min(new_seq_id_clusters, key=lambda s: s.count(","))
+    else:
+        # we are looking for biggest cluster because seq_id must be in cherry
+        # if we couldn't find it above -- is this the only exception?
+        return max(matches, key=lambda s: s.count(","))
+
+
+def get_reattachment_distances(df, seq_id):
+    """
+    Return dataframe with distances between reattachment locations that are represented
+    in df for taxon seq_id.
+    """
+    filtered_df = df[df["seq_id"] == seq_id]
+    reattachment_distances_file = [
+        csv for csv in reattachments_distance_csv if seq_id in csv
+    ][0]
+
+    all_taxa = df["seq_id"].unique()
+
+    reattachment_edges = []
+    # find identifiers (str of taxon sets) for reattachment edge
+    for branchlengths in filtered_df["branchlengths"]:
+        reattachment_edges.append(find_reattachment_edge(branchlengths, seq_id))
+    reattachment_distances = pd.read_csv(reattachment_distances_file, index_col=0)
+    for edge_node in reattachment_edges:
+        # if cluster of edge_node is not in columns of reattachment_distance,
+        # the complement of that cluster will be in there
+        if edge_node not in reattachment_distances.columns:
+            complement_node = str()
+            for taxon in all_taxa:
+                if taxon not in edge_node and taxon != seq_id:
+                    complement_node += taxon + ","
+            complement_node = complement_node[:-1]
+            reattachment_edges.remove(edge_node)
+            reattachment_edges.append(complement_node)
+    # update index of reattachment_distancess
+    col_list = reattachment_distances.columns.to_list()
+    col_list.remove("likelihoods")
+    reattachment_distances = reattachment_distances.set_index(pd.Index(col_list))
+    # create distance matrix of reattachment positions that are present in input df
+    # and again add likelihoods in last column
+    filtered_reattachments = reattachment_distances.loc[
+        reattachment_edges, reattachment_edges
+    ]
+    filtered_reattachments["likelihoods"] = reattachment_distances.loc[
+        reattachment_edges, "likelihoods"
+    ]
+    return filtered_reattachments
+
+
+def likelihood_vs_reattachment_distance(
+    sorted_taxon_tii_list, all_taxon_edge_df, filepath
+):
+    """
+    Compute scatterplot of log likelihood vs distance between reattachment locations.
+    For each TII value, we creat a separate plot and colour the datapoints by taxon.
+    """
+    all_taxon_edge_df["seq_id"] = pd.Categorical(
+        all_taxon_edge_df["seq_id"],
+        categories=[
+            pair[0] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+        ordered=True,
+    )
+    all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
+    for seq_id in all_taxon_edge_df["seq_id"].unique():
+        reattachment_distances = get_reattachment_distances(all_taxon_edge_df, seq_id)
+
+
 def bootstrap_swarmplot(reduced_tree_files, sorted_taxon_tii_list, plot_filepath):
     """
     For each taxon, plot the bootstrap support of nodes in the tree inferred on the
@@ -224,6 +306,14 @@ def taxon_height_swarmplot(all_taxon_edge_df, sorted_taxon_tii_list, plot_filepa
 
 
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.1)
+
+# plot log likelihood vs distance of reattachment locations
+likelihood_distance_filepath = os.path.join(
+    plots_folder, "likelihood_vs_reattachment_distance.pdf"
+)
+likelihood_vs_reattachment_distance(
+    sorted_taxon_tii_list, all_taxon_edge_df, likelihood_distance_filepath
+)
 
 # plot edpl vs TII for each taxon
 edpl_filepath = os.path.join(plots_folder, "edpl_vs_tii.pdf")

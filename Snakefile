@@ -179,6 +179,7 @@ rule aggregate_reattachment_data_per_taxon:
 rule create_plots:
     input:
         taxon_df_csv=rules.aggregate_reattachment_data_per_taxon.output.output_csv,
+        reattachment_distance_csv=rules.aggregate_reattachment_data_per_taxon.output.reattachment_distance_csv,
         taxon_edge_df_csv=expand(data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment)),
         reduced_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", 
         seq_id=get_seq_ids(input_alignment)),
