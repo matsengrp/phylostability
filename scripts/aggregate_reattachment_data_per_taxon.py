@@ -67,11 +67,13 @@ def dist(n1, n2, alt_n1, alt_n2, seq_id, topology_only=False):
     locations, and their respective edge lengths, are computed on another
     tree, and so they correspond to the "alternative" nodes alt_n1 and alt_n2 resp.
     """
+    # no correction for branch lengths needed if we want topological distance
+    if topology_only:
+        return ete_dist(n1, n2, topology_only)
     # get the lengths of the branches above n1 and n2
     n1_branch_len = ete_dist(n1, n1.up, topology_only)
     n2_branch_len = ete_dist(n2, n2.up, topology_only)
     # adjust the distance calculation based on how far along each branch the reattachment happens
-
     if n1 in n2.get_ancestors():
         return (
             ete_dist(n2, n1, topology_only)
@@ -134,7 +136,7 @@ for idx, seq_id in enumerate(seq_ids):
     # create a lookup dictionary between the main tree's nodes and its copy as the child node
     # of a reattachment edge for the corresponding tree in one of the tree_files
     node_lookup_dictionary = {
-        n: {"leafset": set(), "node": n, "likelihood": 0}
+        n: {"leafset": set(), "node": n, "likelihood_ratio": 0, "likelihood": 0}
         for n in main_tree.traverse("postorder")
     }
 
@@ -158,12 +160,14 @@ for idx, seq_id in enumerate(seq_ids):
         for node, node_lookup in node_lookup_dictionary.items():
             lfst = node_lookup["leafset"]
             if lfst == reattachment_node_lfst:
-                node_lookup["likelihood"] = df.loc[
+                node_lookup["likelihood_ratio"] = df.loc[
                     seq_id + "_" + reattachment_edge, "likelihood_ratio"
+                ]
+                node_lookup["likelihood"] = df.loc[
+                    seq_id + "_" + reattachment_edge, "likelihood"
                 ]
                 node_lookup["node"] = reattachment_node
                 break
-
     # Calculate EDPL for the taxon seq_id:
     edpl = 0
     reattachment_distances = {}  # save distance matrix of reattachments
@@ -177,12 +181,19 @@ for idx, seq_id in enumerate(seq_ids):
         edge_likelihoods.append(node_lookup1["likelihood"])
         for n2, node_lookup2 in node_lookup_dictionary.items():
             if n1 != n2:
-                n1_n2_dist = dist(
-                    n1, n2, node_lookup1["node"], node_lookup2["node"], seq_id
+                dist_n1_n2 = dist(
+                    n1,
+                    n2,
+                    node_lookup1["node"],
+                    node_lookup2["node"],
+                    seq_id,
+                    topology_only=True,
                 )
-                reattachment_distances[node_str].append(n1_n2_dist)
+                reattachment_distances[node_str].append(dist_n1_n2)
                 edpl += (
-                    n1_n2_dist * node_lookup1["likelihood"] * node_lookup2["likelihood"]
+                    dist_n1_n2
+                    * node_lookup1["likelihood_ratio"]
+                    * node_lookup2["likelihood_ratio"]
                 )
             else:
                 reattachment_distances[node_str].append(0)
