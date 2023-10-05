@@ -1,6 +1,7 @@
 import pandas as pd
 from ete3 import Tree
 
+restricted_topology = snakemake.input.restricted_topology
 tree_files = snakemake.input.treefiles
 ml_files = snakemake.input.mlfiles
 full_tree_file = snakemake.input.full_tree_file
@@ -44,6 +45,20 @@ def calculate_taxon_height(input_tree_file, taxon_name):
     input_tree.delete(taxon)
     return taxon_parent.get_closest_leaf()[1]
 
+# return the branch length of the reattachment edge
+def get_reattachment_branch_length(restricted_topology_file, input_tree_file, taxon_name):
+    with open(input_tree_file, "r") as f:
+        input_tree = Tree(f.readlines()[0].strip())
+    taxon = input_tree & taxon_name
+    taxon_leaves = set([l.name for l in taxon.up.get_leaves() if l.name != taxon_name])
+    taxon_ancestors = set([l.name for l in input_tree.get_leaves() if l.name != taxon_name]) - taxon_leaves
+    with open(restricted_topology_file, "r") as f:
+        base_tree = Tree(f.readlines()[0].strip())
+    for this_node in base_tree.traverse("postorder"):
+        this_node_leaves = set([l.name for l in this_node.get_leaves()])
+        if this_node_leaves == taxon_leaves or this_node_leaves == taxon_ancestors:
+            return this_node.dist
+    return tree.get_root().get_children()[0].dist
 
 def get_distance_to_full_tree(reattached_tree_file, full_tree_file):
     with open(reattached_tree_file, "r") as f:
@@ -63,15 +78,17 @@ for i, tree_file in enumerate(tree_files):
     taxon_height = calculate_taxon_height(tree_file, seq_id)
     likelihood = get_taxon_likelihood(ml_file)
     rf_distance = get_distance_to_full_tree(tree_file, full_tree_file)
+    reattachment_branch_length = get_reattachment_branch_length(restricted_topology, tree_file, seq_id)
     df[seq_id + "_" + str(i + 1)] = [
         branchlengths,
         taxon_height,
         likelihood,
         rf_distance,
+        reattachment_branch_length,
     ]
 
 df = pd.DataFrame(df).transpose()
-df.columns = ["branchlengths", "taxon_height", "likelihood", "rf_distance"]
+df.columns = ["branchlengths", "taxon_height", "likelihood", "rf_distance", "reattachment_branch_length"]
 df["seq_id"] = df.index.to_series().str.split("_").str[0]
 df["likelihood_ratio"] = df.likelihood / (
     df.likelihood.sum() if df.likelihood.sum() != 0 else 1

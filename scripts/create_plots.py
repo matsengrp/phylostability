@@ -360,6 +360,49 @@ def taxon_height_swarmplot(all_taxon_edge_df, sorted_taxon_tii_list, plot_filepa
     plt.clf()
 
 
+def reattachment_branch_length_swarmplot(
+    all_taxon_edge_df, sorted_taxon_tii_list, plot_filepath
+):
+    """
+    For each taxon, plot the height of the reattachment for all possible reattachment
+    edges as a swarmplot vs its TII values
+    """
+    all_taxon_edge_df["seq_id"] = pd.Categorical(
+        all_taxon_edge_df["seq_id"],
+        categories=[
+            pair[0] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+        ordered=True,
+    )
+    all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
+    plt.figure(figsize=(10, 6))  # Adjust figure size if needed
+    ax = sns.scatterplot(
+        data=all_taxon_edge_df,
+        x="seq_id",
+        y="reattachment_branch_length",
+        hue="likelihood",
+    )
+
+    # Set labels and title
+    plt.xlabel("taxa (sorted by TII)")
+    plt.ylabel("reattachment branch length")
+    plt.title("stripplot of reattachment branch length vs. taxa sorted by TII")
+    ax.legend(loc="center left", bbox_to_anchor=(1, 0.5), title="log likelihood")
+
+    plt.xticks(
+        range(len(sorted_taxon_tii_list)),
+        [
+            str(pair[0]) + " " + str(pair[1])
+            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+        rotation=90,
+    )
+
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.05)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 
@@ -397,4 +440,11 @@ bootstrap_swarmplot(reduced_tree_files, sorted_taxon_tii_list, bootstrap_plot_fi
 taxon_height_plot_filepath = os.path.join(plots_folder, "taxon_height_vs_tii.pdf")
 taxon_height_swarmplot(
     all_taxon_edge_df, sorted_taxon_tii_list, taxon_height_plot_filepath
+)
+reattachment_branch_length_plot_filepath = os.path.join(
+    plots_folder, "reattachment_branch_length_vs_tii.pdf"
+)
+reattachment_branch_length_plot_filepath = os.path.join(plots_folder, "reattachment_branch_length_vs_tii.pdf")
+reattachment_branch_length_swarmplot(
+    all_taxon_edge_df, sorted_taxon_tii_list, reattachment_branch_length_plot_filepath
 )

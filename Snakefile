@@ -26,7 +26,9 @@ rule all:
         plots_folder+"edpl_vs_tii.pdf",
         plots_folder+"likelihood_swarmplots.pdf",
         plots_folder+"seq_distance_vs_tii.pdf",
-        plots_folder+"bootstrap_vs_tii.pdf"
+        plots_folder+"bootstrap_vs_tii.pdf",
+        plots_folder+"taxon_height_vs_tii.pdf",
+        plots_folder+"reattachment_branch_length_vs_tii.pdf"
 
 # Define the rule to extract the best model for iqtree on the full MSA
 rule model_test_iqtree:
@@ -151,7 +153,8 @@ rule extract_reattachment_data_per_taxon_and_edge:
         ready_to_run=expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done", edge=get_attachment_edge_indices(input_alignment)),
         treefiles=expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile", edge=get_attachment_edge_indices(input_alignment)),
         mlfiles=expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.iqtree", edge=get_attachment_edge_indices(input_alignment)),
-        full_tree_file=rules.run_iqtree_on_full_dataset.output.tree
+        full_tree_file=rules.run_iqtree_on_full_dataset.output.tree,
+        restricted_topology=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile"
     output:
         csv_name=data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv"
     params:
@@ -189,7 +192,8 @@ rule create_plots:
         plots_folder+"likelihood_swarmplots.pdf",
         plots_folder+"seq_distance_vs_tii.pdf",
         plots_folder+"bootstrap_vs_tii.pdf",
-        plots_folder+"taxon_height_vs_tii.pdf"
+        plots_folder+"taxon_height_vs_tii.pdf",
+        plots_folder+"reattachment_branch_length_vs_tii.pdf"
     params:
         plots_folder=plots_folder
     script:
