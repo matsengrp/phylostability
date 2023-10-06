@@ -171,6 +171,7 @@ for idx, seq_id in enumerate(seq_ids):
     # Calculate EDPL for the taxon seq_id:
     edpl = 0
     reattachment_distances = {}  # save distance matrix of reattachments
+    reattachment_topological_distances = {}
     reattachment_dist_file = [
         csv for csv in reattachment_distances_csv if seq_id in csv
     ][0]
@@ -178,6 +179,7 @@ for idx, seq_id in enumerate(seq_ids):
     for n1, node_lookup1 in node_lookup_dictionary.items():
         node_str = ",".join(sorted(list([l.name for l in n1.get_leaves()])))
         reattachment_distances[node_str] = []
+        reattachment_topological_distances[node_str] = []
         edge_likelihoods.append(node_lookup1["likelihood"])
         for n2, node_lookup2 in node_lookup_dictionary.items():
             if n1 != n2:
@@ -187,26 +189,45 @@ for idx, seq_id in enumerate(seq_ids):
                     node_lookup1["node"],
                     node_lookup2["node"],
                     seq_id,
-                    topology_only=True,
+                    topology_only=False,
                 )
                 reattachment_distances[node_str].append(dist_n1_n2)
+                reattachment_topological_distances[node_str].append(
+                    dist(
+                        n1,
+                        n2,
+                        node_lookup1["node"],
+                        node_lookup2["node"],
+                        seq_id,
+                        topology_only=True,
+                    )
+                )
                 edpl += (
                     dist_n1_n2
                     * node_lookup1["likelihood_ratio"]
                     * node_lookup2["likelihood_ratio"]
                 )
             else:
-                reattachment_distances[node_str].append(0)
+                reattachment_distances[node_str].append(np.nan)
+                reattachment_topological_distances[node_str].append(np.nan)
+
     reattachment_dist_df = pd.DataFrame(reattachment_distances)
+    reattachment_topological_dist_df = pd.DataFrame(reattachment_topological_distances)
+
     # Check that all diagonal entries in reattachment_dist_df are 0 to make sure we get
     # correct distance matrix
     diagonal_values = np.diag(reattachment_dist_df.values)
-    if not np.all(diagonal_values == 0):
+    if not np.all(np.isnan(diagonal_values)):
         print("Error: reattachment distance matrix has non-zero diagonal entries.")
         sys.exit(1)
     reattachment_dist_df["likelihoods"] = edge_likelihoods
+    reattachment_topological_dist_df["likelihoods"] = edge_likelihoods
 
+    # save everything in corresponding DataFrames
     reattachment_dist_df.to_csv(reattachment_dist_file)
+    reattachment_topological_dist_df.to_csv(
+        reattachment_dist_file[:-4] + "_topological.csv"
+    )
     edpl /= tree_branch_length_sum(main_tree)
     tii = main_tree.robinson_foulds(full_tree, unrooted_trees=True)[0]
     all_taxa_df[seq_id] = [edpl, get_likelihood(reduced_tree_mlfile), tii]

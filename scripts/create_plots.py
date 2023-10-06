@@ -229,9 +229,6 @@ def dist_of_likely_reattachments(
         reattachment_distances = get_reattachment_distances(
             all_taxon_edge_df, reattachment_distance_csv, seq_id
         )
-        if len(pairwise_df) == 0:
-            print("All taxa have unique reattachment locations.")
-            return 0
         # create new df with pairwise distances + likelihood difference
         for i in range(len(reattachment_distances)):
             for j in range(i + 1, len(reattachment_distances)):
@@ -251,6 +248,9 @@ def dist_of_likely_reattachments(
     pairwise_df = pd.DataFrame(
         pairwise_df, columns=["seq_id", "edge1", "edge2", "distance", "ll_diff"]
     )
+    if len(pairwise_df) == 0:
+        print("All taxa have unique reattachment locations.")
+        return 0
 
     # plot distance ratios and colour markers by max difference in loglikelihood
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -444,7 +444,9 @@ taxon_height_swarmplot(
 reattachment_branch_length_plot_filepath = os.path.join(
     plots_folder, "reattachment_branch_length_vs_tii.pdf"
 )
-reattachment_branch_length_plot_filepath = os.path.join(plots_folder, "reattachment_branch_length_vs_tii.pdf")
+reattachment_branch_length_plot_filepath = os.path.join(
+    plots_folder, "reattachment_branch_length_vs_tii.pdf"
+)
 reattachment_branch_length_swarmplot(
     all_taxon_edge_df, sorted_taxon_tii_list, reattachment_branch_length_plot_filepath
 )
