@@ -15,16 +15,29 @@ reattachment_distances_csv = snakemake.output.reattachment_distance_csv
 
 
 def ete_dist(node1, node2, topology_only=False):
+    # if one of the nodes is a leaf and child of the other one, we need to add one
+    # to their distance because get_distance() returns number of nodes between
+    # given nodes. E.g. if node1 and node2 are connected by edge, this would be
+    # distance 0, but it should be 1
+    add_to_dist = 0
     if node2 in node1.get_ancestors():
         leaf = node1.get_leaves()[0]
-        return node2.get_distance(
-            leaf, topology_only=topology_only
-        ) - node1.get_distance(leaf, topology_only=topology_only)
+        if node1 == leaf and topology_only == True:
+            add_to_dist = 1
+        return (
+            node2.get_distance(leaf, topology_only=topology_only)
+            - node1.get_distance(leaf, topology_only=topology_only)
+            + add_to_dist
+        )
     else:
         leaf = node2.get_leaves()[0]
-        return node1.get_distance(
-            leaf, topology_only=topology_only
-        ) - node2.get_distance(leaf, topology_only=topology_only)
+        if node2 == leaf and topology_only == True and node1 in node2.get_ancestors():
+            add_to_dist = 1
+        return (
+            node1.get_distance(leaf, topology_only=topology_only)
+            - node2.get_distance(leaf, topology_only=topology_only)
+            + add_to_dist
+        )
 
 
 def attachment_branch_length_proportion(node, seq_id, above=True, topology_only=False):
