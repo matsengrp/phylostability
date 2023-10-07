@@ -121,12 +121,12 @@ def seq_distance_swarmplot(distance_filepath, sorted_taxon_tii_list, plot_filepa
 
     # Create the swarmplot
     plt.figure(figsize=(10, 6))
-    sns.stripplot(data=df_long, x="seq_id", y="value")
+    sns.swarmplot(data=df_long, x="seq_id", y="value")
 
     # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
     plt.ylabel("distances")
-    plt.title("stripplot of sequence distances vs. taxa sorted by TII")
+    plt.title("sequence distances vs. taxa sorted by TII")
 
     # Set x-axis ticks and labels
     plt.xticks(
@@ -229,9 +229,17 @@ def dist_of_likely_reattachments(
         reattachment_distances = get_reattachment_distances(
             all_taxon_edge_df, reattachment_distance_csv, seq_id
         )
+        max_likelihood_reattachment = reattachment_distances.loc[
+            reattachment_distances["likelihoods"].idxmax()
+        ].name
         # create new df with pairwise distances + likelihood difference
         for i in range(len(reattachment_distances)):
             for j in range(i + 1, len(reattachment_distances)):
+                best_reattachment = False
+                if (
+                    reattachment_distances.columns[i] == max_likelihood_reattachment
+                ) or (reattachment_distances.columns[j] == max_likelihood_reattachment):
+                    best_reattachment = True
                 ll_diff = abs(
                     reattachment_distances["likelihoods"][i]
                     - reattachment_distances["likelihoods"][j]
@@ -243,37 +251,73 @@ def dist_of_likely_reattachments(
                         reattachment_distances.columns[j],
                         reattachment_distances.iloc[i, j],
                         ll_diff,
+                        best_reattachment,
                     ]
                 )
     pairwise_df = pd.DataFrame(
-        pairwise_df, columns=["seq_id", "edge1", "edge2", "distance", "ll_diff"]
+        pairwise_df,
+        columns=[
+            "seq_id",
+            "edge1",
+            "edge2",
+            "distance",
+            "ll_diff",
+            "best_reattachment",
+        ],
     )
     if len(pairwise_df) == 0:
         print("All taxa have unique reattachment locations.")
         return 0
 
-    # plot distance ratios and colour markers by max difference in loglikelihood
+    # Filter the DataFrame for each marker type
+
+    df_marker_o = pairwise_df[pairwise_df["best_reattachment"] == False]
+    df_marker_X = pairwise_df[pairwise_df["best_reattachment"] == True]
+
+    # Create the plot
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.swarmplot(
-        data=pairwise_df,
+
+    # Plot marker 'o'
+    sns.stripplot(
+        data=df_marker_o,
         x="seq_id",
         y="distance",
         hue="ll_diff",
         palette="viridis",
         alpha=0.7,
+        marker="o",
+        jitter=True,
+        size=7,
     )
-    # Create a colorbar
+
+    # Plot marker 'X'
+    sns.stripplot(
+        data=df_marker_X,
+        x="seq_id",
+        y="distance",
+        hue="ll_diff",
+        palette="viridis",
+        alpha=0.7,
+        marker="X",
+        jitter=True,
+        size=9,
+    )
+
+    # Add a colorbar
     norm = plt.Normalize(pairwise_df["ll_diff"].min(), pairwise_df["ll_diff"].max())
     sm = plt.cm.ScalarMappable(cmap="viridis", norm=norm)
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax, pad=0.1)
     cbar.set_label("ll_diff")
 
+    # Other plot customizations
     plt.legend([], [], frameon=False)
     plt.ylabel("distance between reattachment locations")
     plt.title("Distance between optimal reattachment locations")
     plt.xticks(rotation=90)
     plt.tight_layout()
+
+    # Save or display the plot
     plt.savefig(filepath)
     plt.clf()
 
@@ -333,7 +377,7 @@ def taxon_height_swarmplot(all_taxon_edge_df, sorted_taxon_tii_list, plot_filepa
     )
     all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
     plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-    ax = sns.scatterplot(
+    ax = sns.stripplot(
         data=all_taxon_edge_df,
         x="seq_id",
         y="taxon_height",
@@ -376,7 +420,7 @@ def reattachment_branch_length_swarmplot(
     )
     all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
     plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-    ax = sns.scatterplot(
+    ax = sns.stripplot(
         data=all_taxon_edge_df,
         x="seq_id",
         y="reattachment_branch_length",
@@ -444,9 +488,7 @@ taxon_height_swarmplot(
 reattachment_branch_length_plot_filepath = os.path.join(
     plots_folder, "reattachment_branch_length_vs_tii.pdf"
 )
-reattachment_branch_length_plot_filepath = os.path.join(
-    plots_folder, "reattachment_branch_length_vs_tii.pdf"
-)
+
 reattachment_branch_length_swarmplot(
     all_taxon_edge_df, sorted_taxon_tii_list, reattachment_branch_length_plot_filepath
 )
