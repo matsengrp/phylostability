@@ -187,7 +187,8 @@ rule create_plots:
         taxon_edge_df_csv=expand(data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment)),
         reduced_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", 
         seq_id=get_seq_ids(input_alignment)),
-        mldist_file=data_folder+input_alignment+".mldist"
+        mldist_file=data_folder+input_alignment+".mldist",
+        full_tree=rules.run_iqtree_on_full_dataset.output.tree
     output:
         plots_folder+"edpl_vs_tii.pdf",
         plots_folder+"likelihood_swarmplots.pdf",

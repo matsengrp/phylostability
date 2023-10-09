@@ -10,6 +10,7 @@ import re
 taxon_df_csv = snakemake.input.taxon_df_csv
 taxon_edge_df_csv = snakemake.input.taxon_edge_df_csv
 reduced_tree_files = snakemake.input.reduced_trees
+full_tree_file = snakemake.input.full_tree
 mldist_file = snakemake.input.mldist_file
 plots_folder = snakemake.params.plots_folder
 reattachment_distance_csv = snakemake.input.reattachment_distance_csv
@@ -328,20 +329,91 @@ def dist_of_likely_reattachments(
     plt.clf()
 
 
-def bootstrap_swarmplot(reduced_tree_files, sorted_taxon_tii_list, plot_filepath):
+def bootstrap_and_bts_plot(
+    reduced_tree_files,
+    full_tree_file,
+    sorted_taxon_tii_list,
+    bootstrap_plot_filepath,
+    bts_plot_filepath,
+):
     """
-    For each taxon, plot the bootstrap support of nodes in the tree inferred on the
-    reduced alignment as swarmplot, sorted according to increasing TII
+    For each taxon, plot the bootstrap support of nodes in the tree inferred on
+    the reduced alignment sorted according to increasing TII.
+    Additionally, calculate and plot branch taxon support values.
     """
     bootstrap_df = []
+
+    with open(full_tree_file, "r") as f:
+        full_tree = Tree(f.readlines()[0].strip())
+
+    num_leaves = len(full_tree)
+
+    # initialise branch score dict with sets of leaves representing edges
+    branch_scores = {}
+    all_taxa = full_tree.get_leaf_names()
+    for node in full_tree.traverse("postorder"):
+        if not node.is_leaf() and not node.is_root():
+            sorted_leaves = sorted(node.get_leaf_names())
+            # ignore pendant edges
+            if len(sorted_leaves) < len(all_taxa) - 1:
+                s = 0
+                for child in node.children:
+                    if child.is_leaf():
+                        s += 1
+                # add 0 for branch score + normalising constant (dependent
+                # on number of leaves that are children of lower node of
+                # edge, see TII paper)
+                branch_scores[",".join(sorted_leaves)] = [0, num_leaves - s]
+                print(len(sorted_leaves))
+
     for treefile in reduced_tree_files:
         with open(treefile, "r") as f:
             tree = Tree(f.readlines()[0].strip())
         seq_id = treefile.split("/")[-2]
         tii = [p[1] for p in sorted_taxon_tii_list if p[0] == seq_id][0]
+
         for node in tree.traverse("postorder"):
             if not node.is_leaf() and not node.is_root():
                 bootstrap_df.append([seq_id, node.support, tii])
+                # +1 branch_score if leaf set or its complement are branch ID
+                # in branch_scores
+                leaf_list = node.get_leaf_names()
+                leaf_str = ",".join(sorted(leaf_list))
+                if leaf_str in branch_scores:
+                    branch_scores[leaf_str][0] += 1
+                    continue
+                leaf_str_extended = ",".join(sorted(leaf_list + [seq_id]))
+                if leaf_str_extended in branch_scores:
+                    branch_scores[leaf_str_extended][0] += 1
+                    continue
+                # edge ID might be complement of leaf set
+                complement_leaves = list(
+                    set(all_taxa) - set(node.get_leaf_names()) - set(seq_id)
+                )
+                leaf_str = ",".join(complement_leaves)
+                if leaf_str in branch_scores:
+                    branch_scores[leaf_str][0] += 1
+                    continue
+                leaf_str_extended = ",".join(complement_leaves + [seq_id])
+                if leaf_str_extended in branch_scores:
+                    branch_scores[leaf_str_extended][0] += 1
+
+    for branch_score in branch_scores:
+        branch_scores[branch_score][0] *= (
+            100 / branch_scores[branch_score][1]
+        )  # normalise bts
+    branch_scores_df = pd.DataFrame(
+        branch_scores, index=["bts", "normalising constant"]
+    ).transpose()
+
+    # plot BTS values
+    sns.swarmplot(data=branch_scores_df, x="bts")
+    plt.title("BTS")
+    plt.tight_layout()
+    plt.savefig(bts_plot_filepath)
+    plt.clf()
+
+    # plot bootstrap values vs TII
     bootstrap_df = pd.DataFrame(
         bootstrap_df, columns=["seq_id", "bootstrap_support", "tii"]
     )
@@ -365,7 +437,7 @@ def bootstrap_swarmplot(reduced_tree_files, sorted_taxon_tii_list, plot_filepath
     plt.xticks(rotation=90)
 
     plt.tight_layout()
-    plt.savefig(plot_filepath)
+    plt.savefig(bootstrap_plot_filepath)
     plt.clf()
 
 
@@ -498,7 +570,14 @@ seq_distance_swarmplot(
 
 # swarmplot bootstrap support reduced tree for each taxon, sort by TII
 bootstrap_plot_filepath = os.path.join(plots_folder, "bootstrap_vs_tii.pdf")
-bootstrap_swarmplot(reduced_tree_files, sorted_taxon_tii_list, bootstrap_plot_filepath)
+bts_plot_filepath = os.path.join(plots_folder, "bts_scores.pdf")
+bootstrap_and_bts_plot(
+    reduced_tree_files,
+    full_tree_file,
+    sorted_taxon_tii_list,
+    bootstrap_plot_filepath,
+    bts_plot_filepath,
+)
 
 taxon_height_plot_filepath = os.path.join(plots_folder, "taxon_height_vs_tii.pdf")
 taxon_height_swarmplot(
