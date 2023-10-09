@@ -170,7 +170,8 @@ rule aggregate_reattachment_data_per_taxon:
         taxon_dictionary=expand(data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment))
     output:
         output_csv=data_folder+"reduced_alignments/reattachment_data_per_taxon.csv",
-        reattachment_distance_csv=expand(data_folder+"reduced_alignments/{seq_id}/reattachment_distances.csv", seq_id=get_seq_ids(input_alignment))
+        reattachment_distance_csv=expand(data_folder+"reduced_alignments/{seq_id}/reattachment_distances.csv", seq_id=get_seq_ids(input_alignment)),
+        reattachment_distance_topological_csv=expand(data_folder+"reduced_alignments/{seq_id}/reattachment_distances_topological.csv", seq_id=get_seq_ids(input_alignment))
     params:
         seq_ids=get_seq_ids(input_alignment),
         edges=get_attachment_edge_indices(input_alignment),
@@ -182,6 +183,7 @@ rule create_plots:
     input:
         taxon_df_csv=rules.aggregate_reattachment_data_per_taxon.output.output_csv,
         reattachment_distance_csv=rules.aggregate_reattachment_data_per_taxon.output.reattachment_distance_csv,
+        reattachment_distance_topological_csv=rules.aggregate_reattachment_data_per_taxon.output.reattachment_distance_topological_csv,
         taxon_edge_df_csv=expand(data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment)),
         reduced_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", 
         seq_id=get_seq_ids(input_alignment)),
@@ -192,7 +194,9 @@ rule create_plots:
         plots_folder+"seq_distance_vs_tii.pdf",
         plots_folder+"bootstrap_vs_tii.pdf",
         plots_folder+"taxon_height_vs_tii.pdf",
-        plots_folder+"reattachment_branch_length_vs_tii.pdf"
+        plots_folder+"reattachment_branch_length_vs_tii.pdf",
+        plots_folder+"dist_of_likely_reattachments.pdf",
+        plots_folder+"topological_dist_of_likely_reattachments.pdf"
     params:
         plots_folder=plots_folder
     script:

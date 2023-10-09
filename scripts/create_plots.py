@@ -13,6 +13,10 @@ reduced_tree_files = snakemake.input.reduced_trees
 mldist_file = snakemake.input.mldist_file
 plots_folder = snakemake.params.plots_folder
 reattachment_distance_csv = snakemake.input.reattachment_distance_csv
+reattachment_distance_topological_csv = (
+    snakemake.input.reattachment_distance_topological_csv
+)
+
 taxon_df = pd.read_csv(taxon_df_csv, index_col=0)
 taxon_df.index.name = "taxon_name"
 
@@ -48,8 +52,8 @@ def aggregate_and_filter_by_likelihood(taxon_edge_csv_list, p):
         max_likelihood = taxon_df["likelihood"].max()
         threshold = max_likelihood - p * (max_likelihood - min_likelihood)
         filtered_df = taxon_df[taxon_df["likelihood"] >= threshold]
-        if len(filtered_df) > 5:
-            filtered_df = filtered_df.nlargest(5, "likelihood")
+        if len(filtered_df) > 3:
+            filtered_df = filtered_df.nlargest(3, "likelihood")
         # append to df for all taxa
         dfs.append(filtered_df)
     df = pd.concat(dfs, ignore_index=True)
@@ -119,9 +123,9 @@ def seq_distance_swarmplot(distance_filepath, sorted_taxon_tii_list, plot_filepa
         distances, id_vars=["seq_id"], var_name="variable", value_name="value"
     )
 
-    # Create the swarmplot
+    # Create the plot
     plt.figure(figsize=(10, 6))
-    sns.swarmplot(data=df_long, x="seq_id", y="value")
+    sns.stripplot(data=df_long, x="seq_id", y="value")
 
     # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
@@ -265,10 +269,6 @@ def dist_of_likely_reattachments(
             "best_reattachment",
         ],
     )
-    if len(pairwise_df) == 0:
-        print("All taxa have unique reattachment locations.")
-        return 0
-
     # Filter the DataFrame for each marker type
 
     df_marker_o = pairwise_df[pairwise_df["best_reattachment"] == False]
@@ -276,6 +276,11 @@ def dist_of_likely_reattachments(
 
     # Create the plot
     fig, ax = plt.subplots(figsize=(10, 6))
+
+    if len(pairwise_df) == 0:
+        print("All taxa have unique reattachment locations.")
+        plt.savefig(filepath)  # save empty plot to not break snakemake output
+        return 0
 
     # Plot marker 'o'
     sns.stripplot(
@@ -450,15 +455,28 @@ def reattachment_branch_length_swarmplot(
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.05)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 
-# plot log likelihood vs distance of reattachment locations
-likelihood_distance_filepath = os.path.join(
+# plot branch length distance of reattachment locations vs TII, hue = log_likelihood
+# difference
+reattachment_distances_path = os.path.join(
     plots_folder, "dist_of_likely_reattachments.pdf"
 )
 dist_of_likely_reattachments(
     sorted_taxon_tii_list,
     all_taxon_edge_df,
     reattachment_distance_csv,
-    likelihood_distance_filepath,
+    reattachment_distances_path,
+)
+
+# plot topological distance of reattachment locations vs TII, hue = log_likelihood
+# difference
+reattachment_topological_distances_path = os.path.join(
+    plots_folder, "topological_dist_of_likely_reattachments.pdf"
+)
+dist_of_likely_reattachments(
+    sorted_taxon_tii_list,
+    all_taxon_edge_df,
+    reattachment_distance_topological_csv,
+    reattachment_topological_distances_path,
 )
 
 # plot edpl vs TII for each taxon
