@@ -283,17 +283,18 @@ def dist_of_likely_reattachments(
         return 0
 
     # Plot marker 'o'
-    sns.stripplot(
-        data=df_marker_o,
-        x="seq_id",
-        y="distance",
-        hue="ll_diff",
-        palette="viridis",
-        alpha=0.7,
-        marker="o",
-        jitter=True,
-        size=7,
-    )
+    if len(df_marker_o) > 0:
+        sns.stripplot(
+            data=df_marker_o,
+            x="seq_id",
+            y="distance",
+            hue="ll_diff",
+            palette="viridis",
+            alpha=0.7,
+            marker="o",
+            jitter=True,
+            size=7,
+        )
 
     # Plot marker 'X'
     sns.stripplot(
