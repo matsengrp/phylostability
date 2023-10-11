@@ -5,29 +5,13 @@ import os
 from ete3 import Tree
 import numpy as np
 import re
-
-
-taxon_df_csv = snakemake.input.taxon_df_csv
-taxon_edge_df_csv = snakemake.input.taxon_edge_df_csv
-reduced_tree_files = snakemake.input.reduced_trees
-full_tree_file = snakemake.input.full_tree
-mldist_file = snakemake.input.mldist_file
-plots_folder = snakemake.params.plots_folder
-reattachment_distance_csv = snakemake.input.reattachment_distance_csv
-reattachment_distance_topological_csv = (
-    snakemake.input.reattachment_distance_topological_csv
-)
-
-taxon_df = pd.read_csv(taxon_df_csv, index_col=0)
-taxon_df.index.name = "taxon_name"
-
-taxon_tii_list = [
-    (taxon_name, tii) for taxon_name, tii in zip(taxon_df.index, taxon_df["tii"])
-]
-sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
+import pickle
 
 
 def aggregate_taxon_edge_dfs(csv_list):
+    """
+    Aggregate all dataframes in csv_list into one dataframe for plotting.
+    """
     dfs = []
     for csv_file in csv_list:
         taxon_df = pd.read_csv(csv_file)
@@ -83,24 +67,22 @@ def likelihood_swarmplots(sorted_taxon_tii_list, all_taxon_edge_df, filepath):
     all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
     plt.figure(figsize=(10, 6))  # Adjust figure size if needed
     sns.stripplot(data=all_taxon_edge_df, x="seq_id", y="likelihood")
+
     # Add a horizontal line at the maximum likelihood value
     max_likelihood = all_taxon_edge_df["likelihood"].max()
     plt.axhline(y=max_likelihood, color="r")
 
-    # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
     plt.ylabel("Log likelihood")
     plt.title("stripplot of log likelihood vs. taxa sorted by TII")
-
     plt.xticks(
         range(len(sorted_taxon_tii_list)),
         [
             str(pair[0]) + " " + str(pair[1])
             for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
         ],
+        rotation=90,
     )
-    plt.xticks(rotation=90)
-
     plt.tight_layout()
     plt.savefig(filepath)
     plt.clf()
@@ -128,12 +110,9 @@ def seq_distance_swarmplot(distance_filepath, sorted_taxon_tii_list, plot_filepa
     plt.figure(figsize=(10, 6))
     sns.stripplot(data=df_long, x="seq_id", y="value")
 
-    # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
     plt.ylabel("distances")
     plt.title("sequence distances vs. taxa sorted by TII")
-
-    # Set x-axis ticks and labels
     plt.xticks(
         range(len(sorted_taxon_tii_list)),
         [
@@ -148,6 +127,11 @@ def seq_distance_swarmplot(distance_filepath, sorted_taxon_tii_list, plot_filepa
 
 
 def find_reattachment_edge(branchlength_str, seq_id):
+    """
+    Return ID for edge on which seq_id is attached in branchlength_str.
+    This ID is a string containing of the leaf names whose cluster corresponds
+    to one of the end nodes of the edge.
+    """
     pattern = rf"\['(([\w/.]+,)+[\w/.]+)'"
     matches = re.findall(pattern, branchlength_str)
     matches = [m[0] for m in matches]
@@ -159,10 +143,13 @@ def find_reattachment_edge(branchlength_str, seq_id):
             if seq_id in cluster_list:
                 cluster_list.remove(seq_id)
             new_seq_id_clusters.append(",".join(cluster_list))
+        # return smallest cluster containing seq_id, as this must be the one of the
+        # edge on which seq_id is attached
         return min(new_seq_id_clusters, key=lambda s: s.count(","))
     else:
-        # we are looking for biggest cluster because seq_id must be in cherry
-        # if we couldn't find it above -- is this the only exception?
+        # if we haven't found a cluster with sequence_id, then seq_id must be in
+        # the complement of all clusters. In this case we want to return the biggest
+        # cluster
         return max(matches, key=lambda s: s.count(","))
 
 
@@ -170,6 +157,8 @@ def get_reattachment_distances(df, reattachment_distance_csv, seq_id):
     """
     Return dataframe with distances between reattachment locations that are represented
     in df for taxon seq_id.
+    This assumes tha the reattachment locations in df are a subset of those in
+    reattachment_distance_csv.
     """
     filtered_df = df[df["seq_id"] == seq_id]
     reattachment_distances_file = [
@@ -179,13 +168,18 @@ def get_reattachment_distances(df, reattachment_distance_csv, seq_id):
     all_taxa = set(df["seq_id"].unique())
 
     reattachment_edges = []
-    # find identifiers (str of taxon sets) for reattachment edge
+    # find IDs (str of taxon sets) of reattachment edges
     for branchlengths in filtered_df["branchlengths"]:
         reattachment_edges.append(find_reattachment_edge(branchlengths, seq_id))
     reattachment_distances = pd.read_csv(reattachment_distances_file, index_col=0)
     column_names = {}
     for s in reattachment_distances.columns[:-1]:
         column_names[s] = set(s.split(","))
+
+    # because of rooting, the edge IDs in reattachment_distances might be the
+    # complement of the edge IDs we get from find_reattachment_edge()
+    # we save those in replace (dict) and change the identifier in
+    # reattachment_edges
     replace = {}  # save edge identifying strings that need replacement
     for edge_node in reattachment_edges:
         # if cluster of edge_node is not in columns of reattachment_distance,
@@ -223,13 +217,12 @@ def dist_of_likely_reattachments(
     sorted_taxon_tii_list, all_taxon_edge_df, reattachment_distance_csv, filepath
 ):
     """
-    Compute ratio of minimum to maximum distance between most likely reattachment locations,
-    which we assume are the only ones present in all_taxon_edge_df.
-    We plot those values for each taxon, sorted according to increasing TII.
+    Plot distance between all pairs of reattachment locations in all_taxon_edge_df.
+    We plot these distances for each taxon, sorted according to increasing TII, and
+    colour the datapooints by log likelihood difference.
     """
     pairwise_df = []
-    # create DataFrame containing min_dist/max_dist ratio as well as
-    # max difference between all good likelihood values
+    # create DataFrame containing all distances and likelihood
     for i, (seq_id, tii) in enumerate(sorted_taxon_tii_list):
         reattachment_distances = get_reattachment_distances(
             all_taxon_edge_df, reattachment_distance_csv, seq_id
@@ -270,20 +263,19 @@ def dist_of_likely_reattachments(
             "best_reattachment",
         ],
     )
-    # Filter the DataFrame for each marker type
-
+    # Filter the DataFrame for each marker type -- cross for distances to best
+    # reattachment position
     df_marker_o = pairwise_df[pairwise_df["best_reattachment"] == False]
     df_marker_X = pairwise_df[pairwise_df["best_reattachment"] == True]
 
     # Create the plot
     fig, ax = plt.subplots(figsize=(10, 6))
-
     if len(pairwise_df) == 0:
         print("All taxa have unique reattachment locations.")
         plt.savefig(filepath)  # save empty plot to not break snakemake output
         return 0
 
-    # Plot marker 'o'
+    # Plot marker 'o' (only if more than two datapoints)
     if len(df_marker_o) > 0:
         sns.stripplot(
             data=df_marker_o,
@@ -310,7 +302,7 @@ def dist_of_likely_reattachments(
         size=9,
     )
 
-    # Add a colorbar
+    # Add colorbar
     norm = plt.Normalize(pairwise_df["ll_diff"].min(), pairwise_df["ll_diff"].max())
     sm = plt.cm.ScalarMappable(cmap="viridis", norm=norm)
     sm.set_array([])
@@ -323,23 +315,22 @@ def dist_of_likely_reattachments(
     plt.title("Distance between optimal reattachment locations")
     plt.xticks(rotation=90)
     plt.tight_layout()
-
-    # Save or display the plot
     plt.savefig(filepath)
     plt.clf()
 
 
-def bootstrap_and_bts_plot(
+def get_bootstrap_and_bts_scores(
     reduced_tree_files,
     full_tree_file,
     sorted_taxon_tii_list,
-    bootstrap_plot_filepath,
-    bts_plot_filepath,
+    test=False,
 ):
     """
     For each taxon, plot the bootstrap support of nodes in the tree inferred on
     the reduced alignment sorted according to increasing TII.
     Additionally, calculate and plot branch taxon support values.
+    If test==True, we save the pickled bts_score DataFrame in "test_data/bts_df.p"
+    to then be able to use it for testing.
     """
     bootstrap_df = []
 
@@ -348,7 +339,8 @@ def bootstrap_and_bts_plot(
 
     num_leaves = len(full_tree)
 
-    # initialise branch score dict with sets of leaves representing edges
+    # initialise branch score dict with sets of leaves representing edges of
+    # full_tree
     branch_scores = {}
     all_taxa = full_tree.get_leaf_names()
     for node in full_tree.traverse("postorder"):
@@ -360,11 +352,8 @@ def bootstrap_and_bts_plot(
                 for child in node.children:
                     if child.is_leaf():
                         s += 1
-                # add 0 for branch score + normalising constant (dependent
-                # on number of leaves that are children of lower node of
-                # edge, see TII paper)
-                branch_scores[",".join(sorted_leaves)] = [0, num_leaves - s]
-                print(len(sorted_leaves))
+                # add 0 for branch score
+                branch_scores[",".join(sorted_leaves)] = 0
 
     for treefile in reduced_tree_files:
         with open(treefile, "r") as f:
@@ -380,31 +369,58 @@ def bootstrap_and_bts_plot(
                 leaf_list = node.get_leaf_names()
                 leaf_str = ",".join(sorted(leaf_list))
                 if leaf_str in branch_scores:
-                    branch_scores[leaf_str][0] += 1
+                    branch_scores[leaf_str] += 1
                     continue
                 leaf_str_extended = ",".join(sorted(leaf_list + [seq_id]))
                 if leaf_str_extended in branch_scores:
-                    branch_scores[leaf_str_extended][0] += 1
+                    branch_scores[leaf_str_extended] += 1
                     continue
                 # edge ID might be complement of leaf set
+                # this could happen if rooting of tree is different to that of full_tree
                 complement_leaves = list(
                     set(all_taxa) - set(node.get_leaf_names()) - set(seq_id)
                 )
+                # ignore node if it represents leaf
+                if len(complement_leaves) == 1:
+                    continue
                 leaf_str = ",".join(complement_leaves)
                 if leaf_str in branch_scores:
-                    branch_scores[leaf_str][0] += 1
+                    branch_scores[leaf_str] += 1
                     continue
                 leaf_str_extended = ",".join(complement_leaves + [seq_id])
                 if leaf_str_extended in branch_scores:
-                    branch_scores[leaf_str_extended][0] += 1
-
+                    branch_scores[leaf_str_extended] += 1
+    # normalise BTS
+    # Divide by num_leaves - 2 if edge es incident to cherry, as it cannot be present in
+    # either of the two trees where one of those cherry leaves is pruned
     for branch_score in branch_scores:
-        branch_scores[branch_score][0] *= (
-            100 / branch_scores[branch_score][1]
-        )  # normalise bts
-    branch_scores_df = pd.DataFrame(
-        branch_scores, index=["bts", "normalising constant"]
-    ).transpose()
+        if branch_score.count(",") == 1 or branch_score.count(",") == num_leaves - 3:
+            branch_scores[branch_score] *= int(100 / (num_leaves - 2))  # normalise bts
+        else:
+            branch_scores[branch_score] *= int(100 / num_leaves)
+    branch_scores_df = pd.DataFrame(branch_scores, index=["bts"]).transpose()
+
+    bootstrap_df = pd.DataFrame(
+        bootstrap_df, columns=["seq_id", "bootstrap_support", "tii"]
+    )
+    bootstrap_df = bootstrap_df.sort_values("tii")
+
+    if test == True:
+        with open("test_data/bts_df.p", "wb") as f:
+            pickle.dump(branch_scores_df, file=f)
+    return branch_scores_df, bootstrap_df
+
+
+def bootstrap_and_bts_plot(
+    reduced_tree_files,
+    full_tree_file,
+    sorted_taxon_tii_list,
+    bts_plot_filepath,
+    bootstrap_plot_filepath,
+):
+    branch_scores_df, bootstrap_df = get_bootstrap_and_bts_scores(
+        reduced_tree_files, full_tree_file, sorted_taxon_tii_list, test=False
+    )
 
     # plot BTS values
     sns.swarmplot(data=branch_scores_df, x="bts")
@@ -412,12 +428,6 @@ def bootstrap_and_bts_plot(
     plt.tight_layout()
     plt.savefig(bts_plot_filepath)
     plt.clf()
-
-    # plot bootstrap values vs TII
-    bootstrap_df = pd.DataFrame(
-        bootstrap_df, columns=["seq_id", "bootstrap_support", "tii"]
-    )
-    bootstrap_df = bootstrap_df.sort_values("tii")
 
     plt.figure(figsize=(10, 6))  # Adjust figure size if needed
     sns.stripplot(data=bootstrap_df, x="seq_id", y="bootstrap_support")
@@ -523,6 +533,26 @@ def reattachment_branch_length_swarmplot(
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
+
+
+taxon_df_csv = snakemake.input.taxon_df_csv
+taxon_edge_df_csv = snakemake.input.taxon_edge_df_csv
+reduced_tree_files = snakemake.input.reduced_trees
+full_tree_file = snakemake.input.full_tree
+mldist_file = snakemake.input.mldist_file
+plots_folder = snakemake.params.plots_folder
+reattachment_distance_csv = snakemake.input.reattachment_distance_csv
+reattachment_distance_topological_csv = (
+    snakemake.input.reattachment_distance_topological_csv
+)
+
+taxon_df = pd.read_csv(taxon_df_csv, index_col=0)
+taxon_df.index.name = "taxon_name"
+
+taxon_tii_list = [
+    (taxon_name, tii) for taxon_name, tii in zip(taxon_df.index, taxon_df["tii"])
+]
+sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 
 
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.05)
