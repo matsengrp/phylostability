@@ -326,9 +326,10 @@ def get_bootstrap_and_bts_scores(
     test=False,
 ):
     """
-    For each taxon, plot the bootstrap support of nodes in the tree inferred on
-    the reduced alignment sorted according to increasing TII.
-    Additionally, calculate and plot branch taxon support values.
+    Returns three DataFrames:
+    (i) branch_score_df containing bts values for all edges in tree in full_tree_file
+    (ii) bootstrap_df: bootstrap support by seq_id for reduced trees (without seq_id)
+    (iii) full_tree_bootstrap_df: bootstrap support for tree in full_tree_file
     If test==True, we save the pickled bts_score DataFrame in "test_data/bts_df.p"
     to then be able to use it for testing.
     """
@@ -343,9 +344,12 @@ def get_bootstrap_and_bts_scores(
     # full_tree
     branch_scores = {}
     all_taxa = full_tree.get_leaf_names()
+    full_tree_bootstrap = []
     for node in full_tree.traverse("postorder"):
         if not node.is_leaf() and not node.is_root():
             sorted_leaves = sorted(node.get_leaf_names())
+            leaf_str = ",".join(sorted_leaves)
+            full_tree_bootstrap.append([leaf_str, node.support])
             # ignore pendant edges
             if len(sorted_leaves) < len(all_taxa) - 1:
                 s = 0
@@ -354,6 +358,9 @@ def get_bootstrap_and_bts_scores(
                         s += 1
                 # add 0 for branch score
                 branch_scores[",".join(sorted_leaves)] = 0
+    full_tree_bootstrap_df = pd.DataFrame(
+        full_tree_bootstrap, columns=["edge_id", "bootstrap_support"]
+    )
 
     for treefile in reduced_tree_files:
         with open(treefile, "r") as f:
@@ -363,6 +370,7 @@ def get_bootstrap_and_bts_scores(
 
         for node in tree.traverse("postorder"):
             if not node.is_leaf() and not node.is_root():
+                # add bootstrap support values for seq_id
                 bootstrap_df.append([seq_id, node.support, tii])
                 # +1 branch_score if leaf set or its complement are branch ID
                 # in branch_scores
@@ -408,7 +416,7 @@ def get_bootstrap_and_bts_scores(
     if test == True:
         with open("test_data/bts_df.p", "wb") as f:
             pickle.dump(branch_scores_df, file=f)
-    return branch_scores_df, bootstrap_df
+    return branch_scores_df, bootstrap_df, full_tree_bootstrap_df
 
 
 def bootstrap_and_bts_plot(
@@ -418,7 +426,11 @@ def bootstrap_and_bts_plot(
     bts_plot_filepath,
     bootstrap_plot_filepath,
 ):
-    branch_scores_df, bootstrap_df = get_bootstrap_and_bts_scores(
+    (
+        branch_scores_df,
+        bootstrap_df,
+        full_tree_bootstrap_df,
+    ) = get_bootstrap_and_bts_scores(
         reduced_tree_files, full_tree_file, sorted_taxon_tii_list, test=False
     )
 
