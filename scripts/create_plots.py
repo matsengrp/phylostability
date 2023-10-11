@@ -344,12 +344,12 @@ def get_bootstrap_and_bts_scores(
     # full_tree
     branch_scores = {}
     all_taxa = full_tree.get_leaf_names()
-    full_tree_bootstrap = []
+    full_tree_bootstrap = {}
     for node in full_tree.traverse("postorder"):
         if not node.is_leaf() and not node.is_root():
             sorted_leaves = sorted(node.get_leaf_names())
             leaf_str = ",".join(sorted_leaves)
-            full_tree_bootstrap.append([leaf_str, node.support])
+            full_tree_bootstrap[leaf_str] = node.support
             # ignore pendant edges
             if len(sorted_leaves) < len(all_taxa) - 1:
                 s = 0
@@ -359,8 +359,8 @@ def get_bootstrap_and_bts_scores(
                 # add 0 for branch score
                 branch_scores[",".join(sorted_leaves)] = 0
     full_tree_bootstrap_df = pd.DataFrame(
-        full_tree_bootstrap, columns=["edge_id", "bootstrap_support"]
-    )
+        full_tree_bootstrap, index=["bootstrap_support"]
+    ).transpose()
 
     for treefile in reduced_tree_files:
         with open(treefile, "r") as f:
@@ -425,6 +425,7 @@ def bootstrap_and_bts_plot(
     sorted_taxon_tii_list,
     bts_plot_filepath,
     bootstrap_plot_filepath,
+    bts_vs_bootstrap_path,
 ):
     (
         branch_scores_df,
@@ -441,22 +442,39 @@ def bootstrap_and_bts_plot(
     plt.savefig(bts_plot_filepath)
     plt.clf()
 
-    plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-    sns.stripplot(data=bootstrap_df, x="seq_id", y="bootstrap_support")
+    # plot BTS vs bootstrap values
+    # sort both dataframes so we plot corresponding values correctly
+    branch_scores_df = branch_scores_df.sort_values(
+        by=list(branch_scores_df.columns)
+    ).reset_index(drop=True)
+    full_tree_bootstrap_df = full_tree_bootstrap_df.sort_values(
+        by=list(full_tree_bootstrap_df.columns)
+    ).reset_index(drop=True)
+    merged_df = pd.concat([branch_scores_df, full_tree_bootstrap_df], axis=1)
+    sns.scatterplot(data=merged_df, x="bootstrap_support", y="bts")
+    plt.title("BTS vs Bootstrap Support")
+    plt.xlabel("bootstrap support in full tree")
+    plt.ylabel("branch taxon score (bts)")
+    plt.tight_layout()
+    plt.savefig(bts_vs_bootstrap_path)
+    plt.clf()
 
     # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
     plt.ylabel("bootstrap support")
     plt.title("stripplot of bootstrap support vs. taxa sorted by TII")
 
+    # plot bootstrap support of reduced alignments vs tii
+    plt.figure(figsize=(10, 6))  # Adjust figure size if needed
+    sns.stripplot(data=bootstrap_df, x="seq_id", y="bootstrap_support")
     plt.xticks(
         range(len(sorted_taxon_tii_list)),
         [
             str(pair[0]) + " " + str(pair[1])
             for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
         ],
+        rotation=90,
     )
-    plt.xticks(rotation=90)
 
     plt.tight_layout()
     plt.savefig(bootstrap_plot_filepath)
@@ -613,12 +631,14 @@ seq_distance_swarmplot(
 # swarmplot bootstrap support reduced tree for each taxon, sort by TII
 bootstrap_plot_filepath = os.path.join(plots_folder, "bootstrap_vs_tii.pdf")
 bts_plot_filepath = os.path.join(plots_folder, "bts_scores.pdf")
+bts_vs_bootstrap_path = os.path.join(plots_folder, "bts_vs_bootstrap.pdf")
 bootstrap_and_bts_plot(
     reduced_tree_files,
     full_tree_file,
     sorted_taxon_tii_list,
     bootstrap_plot_filepath,
     bts_plot_filepath,
+    bts_vs_bootstrap_path,
 )
 
 taxon_height_plot_filepath = os.path.join(plots_folder, "taxon_height_vs_tii.pdf")
