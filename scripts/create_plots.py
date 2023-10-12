@@ -688,6 +688,78 @@ def seq_distance_differences_swarmplot(
     plt.clf()
 
 
+def mldist_plots(
+    mldist_file, sorted_taxon_tii_list, plot_filepath, closest_taxa_plot_filepath
+):
+    mldist = pd.read_table(
+        mldist_file, skiprows=[0], header=None, delim_whitespace=True, index_col=0
+    )
+    mldist.columns = mldist.index
+    df = []
+    for seq_id in [l[0] for l in sorted_taxon_tii_list]:
+        other_seqs = mldist.columns.to_list()
+        other_seqs.remove(seq_id)
+        for i in other_seqs:
+            for j in other_seqs:
+                if i != j:
+                    df.append(
+                        [
+                            seq_id,
+                            i,
+                            j,
+                            mldist[i][j] / (mldist[i][seq_id] + mldist[j][seq_id]),
+                        ]
+                    )
+    df = pd.DataFrame(df, columns=["seq_id", "t1", "t2", "distance_ratio"])
+
+    # Sort the dataframe by 'seq_id'
+    sorted_names = [x[0] for x in sorted_taxon_tii_list]
+    sorted_tii_values = [x[1] for x in sorted_taxon_tii_list]
+    df["seq_id"] = pd.Categorical(df["seq_id"], categories=sorted_names, ordered=True)
+    df = df.sort_values("seq_id").reset_index(drop=True)
+
+    sns.stripplot(data=df[df["distance_ratio"] > 1], x="seq_id", y="distance_ratio")
+    plt.xlabel("taxa (sorted by TII)")
+    plt.ylabel("ratio of tree distance to sum of sequence distance for this taxon")
+    plt.title("sequence distances ratios vs. taxa sorted by TII")
+    plt.xticks(
+        range(len(sorted_names)),
+        [
+            str(pair[0]) + " " + str(pair[1])
+            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+        rotation=90,
+    )
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+    # check if seq_id is so closer to i that its previously closest taxon j
+    # now gets pushed over to another taxon m
+    ratios = {}
+    for seq_id in mldist.index:
+        i = mldist.loc[seq_id].drop(seq_id).idxmin()
+        j = mldist.loc[i].drop([seq_id, i]).idxmin()
+        m = mldist.loc[j].drop([seq_id, i, j]).idxmin()
+        ratio = mldist.loc[j, m] / (mldist.loc[seq_id, j] + mldist.loc[i, j] / 2)
+        ratios[seq_id] = ratio
+
+    ratios_series = pd.Series(ratios)
+    ratios_series = ratios_series[sorted_names]
+
+    # Plotting
+    ratios_series.plot(kind="bar", figsize=(10, 6))
+    plt.ylabel("Computed Ratio")
+    plt.title("Ratio for each seq_id")
+    tick_labels = [
+        f"{name} ({tii})" for name, tii in zip(sorted_names, sorted_tii_values)
+    ]
+    plt.xticks(range(len(tick_labels)), tick_labels, rotation=45, ha="right")
+
+    plt.tight_layout()
+    plt.savefig(closest_taxa_plot_filepath)
+
+
 taxon_df_csv = snakemake.input.taxon_df_csv
 taxon_edge_df_csv = snakemake.input.taxon_edge_df_csv
 reduced_tree_files = snakemake.input.reduced_trees
@@ -710,6 +782,18 @@ sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.05)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
+
+mldist_plot_filepath = os.path.join(plots_folder, "mldist_ratio.pdf")
+mldist_closest_taxa_plot_filepath = os.path.join(
+    plots_folder, "mldist_closest_taxa_comparisons.pdf"
+)
+mldist_plots(
+    mldist_file,
+    sorted_taxon_tii_list,
+    mldist_plot_filepath,
+    mldist_closest_taxa_plot_filepath,
+)
+
 
 # plot branch length distance of reattachment locations vs TII, hue = log_likelihood
 # difference
