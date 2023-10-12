@@ -636,8 +636,8 @@ bootstrap_and_bts_plot(
     reduced_tree_files,
     full_tree_file,
     sorted_taxon_tii_list,
-    bootstrap_plot_filepath,
     bts_plot_filepath,
+    bootstrap_plot_filepath,
     bts_vs_bootstrap_path,
 )
 
