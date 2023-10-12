@@ -8,6 +8,31 @@ import re
 import pickle
 
 
+def ete_dist(node1, node2, topology_only=False):
+    # if one of the nodes is a leaf and child of the other one, we need to add one
+    # to their distance because get_distance() returns number of nodes between
+    # given nodes. E.g. if node1 and node2 are connected by edge, this would be
+    # distance 0, but it should be 1
+    add_to_dist = 0
+    if node2 in node1.get_ancestors():
+        leaf = node1.get_leaves()[0]
+        if node1 == leaf and topology_only == True:
+            add_to_dist = 1
+        return (
+            node2.get_distance(leaf, topology_only=topology_only)
+            - node1.get_distance(leaf, topology_only=topology_only)
+            + add_to_dist
+        )
+    else:
+        leaf = node2.get_leaves()[0]
+        if node2 == leaf and topology_only == True and node1 in node2.get_ancestors():
+            add_to_dist = 1
+        return (
+            node1.get_distance(leaf, topology_only=topology_only)
+            - node2.get_distance(leaf, topology_only=topology_only)
+            + add_to_dist
+        )
+
 def aggregate_taxon_edge_dfs(csv_list):
     """
     Aggregate all dataframes in csv_list into one dataframe for plotting.
@@ -568,6 +593,58 @@ def reattachment_branch_length_swarmplot(
     plt.savefig(plot_filepath)
     plt.clf()
 
+def seq_distance_differences_swarmplot(distance_filepath, ete_filepath, sorted_taxon_tii_list, plot_filepath):
+    """
+    For each taxon, plot the ratio of the sequence distance (from iqtree .mldist file) to the
+    topological distance as swarmplot, sorted according to increasing TII
+    """
+    ml_distances = pd.read_table(
+        distance_filepath, skiprows=[0], header=None, delim_whitespace=True, index_col=0
+    )
+    np.fill_diagonal(ml_distances.values, np.nan)
+    ml_distances = pd.DataFrame(ml_distances).rename(columns={i+1:x for i, x in enumerate(ml_distances.index)})
+
+    with open(ete_filepath, "r") as f:
+       whole_tree = Tree(f.readlines()[0].strip())
+    tp_distances = pd.DataFrame({
+            seq_id: [ete_dist(whole_tree & seq_id, whole_tree & other_seq, topology_only=True) \
+                     for other_seq in ml_distances.index] \
+            for seq_id in ml_distances.index}, \
+    ).transpose().rename(columns={i:x for i, x in enumerate(ml_distances.index)})
+
+    distances = pd.DataFrame([ml_distances[seq_id].divide(tp_distances[seq_id]) for seq_id in tp_distances.columns])
+
+    # Add seq_id as a column
+    distances["seq_id"] = ml_distances.index
+
+    # Reshape the DataFrame into long format
+    df_long = pd.melt(
+        distances, id_vars=["seq_id"], var_name="variable", value_name="value"
+    )
+
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    sns.stripplot(data=df_long, x="seq_id", y="value")
+
+    # Set labels and title
+    plt.xlabel("taxa (sorted by TII)")
+    plt.ylabel("ratio of computed and topological distances")
+    plt.title("sequence distances ratios vs. taxa sorted by TII")
+
+    # Set x-axis ticks and labels
+    plt.xticks(
+        range(len(sorted_taxon_tii_list)),
+        [
+            str(pair[0]) + " " + str(pair[1])
+            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+        rotation=90,
+    )
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 
 taxon_df_csv = snakemake.input.taxon_df_csv
 taxon_edge_df_csv = snakemake.input.taxon_edge_df_csv
@@ -656,3 +733,8 @@ reattachment_branch_length_plot_filepath = os.path.join(
 reattachment_branch_length_swarmplot(
     all_taxon_edge_df, sorted_taxon_tii_list, reattachment_branch_length_plot_filepath
 )
+
+seq_dist_difference_plot_filepath = os.path.join(
+    plots_folder, "sequence_distance_differences.pdf"
+)
+seq_distance_differences_swarmplot(mldist_file, full_tree_file, sorted_taxon_tii_list, seq_dist_difference_plot_filepath)
