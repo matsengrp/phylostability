@@ -33,6 +33,7 @@ def ete_dist(node1, node2, topology_only=False):
             + add_to_dist
         )
 
+
 def aggregate_taxon_edge_dfs(csv_list):
     """
     Aggregate all dataframes in csv_list into one dataframe for plotting.
@@ -480,18 +481,36 @@ def bootstrap_and_bts_plot(
         by=list(full_tree_bootstrap_df.columns)
     ).reset_index(drop=True)
     merged_df = pd.concat([branch_scores_df, full_tree_bootstrap_df], axis=1)
-    sns.scatterplot(data=merged_df, x="bootstrap_support", y="bts")
+
+    # Compute the 2D histogram
+    hist, xedges, yedges = np.histogram2d(
+        merged_df["bootstrap_support"], merged_df["bts"], bins=50
+    )
+
+    # Use the histogram values to assign each data point a density value
+    xidx = np.clip(
+        np.digitize(merged_df["bootstrap_support"], xedges), 0, hist.shape[0] - 1
+    )
+    yidx = np.clip(np.digitize(merged_df["bts"], yedges), 0, hist.shape[1] - 1)
+    merged_df["density"] = hist[xidx, yidx]
+
+    # Create the scatter plot with colors based on density and a logarithmic scale
+    plt.scatter(
+        merged_df["bootstrap_support"],
+        merged_df["bts"],
+        c=merged_df["density"],
+        cmap="RdBu_r",
+    )
+
+    cb = plt.colorbar(label="density")
+
+    # Set other plot properties
     plt.title("BTS vs Bootstrap Support")
     plt.xlabel("bootstrap support in full tree")
     plt.ylabel("branch taxon score (bts)")
     plt.tight_layout()
     plt.savefig(bts_vs_bootstrap_path)
     plt.clf()
-
-    # Set labels and title
-    plt.xlabel("taxa (sorted by TII)")
-    plt.ylabel("bootstrap support")
-    plt.title("stripplot of bootstrap support vs. taxa sorted by TII")
 
     # plot bootstrap support of reduced alignments vs tii
     plt.figure(figsize=(10, 6))  # Adjust figure size if needed
@@ -505,6 +524,10 @@ def bootstrap_and_bts_plot(
         rotation=90,
     )
 
+    # Set labels and title
+    plt.xlabel("taxa (sorted by TII)")
+    plt.ylabel("bootstrap support")
+    plt.title("stripplot of bootstrap support vs. taxa sorted by TII")
     plt.tight_layout()
     plt.savefig(bootstrap_plot_filepath)
     plt.clf()
@@ -593,7 +616,10 @@ def reattachment_branch_length_swarmplot(
     plt.savefig(plot_filepath)
     plt.clf()
 
-def seq_distance_differences_swarmplot(distance_filepath, ete_filepath, sorted_taxon_tii_list, plot_filepath):
+
+def seq_distance_differences_swarmplot(
+    distance_filepath, ete_filepath, sorted_taxon_tii_list, plot_filepath
+):
     """
     For each taxon, plot the ratio of the sequence distance (from iqtree .mldist file) to the
     topological distance as swarmplot, sorted according to increasing TII
@@ -602,17 +628,34 @@ def seq_distance_differences_swarmplot(distance_filepath, ete_filepath, sorted_t
         distance_filepath, skiprows=[0], header=None, delim_whitespace=True, index_col=0
     )
     np.fill_diagonal(ml_distances.values, np.nan)
-    ml_distances = pd.DataFrame(ml_distances).rename(columns={i+1:x for i, x in enumerate(ml_distances.index)})
+    ml_distances = pd.DataFrame(ml_distances).rename(
+        columns={i + 1: x for i, x in enumerate(ml_distances.index)}
+    )
 
     with open(ete_filepath, "r") as f:
-       whole_tree = Tree(f.readlines()[0].strip())
-    tp_distances = pd.DataFrame({
-            seq_id: [ete_dist(whole_tree & seq_id, whole_tree & other_seq, topology_only=True) \
-                     for other_seq in ml_distances.index] \
-            for seq_id in ml_distances.index}, \
-    ).transpose().rename(columns={i:x for i, x in enumerate(ml_distances.index)})
+        whole_tree = Tree(f.readlines()[0].strip())
+    tp_distances = (
+        pd.DataFrame(
+            {
+                seq_id: [
+                    ete_dist(
+                        whole_tree & seq_id, whole_tree & other_seq, topology_only=True
+                    )
+                    for other_seq in ml_distances.index
+                ]
+                for seq_id in ml_distances.index
+            },
+        )
+        .transpose()
+        .rename(columns={i: x for i, x in enumerate(ml_distances.index)})
+    )
 
-    distances = pd.DataFrame([ml_distances[seq_id].divide(tp_distances[seq_id]) for seq_id in tp_distances.columns])
+    distances = pd.DataFrame(
+        [
+            ml_distances[seq_id].divide(tp_distances[seq_id])
+            for seq_id in tp_distances.columns
+        ]
+    )
 
     # Add seq_id as a column
     distances["seq_id"] = ml_distances.index
@@ -643,7 +686,6 @@ def seq_distance_differences_swarmplot(distance_filepath, ete_filepath, sorted_t
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
-
 
 
 taxon_df_csv = snakemake.input.taxon_df_csv
@@ -737,4 +779,9 @@ reattachment_branch_length_swarmplot(
 seq_dist_difference_plot_filepath = os.path.join(
     plots_folder, "sequence_distance_differences.pdf"
 )
-seq_distance_differences_swarmplot(mldist_file, full_tree_file, sorted_taxon_tii_list, seq_dist_difference_plot_filepath)
+seq_distance_differences_swarmplot(
+    mldist_file,
+    full_tree_file,
+    sorted_taxon_tii_list,
+    seq_dist_difference_plot_filepath,
+)
