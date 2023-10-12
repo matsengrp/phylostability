@@ -546,19 +546,33 @@ def taxon_height_swarmplot(all_taxon_edge_df, sorted_taxon_tii_list, plot_filepa
         ordered=True,
     )
     all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
-    plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-    ax = sns.stripplot(
-        data=all_taxon_edge_df,
-        x="seq_id",
-        y="taxon_height",
-        hue="likelihood",
+
+    plt.figure(figsize=(10, 6))
+    # We'll use a scatter plot to enable the use of a colormap
+    norm = plt.Normalize(
+        all_taxon_edge_df["likelihood"].min(), all_taxon_edge_df["likelihood"].max()
     )
+    sm = plt.cm.ScalarMappable(cmap="viridis", norm=norm)
+    sm.set_array([])
+
+    for i, taxon in enumerate(all_taxon_edge_df["seq_id"].cat.categories):
+        subset = all_taxon_edge_df[all_taxon_edge_df["seq_id"] == taxon]
+        plt.scatter(
+            [i] * subset.shape[0],
+            subset["taxon_height"],
+            c=subset["likelihood"],
+            cmap="viridis",
+            edgecolors="black",
+            linewidth=0.5,
+        )
+
+    cbar = plt.colorbar(sm)
+    cbar.set_label("log likelihood")
 
     # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
     plt.ylabel("reattachment height")
     plt.title("stripplot of reattachment height vs. taxa sorted by TII")
-    ax.legend(loc="center left", bbox_to_anchor=(1, 0.5), title="log likelihood")
 
     plt.xticks(
         range(len(sorted_taxon_tii_list)),
@@ -578,7 +592,7 @@ def reattachment_branch_length_swarmplot(
     all_taxon_edge_df, sorted_taxon_tii_list, plot_filepath
 ):
     """
-    For each taxon, plot the height of the reattachment for all possible reattachment
+    For each taxon, plot the reattachment branch length for all possible reattachment
     edges as a swarmplot vs its TII values
     """
     all_taxon_edge_df["seq_id"] = pd.Categorical(
@@ -589,19 +603,34 @@ def reattachment_branch_length_swarmplot(
         ordered=True,
     )
     all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
+
     plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-    ax = sns.stripplot(
-        data=all_taxon_edge_df,
-        x="seq_id",
-        y="reattachment_branch_length",
-        hue="likelihood",
+
+    # We'll use a scatter plot to enable the use of a colormap
+    norm = plt.Normalize(
+        all_taxon_edge_df["likelihood"].min(), all_taxon_edge_df["likelihood"].max()
     )
+    sm = plt.cm.ScalarMappable(cmap="viridis", norm=norm)
+    sm.set_array([])
+
+    for i, taxon in enumerate(all_taxon_edge_df["seq_id"].cat.categories):
+        subset = all_taxon_edge_df[all_taxon_edge_df["seq_id"] == taxon]
+        plt.scatter(
+            [i] * subset.shape[0],
+            subset["reattachment_branch_length"],
+            c=subset["likelihood"],
+            cmap="viridis",
+            edgecolors="black",
+            linewidth=0.5,
+        )
+
+    cbar = plt.colorbar(sm)
+    cbar.set_label("log likelihood")
 
     # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
     plt.ylabel("reattachment branch length")
     plt.title("stripplot of reattachment branch length vs. taxa sorted by TII")
-    ax.legend(loc="center left", bbox_to_anchor=(1, 0.5), title="log likelihood")
 
     plt.xticks(
         range(len(sorted_taxon_tii_list)),
