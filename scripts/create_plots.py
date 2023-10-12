@@ -372,16 +372,20 @@ def get_bootstrap_and_bts_scores(
             if not node.is_leaf() and not node.is_root():
                 # add bootstrap support values for seq_id
                 bootstrap_df.append([seq_id, node.support, tii])
-                # +1 branch_score if leaf set or its complement are branch ID
-                # in branch_scores
+                # one edge in the full tree could correspond to two edges in the
+                # reduced tree (leaf_str and leaf_str_extended below), if the pruned
+                # taxon is attached on that edge. We hence need to add one for each of
+                # those, if they are in branch_scores.
+                edge_found = False
                 leaf_list = node.get_leaf_names()
                 leaf_str = ",".join(sorted(leaf_list))
                 if leaf_str in branch_scores:
                     branch_scores[leaf_str] += 1
-                    continue
+                    edge_found = True
                 leaf_str_extended = ",".join(sorted(leaf_list + [seq_id]))
                 if leaf_str_extended in branch_scores:
                     branch_scores[leaf_str_extended] += 1
+                if edge_found:
                     continue
                 # edge ID might be complement of leaf set
                 # this could happen if rooting of tree is different to that of full_tree
@@ -394,7 +398,6 @@ def get_bootstrap_and_bts_scores(
                 leaf_str = ",".join(complement_leaves)
                 if leaf_str in branch_scores:
                     branch_scores[leaf_str] += 1
-                    continue
                 leaf_str_extended = ",".join(complement_leaves + [seq_id])
                 if leaf_str_extended in branch_scores:
                     branch_scores[leaf_str_extended] += 1
@@ -403,9 +406,10 @@ def get_bootstrap_and_bts_scores(
     # either of the two trees where one of those cherry leaves is pruned
     for branch_score in branch_scores:
         if branch_score.count(",") == 1 or branch_score.count(",") == num_leaves - 3:
-            branch_scores[branch_score] *= int(100 / (num_leaves - 2))  # normalise bts
+            branch_scores[branch_score] *= 100 / (num_leaves - 2)  # normalise bts
         else:
-            branch_scores[branch_score] *= int(100 / num_leaves)
+            branch_scores[branch_score] *= 100 / num_leaves
+        branch_scores[branch_score] = int(branch_scores[branch_score])
     branch_scores_df = pd.DataFrame(branch_scores, index=["bts"]).transpose()
 
     bootstrap_df = pd.DataFrame(
@@ -432,7 +436,7 @@ def bootstrap_and_bts_plot(
         bootstrap_df,
         full_tree_bootstrap_df,
     ) = get_bootstrap_and_bts_scores(
-        reduced_tree_files, full_tree_file, sorted_taxon_tii_list, test=False
+        reduced_tree_files, full_tree_file, sorted_taxon_tii_list, test=True
     )
 
     # plot BTS values
