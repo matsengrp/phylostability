@@ -80,7 +80,10 @@ for i, tree_file in enumerate(tree_files):
 
 df = pd.DataFrame(df).transpose()
 df.columns = ["branchlengths", "taxon_height", "likelihood", "rf_distance", "reattachment_branch_length"]
-df["seq_id"] = df.index.to_series().str.split("_").str[0]
+seq_id = df.index.to_list()[0]
+suffix = seq_id.split("_")[-1]
+seq_id = seq_id[:-len(suffix)-1]
+df["seq_id"] = seq_id
 df["likelihood_ratio"] = df.likelihood / (
     df.likelihood.sum() if df.likelihood.sum() != 0 else 1
 )
