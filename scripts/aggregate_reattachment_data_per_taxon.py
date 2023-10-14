@@ -137,7 +137,7 @@ with open(full_tree_file, "r") as f:
 
 all_taxa_df = {}
 for idx, seq_id in enumerate(seq_ids):
-    tree_files = [x for x in all_tree_files if seq_id in x]
+    tree_files = [x for x in all_tree_files if "/" + seq_id + "/" in x]
     reduced_tree_file = reduced_tree_files[idx]
     reduced_tree_mlfile = reduced_tree_mlfiles[idx]
     df = pd.read_csv(taxon_dfs[idx], index_col=0)
@@ -186,7 +186,7 @@ for idx, seq_id in enumerate(seq_ids):
     reattachment_distances = {}  # save distance matrix of reattachments
     reattachment_topological_distances = {}
     reattachment_dist_file = [
-        csv for csv in reattachment_distances_csv if seq_id in csv
+        csv for csv in reattachment_distances_csv if "/" + seq_id + "/" in csv
     ][0]
     edge_likelihoods = []
     for n1, node_lookup1 in node_lookup_dictionary.items():

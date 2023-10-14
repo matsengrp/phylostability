@@ -188,7 +188,7 @@ def get_reattachment_distances(df, reattachment_distance_csv, seq_id):
     """
     filtered_df = df[df["seq_id"] == seq_id]
     reattachment_distances_file = [
-        csv for csv in reattachment_distance_csv if seq_id in csv
+        csv for csv in reattachment_distance_csv if "/" + seq_id + "/" in csv
     ][0]
 
     all_taxa = set(df["seq_id"].unique())
@@ -807,7 +807,6 @@ taxon_tii_list = [
     (taxon_name, tii) for taxon_name, tii in zip(taxon_df.index, taxon_df["tii"])
 ]
 sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
-
 
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.05)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
