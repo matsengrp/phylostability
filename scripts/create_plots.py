@@ -349,6 +349,7 @@ def get_bootstrap_and_bts_scores(
     reduced_tree_files,
     full_tree_file,
     sorted_taxon_tii_list,
+    all_taxon_edge_df,
     test=False,
 ):
     """
@@ -356,10 +357,13 @@ def get_bootstrap_and_bts_scores(
     (i) branch_score_df containing bts values for all edges in tree in full_tree_file
     (ii) bootstrap_df: bootstrap support by seq_id for reduced trees (without seq_id)
     (iii) full_tree_bootstrap_df: bootstrap support for tree in full_tree_file
+    (iv) local_bootstrap_df: only low bootstrap values for the clade including or below
+    the reattachment position for each seq_id
     If test==True, we save the pickled bts_score DataFrame in "test_data/bts_df.p"
     to then be able to use it for testing.
     """
     bootstrap_df = []
+    local_bootstrap_df = []
 
     with open(full_tree_file, "r") as f:
         full_tree = Tree(f.readlines()[0].strip())
@@ -394,6 +398,55 @@ def get_bootstrap_and_bts_scores(
         seq_id = treefile.split("/")[-2]
         tii = [p[1] for p in sorted_taxon_tii_list if p[0] == seq_id][0]
 
+        # get local boostrap values
+        # find reattachment position with highest likelihood
+        row = all_taxon_edge_df.loc[(all_taxon_edge_df["seq_id"] == seq_id)].nlargest(
+            1, "likelihood"
+        )
+        branchlength_str = row["branchlengths"].iloc()[0]
+        reattachment_edge = find_reattachment_edge(branchlength_str, seq_id)
+        cluster = reattachment_edge.split(",")
+        if len(cluster) > 1:
+            ancestor = tree.get_common_ancestor(cluster)
+        else:
+            ancestor = tree.search_nodes(name=cluster[0])[0].up
+        path_to_reattachment = ancestor.get_ancestors()
+        path_to_reattachment.reverse()
+        path_to_reattachment = path_to_reattachment[1:]  # ignore tree root
+        path_to_reattachment.append(ancestor)
+        # First find the root of the biggest cluster containing seq_id as leaf
+        # and having bootstrap support < 90
+        cluster_root = None
+        for node in path_to_reattachment:
+            if not node.is_root() and node.support < 90:
+                cluster_root = node
+                break
+            else:
+                continue
+
+        # TODO: Now we again get nothing for high TII values. This started after introducin conditional_traverse()
+        # stop traversing below a node if that node has support < threshold
+        def conditional_traverse(node, threshold=90):
+            if node.support <= threshold:
+                yield node
+                for child in node.children:
+                    yield from conditional_traverse(child, threshold)
+
+        # traverse subtree and collect bootstrap support
+        if cluster_root != None:
+            for node in conditional_traverse(cluster_root, threshold=90):
+                if not node.is_leaf():
+                    local_bootstrap_df.append(
+                        [seq_id, node.support, tii, "above_reattachment"]
+                    )
+        else:
+            for node in conditional_traverse(ancestor, threshold=90):
+                if not node.is_leaf() and not node.is_root():
+                    local_bootstrap_df.append(
+                        [seq_id, node.support, tii, "below_reattachment"]
+                    )
+
+        # collect bootstrap support and bts for all nodes in tree
         for node in tree.traverse("postorder"):
             if not node.is_leaf() and not node.is_root():
                 # add bootstrap support values for seq_id
@@ -438,6 +491,11 @@ def get_bootstrap_and_bts_scores(
         branch_scores[branch_score] = int(branch_scores[branch_score])
     branch_scores_df = pd.DataFrame(branch_scores, index=["bts"]).transpose()
 
+    local_bootstrap_df = pd.DataFrame(
+        local_bootstrap_df, columns=["seq_id", "bootstrap_support", "tii", "location"]
+    )
+    local_bootstrap_df = local_bootstrap_df.sort_values("tii")
+
     bootstrap_df = pd.DataFrame(
         bootstrap_df, columns=["seq_id", "bootstrap_support", "tii"]
     )
@@ -446,7 +504,7 @@ def get_bootstrap_and_bts_scores(
     if test == True:
         with open("test_data/bts_df.p", "wb") as f:
             pickle.dump(branch_scores_df, file=f)
-    return branch_scores_df, bootstrap_df, full_tree_bootstrap_df
+    return branch_scores_df, bootstrap_df, full_tree_bootstrap_df, local_bootstrap_df
 
 
 def bootstrap_and_bts_plot(
@@ -455,14 +513,21 @@ def bootstrap_and_bts_plot(
     sorted_taxon_tii_list,
     bts_plot_filepath,
     bootstrap_plot_filepath,
+    local_bootstrap_plot_filepath,
     bts_vs_bootstrap_path,
+    all_taxon_edge_df,
 ):
     (
         branch_scores_df,
         bootstrap_df,
         full_tree_bootstrap_df,
+        local_bootstrap_df,
     ) = get_bootstrap_and_bts_scores(
-        reduced_tree_files, full_tree_file, sorted_taxon_tii_list, test=True
+        reduced_tree_files,
+        full_tree_file,
+        sorted_taxon_tii_list,
+        all_taxon_edge_df,
+        test=True,
     )
 
     # plot BTS values
@@ -510,6 +575,33 @@ def bootstrap_and_bts_plot(
     plt.ylabel("branch taxon score (bts)")
     plt.tight_layout()
     plt.savefig(bts_vs_bootstrap_path)
+    plt.clf()
+
+    # plot for local bootstrap support
+    plt.figure(figsize=(10, 6))
+    # Ensure dataframe respects the order of sorted_taxon_tii_list for 'seq_id'
+    local_bootstrap_df["seq_id"] = pd.Categorical(
+        local_bootstrap_df["seq_id"],
+        categories=[pair[0] for pair in sorted_taxon_tii_list],
+        ordered=True,
+    )
+
+    # Now, you can plot directly:
+    plt.figure(figsize=(10, 6))
+    sns.stripplot(data=local_bootstrap_df, x="seq_id", y="bootstrap_support")
+
+    # X-axis labels: Use the sorted taxon-TII pairs to label the x-ticks
+    plt.xticks(
+        range(len(sorted_taxon_tii_list)),
+        [str(pair[0]) + " " + str(pair[1]) for pair in sorted_taxon_tii_list],
+        rotation=90,
+    )
+
+    plt.xlabel("taxa (sorted by TII)")
+    plt.ylabel("bootstrap support")
+    plt.title("stripplot of bootstrap support vs. taxa sorted by TII")
+    plt.tight_layout()
+    plt.savefig(local_bootstrap_plot_filepath)
     plt.clf()
 
     # plot bootstrap support of reduced alignments vs tii
@@ -865,6 +957,7 @@ seq_distance_swarmplot(
 
 # swarmplot bootstrap support reduced tree for each taxon, sort by TII
 bootstrap_plot_filepath = os.path.join(plots_folder, "bootstrap_vs_tii.pdf")
+local_bootstrap_plot_filepath = os.path.join(plots_folder, "local_bootstrap_vs_tii.pdf")
 bts_plot_filepath = os.path.join(plots_folder, "bts_scores.pdf")
 bts_vs_bootstrap_path = os.path.join(plots_folder, "bts_vs_bootstrap.pdf")
 bootstrap_and_bts_plot(
@@ -873,7 +966,9 @@ bootstrap_and_bts_plot(
     sorted_taxon_tii_list,
     bts_plot_filepath,
     bootstrap_plot_filepath,
+    local_bootstrap_plot_filepath,
     bts_vs_bootstrap_path,
+    all_taxon_edge_df,
 )
 
 taxon_height_plot_filepath = os.path.join(plots_folder, "taxon_height_vs_tii.pdf")
