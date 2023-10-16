@@ -14,6 +14,15 @@ output_file = snakemake.output.output_csv
 reattachment_distances_csv = snakemake.output.reattachment_distance_csv
 
 
+# Function to check if a value is an integer
+def is_integer(value):
+    try:
+        int(value)
+        return True
+    except ValueError:
+        return False
+
+
 def ete_dist(node1, node2, topology_only=False):
     # if one of the nodes is a leaf and child of the other one, we need to add one
     # to their distance because get_distance() returns number of nodes between
@@ -141,6 +150,12 @@ for idx, seq_id in enumerate(seq_ids):
     reduced_tree_file = reduced_tree_files[idx]
     reduced_tree_mlfile = reduced_tree_mlfiles[idx]
     df = pd.read_csv(taxon_dfs[idx], index_col=0)
+
+    # rename rows of df to be seq_id + "_" + edge_index, if necessary
+    df.index = [
+        df.iloc[i, 0] if is_integer(index) else index
+        for i, index in enumerate(df.index)
+    ]
 
     # load tree on reduced taxon set
     with open(reduced_tree_file, "r") as f:
