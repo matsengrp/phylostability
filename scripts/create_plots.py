@@ -47,7 +47,7 @@ def aggregate_taxon_edge_dfs(csv_list):
     return df
 
 
-def aggregate_and_filter_by_likelihood(taxon_edge_csv_list, p):
+def aggregate_and_filter_by_likelihood(taxon_edge_csv_list, p, hard_threshold=3):
     """
     Reads and aggregates taxon_edge_csv_list dataframes for all taxa, while
     also filtering out by likelihood.
@@ -63,8 +63,8 @@ def aggregate_and_filter_by_likelihood(taxon_edge_csv_list, p):
         max_likelihood = taxon_df["likelihood"].max()
         threshold = max_likelihood - p * (max_likelihood - min_likelihood)
         filtered_df = taxon_df[taxon_df["likelihood"] >= threshold]
-        if len(filtered_df) > 3:
-            filtered_df = filtered_df.nlargest(3, "likelihood")
+        if len(filtered_df) > hard_threshold:
+            filtered_df = filtered_df.nlargest(hard_threshold, "likelihood")
         # append to df for all taxa
         dfs.append(filtered_df)
     df = pd.concat(dfs, ignore_index=True)
@@ -892,6 +892,7 @@ reattachment_distance_topological_csv = (
     snakemake.input.reattachment_distance_topological_csv
 )
 
+print("Start reading, aggregating, and filtering data.")
 taxon_df = pd.read_csv(taxon_df_csv, index_col=0)
 taxon_df.index.name = "taxon_name"
 
@@ -900,23 +901,27 @@ taxon_tii_list = [
 ]
 sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 
-all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.05)
+all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 4)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
+print("Done reading data.")
 
-mldist_plot_filepath = os.path.join(plots_folder, "mldist_ratio.pdf")
-mldist_closest_taxa_plot_filepath = os.path.join(
-    plots_folder, "mldist_closest_taxa_comparisons.pdf"
-)
-mldist_plots(
-    mldist_file,
-    sorted_taxon_tii_list,
-    mldist_plot_filepath,
-    mldist_closest_taxa_plot_filepath,
-)
+# print("Start plotting mldists.")
+# mldist_plot_filepath = os.path.join(plots_folder, "mldist_ratio.pdf")
+# mldist_closest_taxa_plot_filepath = os.path.join(
+#     plots_folder, "mldist_closest_taxa_comparisons.pdf"
+# )
+# mldist_plots(
+#     mldist_file,
+#     sorted_taxon_tii_list,
+#     mldist_plot_filepath,
+#     mldist_closest_taxa_plot_filepath,
+# )
+# print("Done plotting mldists.")
 
 
 # plot branch length distance of reattachment locations vs TII, hue = log_likelihood
 # difference
+print("Start plotting reattachment distances.")
 reattachment_distances_path = os.path.join(
     plots_folder, "dist_of_likely_reattachments.pdf"
 )
@@ -926,9 +931,11 @@ dist_of_likely_reattachments(
     reattachment_distance_csv,
     reattachment_distances_path,
 )
+print("Done plotting reattachment distances.")
 
 # plot topological distance of reattachment locations vs TII, hue = log_likelihood
 # difference
+print("Start plotting topological reattachment distances.")
 reattachment_topological_distances_path = os.path.join(
     plots_folder, "topological_dist_of_likely_reattachments.pdf"
 )
@@ -938,24 +945,30 @@ dist_of_likely_reattachments(
     reattachment_distance_topological_csv,
     reattachment_topological_distances_path,
 )
+print("Done plotting topological reattachment distances.")
 
-# plot edpl vs TII for each taxon
-edpl_filepath = os.path.join(plots_folder, "edpl_vs_tii.pdf")
-edpl_vs_tii_scatterplot(taxon_df, edpl_filepath)
+# # plot edpl vs TII for each taxon
+# edpl_filepath = os.path.join(plots_folder, "edpl_vs_tii.pdf")
+# edpl_vs_tii_scatterplot(taxon_df, edpl_filepath)
 
 # swarmplot likelihoods of reattached trees for each taxon, sort by TII
+print("Start plotting likelihoods of reattached trees.")
 ll_filepath = os.path.join(plots_folder, "likelihood_swarmplots.pdf")
 likelihood_swarmplots(sorted_taxon_tii_list, all_taxon_edge_df, ll_filepath)
+print("Done plotting likelihoods of reattached trees.")
 
 # swarmplot sequence distances from mldist files for each taxon, sort by TII
+print("Start plotting MSA sequence distances.")
 seq_distance_filepath = os.path.join(plots_folder, "seq_distance_vs_tii.pdf")
 seq_distance_swarmplot(
     mldist_file,
     sorted_taxon_tii_list,
     seq_distance_filepath,
 )
+print("Done plotting MSA sequence distances.")
 
 # swarmplot bootstrap support reduced tree for each taxon, sort by TII
+print("Start plotting bootstrap and bts.")
 bootstrap_plot_filepath = os.path.join(plots_folder, "bootstrap_vs_tii.pdf")
 local_bootstrap_plot_filepath = os.path.join(plots_folder, "local_bootstrap_vs_tii.pdf")
 bts_plot_filepath = os.path.join(plots_folder, "bts_scores.pdf")
@@ -970,7 +983,9 @@ bootstrap_and_bts_plot(
     bts_vs_bootstrap_path,
     all_taxon_edge_df,
 )
+print("Done plotting bootstrap and bts.")
 
+print("Start plotting reattachment heights.")
 taxon_height_plot_filepath = os.path.join(plots_folder, "taxon_height_vs_tii.pdf")
 taxon_height_swarmplot(
     all_taxon_edge_df, sorted_taxon_tii_list, taxon_height_plot_filepath
@@ -978,11 +993,15 @@ taxon_height_swarmplot(
 reattachment_branch_length_plot_filepath = os.path.join(
     plots_folder, "reattachment_branch_length_vs_tii.pdf"
 )
+print("Done plotting reattachment heights.")
 
+print("Start plotting reattachment branch length.")
 reattachment_branch_length_swarmplot(
     all_taxon_edge_df, sorted_taxon_tii_list, reattachment_branch_length_plot_filepath
 )
+print("Done plotting reattachment branch length.")
 
+print("Start plotting sequence differences.")
 seq_dist_difference_plot_filepath = os.path.join(
     plots_folder, "sequence_distance_differences.pdf"
 )
@@ -992,3 +1011,4 @@ seq_distance_differences_swarmplot(
     sorted_taxon_tii_list,
     seq_dist_difference_plot_filepath,
 )
+print("Done plotting sequence differences.")

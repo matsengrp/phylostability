@@ -23,12 +23,7 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        plots_folder+"edpl_vs_tii.pdf",
-        plots_folder+"likelihood_swarmplots.pdf",
-        plots_folder+"seq_distance_vs_tii.pdf",
-        plots_folder+"bootstrap_vs_tii.pdf",
-        plots_folder+"taxon_height_vs_tii.pdf",
-        plots_folder+"reattachment_branch_length_vs_tii.pdf"
+        "create_plots.done"
 
 # Define the rule to extract the best model for iqtree on the full MSA
 rule model_test_iqtree:
@@ -190,14 +185,18 @@ rule create_plots:
         mldist_file=data_folder+input_alignment+".mldist",
         full_tree=rules.run_iqtree_on_full_dataset.output.tree
     output:
-        plots_folder+"edpl_vs_tii.pdf",
+        temp(touch("create_plots.done")),
+        plots_folder+"dist_of_likely_reattachments.pdf",
+        plots_folder+"topological_dist_of_likely_reattachments.pdf",
         plots_folder+"likelihood_swarmplots.pdf",
         plots_folder+"seq_distance_vs_tii.pdf",
         plots_folder+"bootstrap_vs_tii.pdf",
+        plots_folder+"local_bootstrap_vs_tii.pdf",
+        plots_folder+"bts_scores.pdf",
+        plots_folder+"bts_vs_bootstrap.pdf",
         plots_folder+"taxon_height_vs_tii.pdf",
         plots_folder+"reattachment_branch_length_vs_tii.pdf",
-        plots_folder+"dist_of_likely_reattachments.pdf",
-        plots_folder+"topological_dist_of_likely_reattachments.pdf"
+        plots_folder+"sequence_distance_differences.pdf"
     params:
         plots_folder=plots_folder
     script:
