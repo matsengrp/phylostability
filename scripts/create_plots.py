@@ -6,6 +6,7 @@ from ete3 import Tree
 import numpy as np
 import re
 import pickle
+import math
 
 
 def ete_dist(node1, node2, topology_only=False):
@@ -118,12 +119,146 @@ def get_best_reattached_tree_distances_to_seq_id(
     return distances
 
 
+def get_closest_msa_sequences(seq_id, ml_dist_file, p):
+    """
+    Returns list of p closest sequences in MSA to seq_id.
+    """
+    ml_distances = pd.read_table(
+        ml_dist_file,
+        skiprows=[0],
+        header=None,
+        delim_whitespace=True,
+        index_col=0,
+    )
+    ml_distances.columns = ml_distances.index
+    top_p_rows = ml_distances.nlargest(p, seq_id)
+    row_names = top_p_rows.index.tolist()
+    return row_names
+
+
+def get_seq_dists_to_seq_id(seq_id, ml_dist_file, closest_5=False):
+    """
+    Returns dict of distances of sequences in MSA to seq_id.
+    """
+    ml_distances = pd.read_table(
+        ml_dist_file,
+        skiprows=[0],
+        header=None,
+        delim_whitespace=True,
+        index_col=0,
+    )
+    ml_distances.columns = ml_distances.index
+    d = {}
+    for seq in ml_distances.index:
+        if seq != seq_id:
+            d[seq] = ml_distances[seq_id][seq]
+    # only look at closest 5 sequences to seq_id
+    if closest_5:
+        top_5_items = sorted(d.items(), key=lambda x: x[1], reverse=False)[:5]
+        top_5_dict = dict(top_5_items)
+        return top_5_dict
+    return d
+
+
+def seq_distance_distribution_closest_seq(
+    sorted_taxon_tii_list, ml_dist_file, summary_plot_filepath, separate_plots_filename
+):
+    """
+    For each seq_id, find closest sequence in MSA -> closest_sequence.
+    Plot difference of MSA distances of all sequences to seq_if and MSA distance of all
+    sequences to closest_sequence.
+    """
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        closest_sequence = get_closest_msa_sequences(seq_id, ml_dist_file, 1)[0]
+        dist_to_seq = get_seq_dists_to_seq_id(seq_id, ml_dist_file, closest_5=True)
+        dist_to_closest_seq = get_seq_dists_to_seq_id(closest_sequence, ml_dist_file)
+        for i in dist_to_seq:
+            if i != closest_sequence:
+                df.append(
+                    [
+                        seq_id + " " + str(tii),
+                        closest_sequence,
+                        dist_to_closest_seq[i] - dist_to_seq[i],
+                        dist_to_seq[i],
+                        dist_to_closest_seq[i],
+                    ]
+                )
+    df = pd.DataFrame(
+        df,
+        columns=[
+            "seq_id",
+            "closest_sequence",
+            "distance_difference",
+            "dist_to_seq",
+            "dist_to_closest_seq",
+        ],
+    )
+    sns.stripplot(data=df, x="seq_id", y="distance_difference")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(summary_plot_filepath)
+    plt.clf()
+
+    # plots dist_to_seq vs dist_to_closest_seq for each seq_id separately
+    n = len(sorted_taxon_tii_list)
+    num_rows = math.ceil(math.sqrt(n))
+    num_cols = math.ceil(n / num_rows)
+
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 15))
+    for index, (seq_id, tii) in enumerate(sorted_taxon_tii_list):
+        row = index // num_cols
+        col = index % num_cols
+        sns.scatterplot(
+            data=df.loc[df["seq_id"] == seq_id + " " + str(tii)],
+            x="dist_to_seq",
+            y="dist_to_closest_seq",
+            ax=axes[row, col],
+        )
+        axes[row, col].set_title("")
+        axes[row, col].set_xlabel("")
+        axes[row, col].set_ylabel("")
+
+    # plt.tight_layout()
+    plt.savefig(separate_plots_filename)
+    plt.clf()
+
+
+def tree_dist_closest_sequences(
+    sorted_taxon_tii_list, ml_dist_file, data_folder, p, plot_filepath
+):
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        closest_sequences = get_closest_msa_sequences(seq_id, ml_dist_file, p)
+        path_to_tree = (
+            data_folder
+            + "reduced_alignments/"
+            + seq_id
+            + "/reduced_alignment.fasta.treefile"
+        )
+        with open(path_to_tree, "r") as f:
+            tree = Tree(f.readlines()[0].strip())
+        for i in range(len(closest_sequences)):
+            leaf1 = closest_sequences[i]
+            node1 = tree.search_nodes(name=leaf1)[0]
+            for j in range(i + 1, len(closest_sequences)):
+                leaf2 = closest_sequences[j]
+                node2 = tree.search_nodes(name=leaf2)[0]
+                df.append([seq_id + " " + str(tii), node1.get_distance(node2)])
+    df = pd.DataFrame(df, columns=["seq_id", "distance"])
+    sns.stripplot(data=df, x="seq_id", y="distance")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 def plot_seq_and_tree_dist_diff(
     all_taxon_edge_df, sorted_taxon_tii_list, mldist_file, data_folder, plot_filepath
 ):
     """
     Plot difference between distance of seq_id to other sequences in alignment
-    and corresponding distance in reattached treefor f in mldist_file.
+    and corresponding distance in reattached tree for f in mldist_file.
     """
     ml_distances = pd.read_table(
         mldist_file,
@@ -1009,7 +1144,7 @@ def mldist_plots(
         i = mldist.loc[seq_id].drop(seq_id).idxmin()
         j = mldist.loc[i].drop([seq_id, i]).idxmin()
         m = mldist.loc[j].drop([seq_id, i, j]).idxmin()
-        ratio = mldist.loc[j, m] / (mldist.loc[seq_id, j] + mldist.loc[i, j] / 2)
+        ratio = mldist.loc[j, m] / ((mldist.loc[seq_id, j] + mldist.loc[i, j]) / 2)
         ratios[seq_id] = ratio
 
     ratios_series = pd.Series(ratios)
@@ -1053,6 +1188,33 @@ all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
 
+
+print(
+    "Start plotting difference in MSA distances for seq_id:all and closest_seq_to_seq_id:all."
+)
+summary_plot_filename = os.path.join(
+    plots_folder, "seq_distance_distribution_closest_seq.pdf"
+)
+separate_plots_filename = os.path.join(
+    plots_folder, "seq_distance_distribution_closest_seq_separeate_seq_ids.pdf"
+)
+seq_distance_distribution_closest_seq(
+    sorted_taxon_tii_list, mldist_file, summary_plot_filename, separate_plots_filename
+)
+print(
+    "Start plotting difference in MSA distances for seq_id:all and closest_seq_to_seq_id:all."
+)
+
+
+print(
+    "Start plotting tree distance between sequences closest to reattachment sequence."
+)
+tree_dist_closest_seq_filepath = os.path.join(plots_folder, "tree_dist_closest_seq.pdf")
+p = 3
+tree_dist_closest_sequences(
+    sorted_taxon_tii_list, mldist_file, data_folder, p, tree_dist_closest_seq_filepath
+)
+print("Done plotting tree distance between sequences closest to reattachment sequence.")
 
 print("Start plotting sequence and tree distance differences.")
 distance_diff_filepath = os.path.join(plots_folder, "distance_diff.pdf")
