@@ -69,6 +69,10 @@ def aggregate_and_filter_by_likelihood(taxon_edge_csv_list, p, hard_threshold=3)
         dfs.append(filtered_df)
     df = pd.concat(dfs, ignore_index=True)
     df = df.rename(columns={0: "seq_id"})
+    if "Unnamed: 0.1" in df.columns:
+        df.set_index("Unnamed: 0.1", inplace=True)
+    elif "Unnamed: 0" in df.columns:
+        df.set_index("Unnamed: 0", inplace=True)
     return df
 
 
@@ -78,7 +82,12 @@ def get_best_reattached_tree(seq_id, all_taxon_edge_df, data_folder):
     of reattachment edge as given in all_taxon_edge_df.
     """
     filtered_df = all_taxon_edge_df.loc[all_taxon_edge_df["seq_id"] == seq_id]
-    best_edge_id = filtered_df.loc[filtered_df["likelihood"].idxmin()][0]
+    if isinstance(filtered_df.index[0], str):
+        best_edge_id = filtered_df["likelihood"].idxmin()
+    else:
+        best_edge_id = filtered_df.loc[filtered_df["likelihood"].idxmin()][0]
+    if not isinstance(best_edge_id, str):
+        best_edge_id = filtered_df["likelihood"].idxmax()
     best_edge_id = best_edge_id.split("_")[-1]
     tree_filepath = (
         data_folder
@@ -192,9 +201,16 @@ def plot_distance_reattachment_sibling(
         distances.append(
             [seq_id + " " + str(tii), avg_new_node_distance, "new_node_distance"]
         )
+        distances.append(
+            [
+                seq_id + " " + str(tii),
+                abs(avg_new_node_distance - avg_sibling_distance),
+                "diff",
+            ]
+        )
 
     df = pd.DataFrame(distances, columns=["seq_id", "distances", "class"])
-    sns.stripplot(data=df, x="seq_id", y="distances", hue="class")
+    sns.stripplot(data=df[df["class"] == "diff"], x="seq_id", y="distances")
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.savefig(plot_filepath)
