@@ -121,7 +121,7 @@ def get_best_reattached_tree_distances_to_seq_id(
 
 def get_closest_msa_sequences(seq_id, ml_dist_file, p):
     """
-    Returns list of p closest sequences in MSA to seq_id.
+    Returns list of names of p closest sequences in MSA to seq_id.
     """
     ml_distances = pd.read_table(
         ml_dist_file,
@@ -136,9 +136,10 @@ def get_closest_msa_sequences(seq_id, ml_dist_file, p):
     return row_names
 
 
-def get_seq_dists_to_seq_id(seq_id, ml_dist_file, closest_5=False):
+def get_seq_dists_to_seq_id(seq_id, ml_dist_file, no_seqs=None):
     """
-    Returns dict of distances of sequences in MSA to seq_id.
+    Returns dict of no_seqs closest distances in MSA to seq_id,
+    containing names as keys and distances as values.
     """
     ml_distances = pd.read_table(
         ml_dist_file,
@@ -152,11 +153,11 @@ def get_seq_dists_to_seq_id(seq_id, ml_dist_file, closest_5=False):
     for seq in ml_distances.index:
         if seq != seq_id:
             d[seq] = ml_distances[seq_id][seq]
-    # only look at closest 5 sequences to seq_id
-    if closest_5:
-        top_5_items = sorted(d.items(), key=lambda x: x[1], reverse=False)[:5]
-        top_5_dict = dict(top_5_items)
-        return top_5_dict
+    # only look at closest no_seqs sequences to seq_id
+    if no_seqs != None:
+        top_items = sorted(d.items(), key=lambda x: x[1], reverse=False)[:no_seqs]
+        top_dict = dict(top_items)
+        return top_dict
     return d
 
 
@@ -171,7 +172,7 @@ def seq_distance_distribution_closest_seq(
     df = []
     for seq_id, tii in sorted_taxon_tii_list:
         closest_sequence = get_closest_msa_sequences(seq_id, ml_dist_file, 1)[0]
-        dist_to_seq = get_seq_dists_to_seq_id(seq_id, ml_dist_file, closest_5=True)
+        dist_to_seq = get_seq_dists_to_seq_id(seq_id, ml_dist_file)
         dist_to_closest_seq = get_seq_dists_to_seq_id(closest_sequence, ml_dist_file)
         for i in dist_to_seq:
             if i != closest_sequence:
@@ -205,17 +206,30 @@ def seq_distance_distribution_closest_seq(
     num_rows = math.ceil(math.sqrt(n))
     num_cols = math.ceil(n / num_rows)
 
-    fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 15))
+    fig, axes = plt.subplots(
+        num_rows, num_cols, figsize=(15, 15), sharex=True, sharey=True
+    )
     for index, (seq_id, tii) in enumerate(sorted_taxon_tii_list):
         row = index // num_cols
         col = index % num_cols
+        current_df = df.loc[df["seq_id"] == seq_id + " " + str(tii)]
         sns.scatterplot(
-            data=df.loc[df["seq_id"] == seq_id + " " + str(tii)],
+            data=current_df,
             x="dist_to_seq",
             y="dist_to_closest_seq",
             ax=axes[row, col],
         )
-        axes[row, col].set_title("")
+        joint_min = min(
+            current_df["dist_to_seq"].min(), current_df["dist_to_closest_seq"].min()
+        )
+        joint_max = max(
+            current_df["dist_to_seq"].max(), current_df["dist_to_closest_seq"].max()
+        )
+
+        axes[row, col].plot(
+            [joint_min, joint_max], [joint_min, joint_max], color="red", linestyle="--"
+        )
+        axes[row, col].set_title(tii)
         axes[row, col].set_xlabel("")
         axes[row, col].set_ylabel("")
 
@@ -1214,7 +1228,7 @@ print(
     "Start plotting tree distance between sequences closest to reattachment sequence."
 )
 tree_dist_closest_seq_filepath = os.path.join(plots_folder, "tree_dist_closest_seq.pdf")
-p = 5
+p = 3
 tree_dist_closest_sequences(
     sorted_taxon_tii_list, mldist_file, data_folder, p, tree_dist_closest_seq_filepath
 )
