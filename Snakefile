@@ -198,6 +198,7 @@ rule create_plots:
         plots_folder+"reattachment_branch_length_vs_tii.pdf",
         plots_folder+"sequence_distance_differences.pdf"
     params:
-        plots_folder=plots_folder
+        plots_folder=plots_folder,
+        data_folder=data_folder
     script:
         "scripts/create_plots.py"
