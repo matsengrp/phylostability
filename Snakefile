@@ -153,6 +153,7 @@ rule extract_reattachment_data_per_taxon_and_edge:
         ready_to_run=expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done", edge=get_attachment_edge_indices(input_alignment)),
         treefiles=expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile", edge=get_attachment_edge_indices(input_alignment)),
         mlfiles=expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.iqtree", edge=get_attachment_edge_indices(input_alignment)),
+        mldist_file=data_folder+input_alignment+".mldist",
         full_tree_file=rules.run_iqtree_on_full_dataset.output.tree
     output:
         csv_name=data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv"
