@@ -7,6 +7,7 @@ import numpy as np
 import re
 import pickle
 import math
+import itertools
 
 
 def ete_dist(node1, node2, topology_only=False):
@@ -77,6 +78,21 @@ def aggregate_and_filter_by_likelihood(taxon_edge_csv_list, p, hard_threshold=3)
     return df
 
 
+def get_ml_dist(ml_dist_file):
+    """
+    Read ml_dist from input filename and return df with rownames=colnames=seq_ids.
+    """
+    ml_distances = pd.read_table(
+        ml_dist_file,
+        skiprows=[0],
+        header=None,
+        delim_whitespace=True,
+        index_col=0,
+    )
+    ml_distances.columns = ml_distances.index
+    return ml_distances
+
+
 def get_best_reattached_tree(seq_id, all_taxon_edge_df, data_folder):
     """
     Return best reattached tree with seq_id (best means highest likelihood)
@@ -123,14 +139,7 @@ def get_closest_msa_sequences(seq_id, ml_dist_file, p):
     """
     Returns list of names of p closest sequences in MSA to seq_id.
     """
-    ml_distances = pd.read_table(
-        ml_dist_file,
-        skiprows=[0],
-        header=None,
-        delim_whitespace=True,
-        index_col=0,
-    )
-    ml_distances.columns = ml_distances.index
+    ml_distances = get_ml_dist(ml_dist_file)
     top_p_rows = ml_distances.nlargest(p, seq_id)
     row_names = top_p_rows.index.tolist()
     return row_names
@@ -141,14 +150,7 @@ def get_seq_dists_to_seq_id(seq_id, ml_dist_file, no_seqs=None):
     Returns dict of no_seqs closest distances in MSA to seq_id,
     containing names as keys and distances as values.
     """
-    ml_distances = pd.read_table(
-        ml_dist_file,
-        skiprows=[0],
-        header=None,
-        delim_whitespace=True,
-        index_col=0,
-    )
-    ml_distances.columns = ml_distances.index
+    ml_distances = get_ml_dist(ml_dist_file)
     d = {}
     for seq in ml_distances.index:
         if seq != seq_id:
@@ -251,14 +253,7 @@ def seq_distances_to_nearest_low_bootstrap_cluster(
     the closest (topologically) clade to the best reattachment of seq_id with lowest
     bootstrap support.
     """
-    ml_distances = pd.read_table(
-        ml_dist_file,
-        skiprows=[0],
-        header=None,
-        delim_whitespace=True,
-        index_col=0,
-    )
-    ml_distances.columns = ml_distances.index
+    ml_distances = get_ml_dist(ml_dist_file)
     df = []
     for seq_id, tii in sorted_taxon_tii_list:
         reattached_tree = get_best_reattached_tree(
@@ -313,6 +308,64 @@ def seq_distances_to_nearest_low_bootstrap_cluster(
     plt.clf()
 
 
+def tree_vs_sequence_dist_reattached_tree(
+    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, ml_dist_file, plot_filepath
+):
+    tree_distances = []
+    ml_distances = get_ml_dist(ml_dist_file)
+    for seq_id, tii in sorted_taxon_tii_list:
+        reattached_tree = get_best_reattached_tree(
+            seq_id, all_taxon_edge_df, data_folder
+        )
+        for leaf1, leaf2 in itertools.combinations(reattached_tree.get_leaves(), 2):
+            if leaf1 != leaf2:
+                dist = leaf1.get_distance(leaf2)
+                tree_distances.append(
+                    [
+                        seq_id + " " + str(tii),
+                        dist,
+                        ml_distances[leaf1.name][leaf2.name],
+                    ]
+                )
+    df = pd.DataFrame(
+        tree_distances, columns=["seq_id", "tree_distance", "ml_distances"]
+    )
+    n = len(sorted_taxon_tii_list)
+    num_rows = math.ceil(math.sqrt(n))
+    num_cols = math.ceil(n / num_rows)
+
+    fig, axes = plt.subplots(
+        num_rows, num_cols, figsize=(15, 15), sharex=True, sharey=True
+    )
+    for index, (seq_id, tii) in enumerate(sorted_taxon_tii_list):
+        row = index // num_cols
+        col = index % num_cols
+        current_df = df.loc[df["seq_id"] == seq_id + " " + str(tii)]
+        sns.scatterplot(
+            data=current_df,
+            x="tree_distance",
+            y="ml_distances",
+            ax=axes[row, col],
+        )
+        joint_min = min(
+            current_df["tree_distance"].min(), current_df["ml_distances"].min()
+        )
+        joint_max = max(
+            current_df["tree_distance"].max(), current_df["ml_distances"].max()
+        )
+
+        axes[row, col].plot(
+            [joint_min, joint_max], [joint_min, joint_max], color="red", linestyle="--"
+        )
+        axes[row, col].set_title(tii)
+        axes[row, col].set_xlabel("")
+        axes[row, col].set_ylabel("")
+
+    # plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 def tree_dist_closest_sequences(
     sorted_taxon_tii_list, ml_dist_file, data_folder, p, plot_filepath
 ):
@@ -347,20 +400,13 @@ def tree_dist_closest_sequences(
 
 
 def plot_seq_and_tree_dist_diff(
-    all_taxon_edge_df, sorted_taxon_tii_list, mldist_file, data_folder, plot_filepath
+    all_taxon_edge_df, sorted_taxon_tii_list, ml_dist_file, data_folder, plot_filepath
 ):
     """
     Plot difference between distance of seq_id to other sequences in alignment
     and corresponding distance in reattached tree for f in mldist_file.
     """
-    ml_distances = pd.read_table(
-        mldist_file,
-        skiprows=[0],
-        header=None,
-        delim_whitespace=True,
-        index_col=0,
-    )
-    ml_distances.columns = ml_distances.index
+    ml_distances = get_ml_dist(ml_dist_file)
     distance_diffs = []
     for seq_id, tii in sorted_taxon_tii_list:
         reattached_distance = get_best_reattached_tree_distances_to_seq_id(
@@ -382,21 +428,14 @@ def plot_seq_and_tree_dist_diff(
 
 
 def plot_distance_reattachment_sibling(
-    all_taxon_edge_df, sorted_taxon_tii_list, mldist_file, data_folder, plot_filepath
+    all_taxon_edge_df, sorted_taxon_tii_list, ml_dist_file, data_folder, plot_filepath
 ):
     """
     If S is the subtree that is sibling of reattached sequence, we plots ratio of
     average distance of sequences in S and sequences in S's sibling S' in reduced
     tree to average distance of reattached sequences and sequences in S'.
     """
-    ml_distances = pd.read_table(
-        mldist_file,
-        skiprows=[0],
-        header=None,
-        delim_whitespace=True,
-        index_col=0,
-    )
-    ml_distances.columns = ml_distances.index
+    ml_distances = get_ml_dist(ml_dist_file)
     distances = []
     for seq_id, tii in sorted_taxon_tii_list:
         # TODO: Ideally we look at the distances within the tree rather than the sequence
@@ -1280,6 +1319,13 @@ sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 4)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
+
+
+plot_filepath = os.path.join(plots_folder, "tree_vs_sequence_dist_reattached_tree.pdf")
+tree_vs_sequence_dist_reattached_tree(
+    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, mldist_file, plot_filepath
+)
+
 
 print("Start plotting sequence distance to nearest low bootstrap cluster.")
 plot_filepath = os.path.join(
