@@ -238,6 +238,81 @@ def seq_distance_distribution_closest_seq(
     plt.clf()
 
 
+def seq_distances_to_nearest_low_bootstrap_cluster(
+    sorted_taxon_tii_list,
+    all_taxon_edge_df,
+    ml_dist_file,
+    data_folder,
+    reduced_tree_files,
+    plot_filepath,
+):
+    """ "
+    Plot for every seq_id the MSA sequence distances to all sequences of taxa in
+    the closest (topologically) clade to the best reattachment of seq_id with lowest
+    bootstrap support.
+    """
+    ml_distances = pd.read_table(
+        ml_dist_file,
+        skiprows=[0],
+        header=None,
+        delim_whitespace=True,
+        index_col=0,
+    )
+    ml_distances.columns = ml_distances.index
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        reattached_tree = get_best_reattached_tree(
+            seq_id, all_taxon_edge_df, data_folder
+        )
+        reduced_tree_filepath = [
+            f for f in reduced_tree_files if "/" + seq_id + "/" in f
+        ][0]
+        with open(reduced_tree_filepath, "r") as f:
+            reduced_tree = Tree(f.readlines()[0].strip())
+        reattachment_cluster = [
+            node.get_leaf_names()
+            for node in reattached_tree.search_nodes(name=seq_id)[0].up.children
+            if node.name != seq_id
+        ][0]
+        reattachment_node = reduced_tree.get_common_ancestor(reattachment_cluster)
+        # find closest node (either above or below reattachment) with bootstrap support
+        # below threshold
+        bootstrap_values = [
+            node.support for node in reduced_tree.traverse() if not node.is_leaf()
+        ]
+        threshold = np.quantile(bootstrap_values, 0.5)
+        upper_candidate = lower_candidate = None
+        if not reattachment_node.is_leaf():
+            for node in reattachment_node.traverse():
+                if node.support < threshold:
+                    lower_candidate = node
+        for node in reattachment_node.get_ancestors():
+            if node.support < threshold:
+                upper_candidate = node
+        if lower_candidate != None and upper_candidate != None:
+            closest_candidate = (
+                lower_candidate
+                if ete_dist(node, lower_candidate, topology_only=True)
+                < ete_dist(node, upper_candidate, topology_only=True)
+                else upper_candidate
+            )
+        elif lower_candidate != None:
+            closest_candidate = lower_candidate
+        elif upper_candidate != None:
+            closest_candidate = upper_candidate
+        else:
+            continue
+        closest_candidate_cluster = closest_candidate.get_leaf_names()
+        for leaf in closest_candidate_cluster:
+            df.append([seq_id + " " + str(tii), ml_distances[leaf][seq_id]])
+    df = pd.DataFrame(df, columns=["seq_id", "distance"])
+    sns.stripplot(data=df, x="seq_id", y="distance")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 def tree_dist_closest_sequences(
     sorted_taxon_tii_list, ml_dist_file, data_folder, p, plot_filepath
 ):
@@ -1205,6 +1280,20 @@ sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 4)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
+
+print("Start plotting sequence distance to nearest low bootstrap cluster.")
+plot_filepath = os.path.join(
+    plots_folder, "seq_distances_to_nearest_low_bootstrap_cluster.pdf"
+)
+seq_distances_to_nearest_low_bootstrap_cluster(
+    sorted_taxon_tii_list,
+    all_taxon_edge_df,
+    mldist_file,
+    data_folder,
+    reduced_tree_files,
+    plot_filepath,
+)
+print("Done plotting sequence distance to nearest low bootstrap cluster.")
 
 
 print(

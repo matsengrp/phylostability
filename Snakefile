@@ -196,7 +196,8 @@ rule create_plots:
         plots_folder+"bts_vs_bootstrap.pdf",
         plots_folder+"taxon_height_vs_tii.pdf",
         plots_folder+"reattachment_branch_length_vs_tii.pdf",
-        plots_folder+"sequence_distance_differences.pdf"
+        plots_folder+"sequence_distance_differences.pdf",
+        plots_folder+"seq_distances_to_nearest_low_bootstrap_cluster.pdf"
     params:
         plots_folder=plots_folder,
         data_folder=data_folder
