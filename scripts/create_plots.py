@@ -227,6 +227,10 @@ def seq_distance_distribution_closest_seq(
 def tree_dist_closest_sequences(
     sorted_taxon_tii_list, ml_dist_file, data_folder, p, plot_filepath
 ):
+    """
+    Plot pairwise tree distances (in restricted tree) of p taxa that have minimum
+    MSA sequence distance to seq_id.
+    """
     df = []
     for seq_id, tii in sorted_taxon_tii_list:
         closest_sequences = get_closest_msa_sequences(seq_id, ml_dist_file, p)
@@ -244,7 +248,7 @@ def tree_dist_closest_sequences(
             for j in range(i + 1, len(closest_sequences)):
                 leaf2 = closest_sequences[j]
                 node2 = tree.search_nodes(name=leaf2)[0]
-                df.append([seq_id + " " + str(tii), node1.get_distance(node2)])
+                df.append([seq_id + " " + str(tii), ete_dist(node1, node2)])
     df = pd.DataFrame(df, columns=["seq_id", "distance"])
     sns.stripplot(data=df, x="seq_id", y="distance")
     plt.xticks(rotation=90)
@@ -807,7 +811,7 @@ def bootstrap_and_bts_plot(
         full_tree_file,
         sorted_taxon_tii_list,
         all_taxon_edge_df,
-        test=True,
+        test=False,
     )
 
     # plot BTS values
@@ -1210,7 +1214,7 @@ print(
     "Start plotting tree distance between sequences closest to reattachment sequence."
 )
 tree_dist_closest_seq_filepath = os.path.join(plots_folder, "tree_dist_closest_seq.pdf")
-p = 3
+p = 5
 tree_dist_closest_sequences(
     sorted_taxon_tii_list, mldist_file, data_folder, p, tree_dist_closest_seq_filepath
 )
