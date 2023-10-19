@@ -1072,7 +1072,7 @@ def taxon_height_swarmplot(all_taxon_edge_df, sorted_taxon_tii_list, plot_filepa
             linewidth=0.5,
         )
 
-    cbar = plt.colorbar(sm)
+    cbar = plt.colorbar(sm, ax=plt.gca())
     cbar.set_label("log likelihood")
 
     # Set labels and title
@@ -1130,13 +1130,82 @@ def reattachment_branch_length_swarmplot(
             linewidth=0.5,
         )
 
-    cbar = plt.colorbar(sm)
+    cbar = plt.colorbar(sm, ax=plt.gca())
     cbar.set_label("log likelihood")
 
     # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
     plt.ylabel("reattachment branch length")
     plt.title("stripplot of reattachment branch length vs. taxa sorted by TII")
+
+    plt.xticks(
+        range(len(sorted_taxon_tii_list)),
+        [
+            str(pair[0]) + " " + str(pair[1])
+            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+        rotation=90,
+    )
+
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
+def get_sequence_distance_difference(distance_file, taxon1, taxon2, taxon3):
+    distances = pd.read_table(distance_file, skiprows=[0], header=None, delim_whitespace=True, index_col=0)
+    distances.columns = distances.index
+    d1 = distances.loc[taxon1, taxon2].sum().sum()
+    d2 = distances.loc[taxon1, taxon3].sum().sum()
+    return min(d1/(d2 if d2 != 0 else 1.0), d2/(d1 if d1 != 0 else 1.0))
+
+
+def reattachment_branch_distance_ratio_plot(
+    best_taxon_edge_df, seq_distance_file, sorted_taxon_tii_list, plot_filepath
+):
+    best_taxon_edge_df["seq_id"] = pd.Categorical(
+        best_taxon_edge_df["seq_id"],
+        categories=[
+            pair[0] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+        ordered=True,
+    )
+    best_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
+    best_taxon_edge_df["reattachment_branch_neighbor_distances"] = [ \
+       get_sequence_distance_difference(seq_distance_file, taxon, \
+                             best_taxon_edge_df.loc[all_taxon_edge_df.seq_id == taxon, "reattachment_parent"].values, \
+                             best_taxon_edge_df.loc[all_taxon_edge_df.seq_id == taxon, "reattachment_child"].values) \
+       for taxon in best_taxon_edge_df["seq_id"] \
+    ]
+
+    print(best_taxon_edge_df.head())
+    plt.figure(figsize=(10, 6))  # Adjust figure size if needed
+
+    # We'll use a scatter plot to enable the use of a colormap
+    norm = plt.Normalize(
+        best_taxon_edge_df["likelihood"].min(), best_taxon_edge_df["likelihood"].max()
+    )
+    sm = plt.cm.ScalarMappable(cmap="viridis", norm=norm)
+    sm.set_array([])
+
+    for i, taxon in enumerate(best_taxon_edge_df["seq_id"].cat.categories):
+        subset = best_taxon_edge_df[best_taxon_edge_df["seq_id"] == taxon]
+        plt.scatter(
+            [i] * subset.shape[0],
+            subset["reattachment_branch_neighbor_distances"],
+            c=subset["likelihood"],
+            cmap="viridis",
+            edgecolors="black",
+            linewidth=0.5,
+        )
+
+    cbar = plt.colorbar(sm, ax=plt.gca())
+    cbar.set_label("log likelihood")
+
+    # Set labels and title
+    plt.xlabel("taxa (sorted by TII)")
+    plt.ylabel("reattachment branch distance ratio")
+    plt.title("stripplot of reattachment neighbor distances vs. taxa sorted by TII")
 
     plt.xticks(
         range(len(sorted_taxon_tii_list)),
@@ -1501,3 +1570,13 @@ seq_distance_differences_swarmplot(
     seq_dist_difference_plot_filepath,
 )
 print("Done plotting sequence differences.")
+
+print("Start plotting ratio of distances for reattachment locations.")
+best_reattachment_dist_plot_filepath = os.path.join(
+    plots_folder, "reattachment_edge_distance_ratio.pdf"
+)
+best_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 1, 1)
+reattachment_branch_distance_ratio_plot(
+    best_taxon_edge_df, mldist_file, sorted_taxon_tii_list, best_reattachment_dist_plot_filepath
+)
+print("Done plotting ratio of distances for reattachment locations.")
