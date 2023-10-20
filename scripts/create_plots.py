@@ -163,6 +163,36 @@ def get_seq_dists_to_seq_id(seq_id, mldist_file, no_seqs=None):
     return d
 
 
+def reattachment_seq_dist_vs_tree_dist(
+    sorted_taxon_tii_list, all_taxon_edge_df, mldist_file, data_folder
+):
+    """
+    Plot difference in sequence and tree distance in optimised reattached
+    tree between seq_id and all other taxa.
+    """
+    ml_distances = get_ml_dist(mldist_file)
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        best_reattached_tree = get_best_reattached_tree(
+            seq_id, all_taxon_edge_df, data_folder
+        )
+        for leaf in best_reattached_tree.get_leaf_names():
+            if leaf != seq_id:
+                df.append(
+                    [
+                        seq_id + " " + str(tii),
+                        ml_distances[seq_id][leaf]
+                        - best_reattached_tree.get_distance(seq_id, leaf),
+                    ]
+                )
+    df = pd.DataFrame(df, columns=["seq_id", "distance_diff"])
+    sns.stripplot(data=df, x="seq_id", y="distance_diff")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 def branch_changes_at_reattachment(
     sorted_taxon_tii_list, all_taxon_edge_df, data_folder, plot_filepath
 ):
@@ -934,7 +964,6 @@ def get_bootstrap_and_bts_scores(
             else:
                 continue
 
-        # TODO: Now we again get nothing for high TII values. This started after introducin conditional_traverse()
         # stop traversing below a node if that node has support < threshold
         def conditional_traverse(node, threshold=90):
             if node.support <= threshold:
@@ -1494,6 +1523,14 @@ sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 4)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
+
+
+print("Start plotting tree vs sequence distances to reattached sequence.")
+plot_filepath = os.path.join(plots_folder, "reattachment_seq_dist_vs_tree_dist.pdf")
+reattachment_seq_dist_vs_tree_dist(
+    sorted_taxon_tii_list, all_taxon_edge_df, mldist_file, data_folder
+)
+print("Done plotting tree vs sequence distances to reattached sequence.")
 
 
 print("Start plotting tree vs sequence distances at reattachment.")
