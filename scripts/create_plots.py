@@ -78,12 +78,12 @@ def aggregate_and_filter_by_likelihood(taxon_edge_csv_list, p, hard_threshold=3)
     return df
 
 
-def get_ml_dist(ml_dist_file):
+def get_ml_dist(mldist_file):
     """
     Read ml_dist from input filename and return df with rownames=colnames=seq_ids.
     """
     ml_distances = pd.read_table(
-        ml_dist_file,
+        mldist_file,
         skiprows=[0],
         header=None,
         delim_whitespace=True,
@@ -135,22 +135,22 @@ def get_best_reattached_tree_distances_to_seq_id(
     return distances
 
 
-def get_closest_msa_sequences(seq_id, ml_dist_file, p):
+def get_closest_msa_sequences(seq_id, mldist_file, p):
     """
     Returns list of names of p closest sequences in MSA to seq_id.
     """
-    ml_distances = get_ml_dist(ml_dist_file)
+    ml_distances = get_ml_dist(mldist_file)
     top_p_rows = ml_distances.nlargest(p, seq_id)
     row_names = top_p_rows.index.tolist()
     return row_names
 
 
-def get_seq_dists_to_seq_id(seq_id, ml_dist_file, no_seqs=None):
+def get_seq_dists_to_seq_id(seq_id, mldist_file, no_seqs=None):
     """
     Returns dict of no_seqs closest distances in MSA to seq_id,
     containing names as keys and distances as values.
     """
-    ml_distances = get_ml_dist(ml_dist_file)
+    ml_distances = get_ml_dist(mldist_file)
     d = {}
     for seq in ml_distances.index:
         if seq != seq_id:
@@ -163,10 +163,14 @@ def get_seq_dists_to_seq_id(seq_id, ml_dist_file, no_seqs=None):
     return d
 
 
-def tree_likeness_at_reattachment(
-    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, ml_dist_file, plot_filepath
+def branch_changes_at_reattachment(
+    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, plot_filepath
 ):
-    ml_distances = get_ml_dist(ml_dist_file)
+    """
+    Plot difference in branch-length distance in reduced tree and optimised reattached
+    tree between taxa in clusters (i) below reattachment position (ii) sibling of
+    reattachment location.
+    """
     df = []
     for seq_id, tii in sorted_taxon_tii_list:
         best_reattached_tree = get_best_reattached_tree(
@@ -186,14 +190,58 @@ def tree_likeness_at_reattachment(
             0
         ]
         reduced_tree = Tree(reduced_tree_file)
-        avg_tree_dist = 0
-        avg_ml_dist = 0
+        for leaf1_name in cluster1:
+            leaf1_reduced = reduced_tree.search_nodes(name=leaf1_name)[0]
+            leaf1_reattached = best_reattached_tree.search_nodes(name=leaf1_name)[0]
+            for leaf2_name in cluster2:
+                leaf2_reduced = reduced_tree.search_nodes(name=leaf2_name)[0]
+                leaf2_reattached = best_reattached_tree.search_nodes(name=leaf2_name)[0]
+                df.append(
+                    [
+                        seq_id + " " + str(tii),
+                        leaf1_reduced.get_distance(leaf2_reduced)
+                        - leaf1_reattached.get_distance(leaf2_reattached),
+                    ]
+                )
+    df = pd.DataFrame(df, columns=["seq_id", "distance_diff"])
+    sns.stripplot(data=df, x="seq_id", y="distance_diff")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
+def tree_likeness_at_reattachment(
+    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, mldist_file, plot_filepath
+):
+    """
+    Plot difference in branch-length distance and sequence distance between taxa in clusters
+    (i) below reattachment position (ii) sibling of reattachment location.
+    """
+    ml_distances = get_ml_dist(mldist_file)
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        best_reattached_tree = get_best_reattached_tree(
+            seq_id, all_taxon_edge_df, data_folder
+        )
+        parent = best_reattached_tree.search_nodes(name=seq_id)[0].up
+        # get clusters of nodes around reattachment so we can identify corresponding nodes
+        # in reduced_tree
+        if parent.is_root():
+            # TODO: Think about how to deal with the root here!
+            continue
+        clusternode1 = [node for node in parent.children if node.name != seq_id][0]
+        cluster1 = clusternode1.get_leaf_names()
+        clusternode2 = [node for node in parent.up.children if node != parent][0]
+        cluster2 = clusternode2.get_leaf_names()
+        reduced_tree_file = [f for f in reduced_tree_files if "/" + seq_id + "/" in f][
+            0
+        ]
+        reduced_tree = Tree(reduced_tree_file)
         for leaf1_name in cluster1:
             leaf1 = reduced_tree.search_nodes(name=leaf1_name)[0]
             for leaf2_name in cluster2:
                 leaf2 = reduced_tree.search_nodes(name=leaf2_name)[0]
-                avg_tree_dist += leaf1.get_distance(leaf2)
-                avg_ml_dist += ml_distances[leaf1_name][leaf2_name]
                 df.append(
                     [
                         seq_id + " " + str(tii),
@@ -210,7 +258,7 @@ def tree_likeness_at_reattachment(
 
 
 def seq_distance_distribution_closest_seq(
-    sorted_taxon_tii_list, ml_dist_file, summary_plot_filepath, separate_plots_filename
+    sorted_taxon_tii_list, mldist_file, summary_plot_filepath, separate_plots_filename
 ):
     """
     For each seq_id, find closest sequence in MSA -> closest_sequence.
@@ -219,9 +267,9 @@ def seq_distance_distribution_closest_seq(
     """
     df = []
     for seq_id, tii in sorted_taxon_tii_list:
-        closest_sequence = get_closest_msa_sequences(seq_id, ml_dist_file, 1)[0]
-        dist_to_seq = get_seq_dists_to_seq_id(seq_id, ml_dist_file)
-        dist_to_closest_seq = get_seq_dists_to_seq_id(closest_sequence, ml_dist_file)
+        closest_sequence = get_closest_msa_sequences(seq_id, mldist_file, 1)[0]
+        dist_to_seq = get_seq_dists_to_seq_id(seq_id, mldist_file)
+        dist_to_closest_seq = get_seq_dists_to_seq_id(closest_sequence, mldist_file)
         for i in dist_to_seq:
             if i != closest_sequence:
                 df.append(
@@ -289,7 +337,7 @@ def seq_distance_distribution_closest_seq(
 def seq_distances_to_nearest_low_bootstrap_cluster(
     sorted_taxon_tii_list,
     all_taxon_edge_df,
-    ml_dist_file,
+    mldist_file,
     data_folder,
     reduced_tree_files,
     plot_filepath,
@@ -299,7 +347,7 @@ def seq_distances_to_nearest_low_bootstrap_cluster(
     the closest (topologically) clade to the best reattachment of seq_id with lowest
     bootstrap support.
     """
-    ml_distances = get_ml_dist(ml_dist_file)
+    ml_distances = get_ml_dist(mldist_file)
     df = []
     for seq_id, tii in sorted_taxon_tii_list:
         reattached_tree = get_best_reattached_tree(
@@ -355,14 +403,14 @@ def seq_distances_to_nearest_low_bootstrap_cluster(
 
 
 def tree_vs_sequence_dist_reattached_tree(
-    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, ml_dist_file, plot_filepath
+    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, mldist_file, plot_filepath
 ):
     """
     For each seq_id, plot distances inside tree vs sequence distances for all pairs of
     taxa in reattached_tree.
     """
     tree_distances = []
-    ml_distances = get_ml_dist(ml_dist_file)
+    ml_distances = get_ml_dist(mldist_file)
     for seq_id, tii in sorted_taxon_tii_list:
         reattached_tree = get_best_reattached_tree(
             seq_id, all_taxon_edge_df, data_folder
@@ -417,7 +465,7 @@ def tree_vs_sequence_dist_reattached_tree(
 
 
 def tree_dist_closest_sequences(
-    sorted_taxon_tii_list, ml_dist_file, data_folder, p, plot_filepath
+    sorted_taxon_tii_list, mldist_file, data_folder, p, plot_filepath
 ):
     """
     Plot pairwise tree distances (in restricted tree) of p taxa that have minimum
@@ -425,7 +473,7 @@ def tree_dist_closest_sequences(
     """
     df = []
     for seq_id, tii in sorted_taxon_tii_list:
-        closest_sequences = get_closest_msa_sequences(seq_id, ml_dist_file, p)
+        closest_sequences = get_closest_msa_sequences(seq_id, mldist_file, p)
         path_to_tree = (
             data_folder
             + "reduced_alignments/"
@@ -450,13 +498,13 @@ def tree_dist_closest_sequences(
 
 
 def plot_seq_and_tree_dist_diff(
-    all_taxon_edge_df, sorted_taxon_tii_list, ml_dist_file, data_folder, plot_filepath
+    all_taxon_edge_df, sorted_taxon_tii_list, mldist_file, data_folder, plot_filepath
 ):
     """
     Plot difference between distance of seq_id to other sequences in alignment
     and corresponding distance in reattached tree for f in mldist_file.
     """
-    ml_distances = get_ml_dist(ml_dist_file)
+    ml_distances = get_ml_dist(mldist_file)
     distance_diffs = []
     for seq_id, tii in sorted_taxon_tii_list:
         reattached_distance = get_best_reattached_tree_distances_to_seq_id(
@@ -478,14 +526,14 @@ def plot_seq_and_tree_dist_diff(
 
 
 def plot_distance_reattachment_sibling(
-    all_taxon_edge_df, sorted_taxon_tii_list, ml_dist_file, data_folder, plot_filepath
+    all_taxon_edge_df, sorted_taxon_tii_list, mldist_file, data_folder, plot_filepath
 ):
     """
     If S is the subtree that is sibling of reattached sequence, we plots ratio of
     average distance of sequences in S and sequences in S's sibling S' in reduced
     tree to average distance of reattached sequences and sequences in S'.
     """
-    ml_distances = get_ml_dist(ml_dist_file)
+    ml_distances = get_ml_dist(mldist_file)
     distances = []
     for seq_id, tii in sorted_taxon_tii_list:
         # TODO: Ideally we look at the distances within the tree rather than the sequence
@@ -1448,10 +1496,20 @@ all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 
 print("Done reading data.")
 
 
+print("Start plotting tree vs sequence distances at reattachment.")
 plot_filepath = os.path.join(plots_folder, "tree_vs_sequence_dist_reattached_tree.pdf")
 tree_vs_sequence_dist_reattached_tree(
     sorted_taxon_tii_list, all_taxon_edge_df, data_folder, mldist_file, plot_filepath
 )
+print("Done plotting tree vs sequence distances at reattachment.")
+
+
+print("Start plotting branch length changes at reattachment.")
+plot_filepath = os.path.join(plots_folder, "branch_changes_at_reattachment.pdf")
+branch_changes_at_reattachment(
+    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, plot_filepath
+)
+print("Done plotting branch length changes at reattachment.")
 
 
 print("Start plotting tree-likeness at reattachment.")
