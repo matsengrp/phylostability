@@ -654,27 +654,43 @@ def likelihood_swarmplots(sorted_taxon_tii_list, all_taxon_edge_df, filepath):
     plt.clf()
 
 
-def seq_distance_swarmplot(distance_filepath, sorted_taxon_tii_list, plot_filepath):
+def seq_distance_swarmplot(
+    distance_filepath,
+    sorted_taxon_tii_list,
+    all_taxon_edge_df,
+    data_folder,
+    plot_filepath,
+    top5_only=False,
+):
     """
     For each taxon, plot the sequence distance (from iqtree .mldist file) as swarmplot,
     sorted according to increasing TII
     """
-    distances = pd.read_table(
-        distance_filepath, skiprows=[0], header=None, delim_whitespace=True, index_col=0
-    )
+    distances = get_ml_dist(distance_filepath)
     np.fill_diagonal(distances.values, np.nan)
-
-    # Add seq_id as a column
-    distances["seq_id"] = distances.index
-
-    # Reshape the DataFrame into long format
-    df_long = pd.melt(
-        distances, id_vars=["seq_id"], var_name="variable", value_name="value"
-    )
-
-    # Create the plot
+    df = []
     plt.figure(figsize=(10, 6))
-    sns.stripplot(data=df_long, x="seq_id", y="value")
+    if top5_only:
+        for seq_id, tii in sorted_taxon_tii_list:
+            best_reattached_tree = get_best_reattached_tree(
+                seq_id, all_taxon_edge_df, data_folder
+            )
+            seq_id_node = best_reattached_tree.search_nodes(name=seq_id)[0]
+            tree_dists = {
+                leaf.name: seq_id_node.get_distance(leaf)
+                for leaf in best_reattached_tree.get_leaves()
+            }
+            top_5_keys = sorted(tree_dists, key=tree_dists.get, reverse=True)[:5]
+            for key in top_5_keys:
+                df.append([seq_id + " " + str(tii), distances[seq_id][key]])
+        df = pd.DataFrame(df, columns=["seq_id", "distance"])
+        sns.stripplot(data=df, x="seq_id", y="distance")
+    else:
+        distances["seq_id"] = distances.index
+        df_long = pd.melt(
+            distances, id_vars=["seq_id"], var_name="variable", value_name="value"
+        )
+        sns.stripplot(data=df_long, x="seq_id", y="value")
 
     plt.xlabel("taxa (sorted by TII)")
     plt.ylabel("distances")
@@ -1682,6 +1698,8 @@ seq_distance_filepath = os.path.join(plots_folder, "seq_distance_vs_tii.pdf")
 seq_distance_swarmplot(
     mldist_file,
     sorted_taxon_tii_list,
+    all_taxon_edge_df,
+    data_folder,
     seq_distance_filepath,
 )
 print("Done plotting MSA sequence distances.")
