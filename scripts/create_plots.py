@@ -163,6 +163,77 @@ def get_seq_dists_to_seq_id(seq_id, mldist_file, no_seqs=None):
     return d
 
 
+def order_of_distances_to_seq_id(
+    sorted_taxon_tii_list, mldist_file, all_taxon_edge_df, data_folder, plot_filepath
+):
+    """
+    Plot number of times we see that the distance of taxon1 to seq_id is smaller than
+    taxon2 to seq_id in best reattached tree, but greater in terms of sequence distance,
+    for each possible seq_id.
+    """
+    mldist = get_ml_dist(mldist_file)
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        best_reattached_tree = get_best_reattached_tree(
+            seq_id, all_taxon_edge_df, data_folder
+        )
+        leaves = [
+            leaf for leaf in best_reattached_tree.get_leaf_names() if leaf != seq_id
+        ]
+        for leaf1, leaf2 in itertools.combinations(leaves, 2):
+            if best_reattached_tree.get_distance(leaf1, leaf2, topology_only=True):
+                tree_dist_leaf1 = best_reattached_tree.get_distance(seq_id, leaf1)
+                tree_dist_leaf2 = best_reattached_tree.get_distance(seq_id, leaf2)
+                seq_dist_leaf1 = mldist[seq_id][leaf1]
+                seq_dist_leaf2 = mldist[seq_id][leaf2]
+                if (
+                    tree_dist_leaf1 < tree_dist_leaf2
+                    and seq_dist_leaf1 > seq_dist_leaf2
+                ):
+                    difference = (tree_dist_leaf2 - tree_dist_leaf1) + (
+                        seq_dist_leaf1 - seq_dist_leaf2
+                    )
+                    df.append([seq_id, leaf1, leaf2, difference])
+                elif (
+                    tree_dist_leaf2 < tree_dist_leaf1
+                    and seq_dist_leaf2 > seq_dist_leaf1
+                ):
+                    difference = (tree_dist_leaf1 - tree_dist_leaf2) + (
+                        seq_dist_leaf2 - seq_dist_leaf1
+                    )
+                    df.append([seq_id, leaf2, leaf1])
+    df = pd.DataFrame(df, columns=["seq_id", "leaf1", "leaf2", "difference"])
+
+    sns.stripplot(data=df, x="seq_id", y="difference")
+    # # Convert the list to a DataFrame
+    # tii_df = pd.DataFrame(sorted_taxon_tii_list, columns=["seq_id", "TII"])
+
+    # # Count the number of entries for each sequence ID
+    # count_df = df["seq_id"].value_counts().reset_index()
+    # count_df.columns = ["seq_id", "count"]
+
+    # # Merge the count DataFrame with the TII DataFrame
+    # merged_df = pd.merge(tii_df, count_df, on="seq_id")
+
+    # # Create the bar plot
+    # plt.figure(figsize=(10, 6))
+    # sns.barplot(x="seq_id", y="count", data=merged_df)
+    plt.xticks(
+        range(len(sorted_taxon_tii_list)),
+        [
+            str(pair[0]) + " " + str(pair[1])
+            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+        rotation=90,
+    )
+    plt.title("Difference between tree distance and sequence distance")
+    plt.xlabel("seq_id")
+    plt.ylabel("Difference in distance")
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 def reattachment_seq_dist_vs_tree_dist(
     sorted_taxon_tii_list, all_taxon_edge_df, mldist_file, data_folder
 ):
@@ -880,6 +951,7 @@ def dist_of_likely_reattachments(
     if len(pairwise_df) == 0:
         print("All taxa have unique reattachment locations.")
         plt.savefig(filepath)  # save empty plot to not break snakemake output
+        plt.clf()
         return 0
 
     # Plot marker 'o' (only if more than two datapoints)
@@ -1538,6 +1610,7 @@ def mldist_plots(
 
     plt.tight_layout()
     plt.savefig(closest_taxa_plot_filepath)
+    plt.clf()
 
 
 taxon_df_csv = snakemake.input.taxon_df_csv
@@ -1564,6 +1637,14 @@ sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 # all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 4)
 all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
+
+
+print("Start plotting order of distances to seq_id in tree vs MSA.")
+plot_filepath = os.path.join(plots_folder, "order_of_distances_to_seq_id.pdf")
+order_of_distances_to_seq_id(
+    sorted_taxon_tii_list, mldist_file, all_taxon_edge_df, data_folder, plot_filepath
+)
+print("Done plotting order of distances to seq_id in tree vs MSA.")
 
 
 print(
