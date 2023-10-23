@@ -518,9 +518,33 @@ def tree_dist_closest_sequences(
             for j in range(i + 1, len(closest_sequences)):
                 leaf2 = closest_sequences[j]
                 node2 = tree.search_nodes(name=leaf2)[0]
-                df.append([seq_id + " " + str(tii), ete_dist(node1, node2)])
+                df.append(
+                    [
+                        seq_id + " " + str(tii),
+                        ete_dist(node1, node2, topology_only=True),
+                    ]
+                )
     df = pd.DataFrame(df, columns=["seq_id", "distance"])
-    sns.stripplot(data=df, x="seq_id", y="distance")
+    sns.swarmplot(data=df, x="seq_id", y="distance")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
+def seq_dist_closest_sequences(sorted_taxon_tii_list, mldist_file, p, plot_filepath):
+    """
+    Plot pairwise sequence distances of p taxa that have minimum
+    MSA sequence distance to seq_id.
+    """
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        closest_sequences = get_closest_msa_sequences(seq_id, mldist_file, p)
+        mldist = get_ml_dist(mldist_file)
+        for seq in closest_sequences:
+            df.append([seq_id + " " + str(tii), seq, mldist[seq_id][seq]])
+    df = pd.DataFrame(df, columns=["seq_id", "other seq", "distance"])
+    sns.swarmplot(data=df, x="seq_id", y="distance")
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.savefig(plot_filepath)
@@ -533,6 +557,7 @@ def plot_seq_and_tree_dist_diff(
     """
     Plot difference between distance of seq_id to other sequences in alignment
     and corresponding distance in reattached tree for f in mldist_file.
+    Only consider 25% closest distances to seq_id.
     """
     ml_distances = get_ml_dist(mldist_file)
     distance_diffs = []
@@ -548,7 +573,7 @@ def plot_seq_and_tree_dist_diff(
 
     df = pd.DataFrame(distance_diffs, columns=["seq_id", "distance_diff"])
     sns.stripplot(data=df, x="seq_id", y="distance_diff")
-    plt.axhline(0, color="red")
+    # plt.axhline(0, color="red")
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.savefig(plot_filepath)
@@ -1536,9 +1561,20 @@ taxon_tii_list = [
 ]
 sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 
-all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 4)
-# all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
+# all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 4)
+all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
+
+
+print(
+    "Start plotting sequence distance between sequences closest to reattached sequence."
+)
+plot_filepath = os.path.join(plots_folder + "seq_dist_closest_sequences.pdf")
+p = 5
+seq_dist_closest_sequences(sorted_taxon_tii_list, mldist_file, p, plot_filepath)
+print(
+    "Done plotting sequence distance between sequences closest to reattached sequence."
+)
 
 
 print("Start plotting tree vs sequence distances to reattached sequence.")
@@ -1609,7 +1645,7 @@ print(
     "Start plotting tree distance between sequences closest to reattachment sequence."
 )
 tree_dist_closest_seq_filepath = os.path.join(plots_folder, "tree_dist_closest_seq.pdf")
-p = 3
+p = 5
 tree_dist_closest_sequences(
     sorted_taxon_tii_list, mldist_file, data_folder, p, tree_dist_closest_seq_filepath
 )
@@ -1654,33 +1690,33 @@ mldist_plots(
 print("Done plotting mldists.")
 
 
-# plot branch length distance of reattachment locations vs TII, hue = log_likelihood
-# difference
-print("Start plotting reattachment distances.")
-reattachment_distances_path = os.path.join(
-    plots_folder, "dist_of_likely_reattachments.pdf"
-)
-dist_of_likely_reattachments(
-    sorted_taxon_tii_list,
-    all_taxon_edge_df,
-    reattachment_distance_csv,
-    reattachment_distances_path,
-)
-print("Done plotting reattachment distances.")
+# # plot branch length distance of reattachment locations vs TII, hue = log_likelihood
+# # difference
+# print("Start plotting reattachment distances.")
+# reattachment_distances_path = os.path.join(
+#     plots_folder, "dist_of_likely_reattachments.pdf"
+# )
+# dist_of_likely_reattachments(
+#     sorted_taxon_tii_list,
+#     all_taxon_edge_df,
+#     reattachment_distance_csv,
+#     reattachment_distances_path,
+# )
+# print("Done plotting reattachment distances.")
 
-# plot topological distance of reattachment locations vs TII, hue = log_likelihood
-# difference
-print("Start plotting topological reattachment distances.")
-reattachment_topological_distances_path = os.path.join(
-    plots_folder, "topological_dist_of_likely_reattachments.pdf"
-)
-dist_of_likely_reattachments(
-    sorted_taxon_tii_list,
-    all_taxon_edge_df,
-    reattachment_distance_topological_csv,
-    reattachment_topological_distances_path,
-)
-print("Done plotting topological reattachment distances.")
+# # plot topological distance of reattachment locations vs TII, hue = log_likelihood
+# # difference
+# print("Start plotting topological reattachment distances.")
+# reattachment_topological_distances_path = os.path.join(
+#     plots_folder, "topological_dist_of_likely_reattachments.pdf"
+# )
+# dist_of_likely_reattachments(
+#     sorted_taxon_tii_list,
+#     all_taxon_edge_df,
+#     reattachment_distance_topological_csv,
+#     reattachment_topological_distances_path,
+# )
+# print("Done plotting topological reattachment distances.")
 
 # # plot edpl vs TII for each taxon
 # edpl_filepath = os.path.join(plots_folder, "edpl_vs_tii.pdf")
