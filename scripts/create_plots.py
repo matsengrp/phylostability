@@ -100,9 +100,9 @@ def get_best_reattached_tree(seq_id, all_taxon_edge_df, data_folder):
     """
     filtered_df = all_taxon_edge_df.loc[all_taxon_edge_df["seq_id"] == seq_id]
     if isinstance(filtered_df.index[0], str):
-        best_edge_id = filtered_df["likelihood"].idxmin()
+        best_edge_id = filtered_df["likelihood"].idxmax()
     else:
-        best_edge_id = filtered_df.loc[filtered_df["likelihood"].idxmin()][0]
+        best_edge_id = filtered_df.loc[filtered_df["likelihood"].idxmax()][0]
     if not isinstance(best_edge_id, str):
         best_edge_id = filtered_df["likelihood"].idxmax()
     best_edge_id = best_edge_id.split("_")[-1]
