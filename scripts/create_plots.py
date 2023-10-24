@@ -163,13 +163,30 @@ def get_seq_dists_to_seq_id(seq_id, mldist_file, no_seqs=None):
     return d
 
 
+def get_nodes_on_path(tree, node1, node2):
+    if isinstance(node1, str):
+        node1 = tree.search_nodes(name=node1)[0]
+    if isinstance(node2, str):
+        node2 = tree.search_nodes(name=node2)[0]
+    mrca = tree.get_common_ancestor(node1, node2)
+    nodes_on_path = []
+    for node in [node1, node2]:
+        ancestor = node
+        nodes_on_path.append(ancestor)
+        while ancestor != mrca:
+            ancestor = ancestor.up
+            if ancestor not in nodes_on_path:
+                nodes_on_path.append(ancestor)
+    return nodes_on_path
+
+
 def order_of_distances_to_seq_id(
     sorted_taxon_tii_list, mldist_file, all_taxon_edge_df, data_folder, plot_filepath
 ):
     """
-    Plot number of times we see that the distance of taxon1 to seq_id is smaller than
-    taxon2 to seq_id in best reattached tree, but greater in terms of sequence distance,
-    for each possible seq_id.
+    Plot difference in tree and sequence distance for sequences of taxon1 and taxon 2
+    where distance of taxon1 to seq_id is smaller than taxon2 to seq_id in best reattached
+    tree, but greater in terms of sequence distance, for each possible seq_id.
     """
     mldist = get_ml_dist(mldist_file)
     df = []
@@ -181,43 +198,36 @@ def order_of_distances_to_seq_id(
             leaf for leaf in best_reattached_tree.get_leaf_names() if leaf != seq_id
         ]
         for leaf1, leaf2 in itertools.combinations(leaves, 2):
-            if best_reattached_tree.get_distance(leaf1, leaf2, topology_only=True):
-                tree_dist_leaf1 = best_reattached_tree.get_distance(seq_id, leaf1)
-                tree_dist_leaf2 = best_reattached_tree.get_distance(seq_id, leaf2)
-                seq_dist_leaf1 = mldist[seq_id][leaf1]
-                seq_dist_leaf2 = mldist[seq_id][leaf2]
-                if (
-                    tree_dist_leaf1 < tree_dist_leaf2
-                    and seq_dist_leaf1 > seq_dist_leaf2
-                ):
-                    difference = (tree_dist_leaf2 - tree_dist_leaf1) + (
-                        seq_dist_leaf1 - seq_dist_leaf2
-                    )
-                    df.append([seq_id, leaf1, leaf2, difference])
-                elif (
-                    tree_dist_leaf2 < tree_dist_leaf1
-                    and seq_dist_leaf2 > seq_dist_leaf1
-                ):
-                    difference = (tree_dist_leaf1 - tree_dist_leaf2) + (
-                        seq_dist_leaf2 - seq_dist_leaf1
-                    )
-                    df.append([seq_id, leaf2, leaf1])
+            # if best_reattached_tree.get_distance(leaf1, leaf2, topology_only=True) < 6:
+            mrca = best_reattached_tree.get_common_ancestor([leaf1, leaf2])
+            # we only consider leaves on the same side of seq_id in the tree
+            p1 = get_nodes_on_path(best_reattached_tree, seq_id, leaf1)
+            p2 = get_nodes_on_path(best_reattached_tree, seq_id, leaf2)
+            if mrca not in p1 or mrca not in p2:
+                continue
+            # add differences between sequence and tree distance to df if order of
+            # distances between leaf1 and leaf2 to seq_id are different in tree and
+            # msa distance matrix
+            tree_dist_leaf1 = best_reattached_tree.get_distance(seq_id, leaf1)
+            tree_dist_leaf2 = best_reattached_tree.get_distance(seq_id, leaf2)
+            seq_dist_leaf1 = mldist[seq_id][leaf1]
+            seq_dist_leaf2 = mldist[seq_id][leaf2]
+            if tree_dist_leaf1 < tree_dist_leaf2 and seq_dist_leaf1 > seq_dist_leaf2:
+                difference = abs(tree_dist_leaf1 - seq_dist_leaf1) + abs(
+                    tree_dist_leaf2 - seq_dist_leaf2
+                )
+                difference = (
+                    tree_dist_leaf2 / tree_dist_leaf1 + seq_dist_leaf1 / seq_dist_leaf2
+                )
+                df.append([seq_id, leaf1, leaf2, difference])
+            elif tree_dist_leaf2 < tree_dist_leaf1 and seq_dist_leaf2 > seq_dist_leaf1:
+                difference = abs(tree_dist_leaf1 - seq_dist_leaf1) + abs(
+                    tree_dist_leaf2 - seq_dist_leaf2
+                )
+                df.append([seq_id, leaf2, leaf1])
     df = pd.DataFrame(df, columns=["seq_id", "leaf1", "leaf2", "difference"])
 
     sns.stripplot(data=df, x="seq_id", y="difference")
-    # # Convert the list to a DataFrame
-    # tii_df = pd.DataFrame(sorted_taxon_tii_list, columns=["seq_id", "TII"])
-
-    # # Count the number of entries for each sequence ID
-    # count_df = df["seq_id"].value_counts().reset_index()
-    # count_df.columns = ["seq_id", "count"]
-
-    # # Merge the count DataFrame with the TII DataFrame
-    # merged_df = pd.merge(tii_df, count_df, on="seq_id")
-
-    # # Create the bar plot
-    # plt.figure(figsize=(10, 6))
-    # sns.barplot(x="seq_id", y="count", data=merged_df)
     plt.xticks(
         range(len(sorted_taxon_tii_list)),
         [
@@ -1771,33 +1781,33 @@ mldist_plots(
 print("Done plotting mldists.")
 
 
-# # plot branch length distance of reattachment locations vs TII, hue = log_likelihood
-# # difference
-# print("Start plotting reattachment distances.")
-# reattachment_distances_path = os.path.join(
-#     plots_folder, "dist_of_likely_reattachments.pdf"
-# )
-# dist_of_likely_reattachments(
-#     sorted_taxon_tii_list,
-#     all_taxon_edge_df,
-#     reattachment_distance_csv,
-#     reattachment_distances_path,
-# )
-# print("Done plotting reattachment distances.")
+# plot branch length distance of reattachment locations vs TII, hue = log_likelihood
+# difference
+print("Start plotting reattachment distances.")
+reattachment_distances_path = os.path.join(
+    plots_folder, "dist_of_likely_reattachments.pdf"
+)
+dist_of_likely_reattachments(
+    sorted_taxon_tii_list,
+    all_taxon_edge_df,
+    reattachment_distance_csv,
+    reattachment_distances_path,
+)
+print("Done plotting reattachment distances.")
 
-# # plot topological distance of reattachment locations vs TII, hue = log_likelihood
-# # difference
-# print("Start plotting topological reattachment distances.")
-# reattachment_topological_distances_path = os.path.join(
-#     plots_folder, "topological_dist_of_likely_reattachments.pdf"
-# )
-# dist_of_likely_reattachments(
-#     sorted_taxon_tii_list,
-#     all_taxon_edge_df,
-#     reattachment_distance_topological_csv,
-#     reattachment_topological_distances_path,
-# )
-# print("Done plotting topological reattachment distances.")
+# plot topological distance of reattachment locations vs TII, hue = log_likelihood
+# difference
+print("Start plotting topological reattachment distances.")
+reattachment_topological_distances_path = os.path.join(
+    plots_folder, "topological_dist_of_likely_reattachments.pdf"
+)
+dist_of_likely_reattachments(
+    sorted_taxon_tii_list,
+    all_taxon_edge_df,
+    reattachment_distance_topological_csv,
+    reattachment_topological_distances_path,
+)
+print("Done plotting topological reattachment distances.")
 
 # # plot edpl vs TII for each taxon
 # edpl_filepath = os.path.join(plots_folder, "edpl_vs_tii.pdf")
