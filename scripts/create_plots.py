@@ -180,6 +180,83 @@ def get_nodes_on_path(tree, node1, node2):
     return nodes_on_path
 
 
+def ratio_of_seq_and_tree_dist(
+    sorted_taxon_tii_list,
+    mldist_file,
+    all_taxon_edge_df,
+    data_folder,
+    reduced_tree_files,
+    plot_filepath,
+):
+    """
+    Plot difference in ratio of distances to seq_id: |d_seq1/d_seq2 - d_leaf1/d_leaf2|
+    where d_seq is sequence distance and d_leaf is tree sequence distance to seq_id.
+    """
+    mldist = get_ml_dist(mldist_file)
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        best_reattached_tree = get_best_reattached_tree(
+            seq_id, all_taxon_edge_df, data_folder
+        )
+        reduced_tree_filepath = [
+            f for f in reduced_tree_files if "/" + seq_id + "/" in f
+        ][0]
+        reduced_tree = Tree(reduced_tree_filepath)
+        # with open(reduced_tree_filepath, "r") as f:
+        #     reduced_tree = Tree(f.readlines()[0].strip())
+        leaves = [
+            leaf for leaf in best_reattached_tree.get_leaf_names() if leaf != seq_id
+        ]
+        for leaf1, leaf2 in itertools.combinations(leaves, 2):
+            mrca = best_reattached_tree.get_common_ancestor([leaf1, leaf2])
+            mrca_support_reduced_tree = reduced_tree.get_common_ancestor(
+                [leaf1, leaf2]
+            ).support
+            if not mrca.is_root() and mrca_support_reduced_tree < 90:
+                # we only consider leaves on the same side of seq_id in the tree
+                p1 = get_nodes_on_path(best_reattached_tree, seq_id, leaf1)
+                p2 = get_nodes_on_path(best_reattached_tree, seq_id, leaf2)
+                if mrca not in p1 or mrca not in p2:
+                    continue
+                # add differences between distance ratios to df
+                tree_dist_leaf1 = best_reattached_tree.get_distance(
+                    seq_id, leaf1, topology_only=True
+                )
+                tree_dist_leaf2 = best_reattached_tree.get_distance(
+                    seq_id, leaf2, topology_only=True
+                )
+                seq_dist_leaf1 = mldist[seq_id][leaf1]
+                seq_dist_leaf2 = mldist[seq_id][leaf2]
+                if seq_dist_leaf1 > seq_dist_leaf2:
+                    difference = (seq_dist_leaf1 / seq_dist_leaf2) - (
+                        tree_dist_leaf1 / tree_dist_leaf2
+                    )
+                else:
+                    difference = (seq_dist_leaf2 / seq_dist_leaf1) - (
+                        tree_dist_leaf2 / tree_dist_leaf1
+                    )
+                if difference > 5:
+                    print(seq_id, leaf1, leaf2)
+                df.append([seq_id, leaf2, leaf1, difference])
+    df = pd.DataFrame(df, columns=["seq_id", "leaf1", "leaf2", "difference"])
+
+    sns.stripplot(data=df, x="seq_id", y="difference")
+    plt.xticks(
+        range(len(sorted_taxon_tii_list)),
+        [
+            str(pair[0]) + " " + str(pair[1])
+            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        ],
+        rotation=90,
+    )
+    plt.title("Difference between tree distance and sequence distance")
+    plt.xlabel("seq_id")
+    plt.ylabel("Difference in distance")
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 def order_of_distances_to_seq_id(
     sorted_taxon_tii_list, mldist_file, all_taxon_edge_df, data_folder, plot_filepath
 ):
@@ -224,7 +301,7 @@ def order_of_distances_to_seq_id(
                 difference = abs(tree_dist_leaf1 - seq_dist_leaf1) + abs(
                     tree_dist_leaf2 - seq_dist_leaf2
                 )
-                df.append([seq_id, leaf2, leaf1])
+                df.append([seq_id, leaf2, leaf1, difference])
     df = pd.DataFrame(df, columns=["seq_id", "leaf1", "leaf2", "difference"])
 
     sns.stripplot(data=df, x="seq_id", y="difference")
@@ -1649,6 +1726,19 @@ all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
 
 
+print("Start plotting ratio of sequence and tree distance.")
+plot_filepath = os.path.join(plots_folder, "ratio_of_seq_and_tree_dist.pdf")
+ratio_of_seq_and_tree_dist(
+    sorted_taxon_tii_list,
+    mldist_file,
+    all_taxon_edge_df,
+    data_folder,
+    reduced_tree_files,
+    plot_filepath,
+)
+print("Start plotting ratio of sequence and tree distance.")
+
+
 print("Start plotting order of distances to seq_id in tree vs MSA.")
 plot_filepath = os.path.join(plots_folder, "order_of_distances_to_seq_id.pdf")
 order_of_distances_to_seq_id(
@@ -1783,31 +1873,31 @@ print("Done plotting mldists.")
 
 # plot branch length distance of reattachment locations vs TII, hue = log_likelihood
 # difference
-print("Start plotting reattachment distances.")
-reattachment_distances_path = os.path.join(
-    plots_folder, "dist_of_likely_reattachments.pdf"
-)
-dist_of_likely_reattachments(
-    sorted_taxon_tii_list,
-    all_taxon_edge_df,
-    reattachment_distance_csv,
-    reattachment_distances_path,
-)
-print("Done plotting reattachment distances.")
+# print("Start plotting reattachment distances.")
+# reattachment_distances_path = os.path.join(
+#     plots_folder, "dist_of_likely_reattachments.pdf"
+# )
+# dist_of_likely_reattachments(
+#     sorted_taxon_tii_list,
+#     all_taxon_edge_df,
+#     reattachment_distance_csv,
+#     reattachment_distances_path,
+# )
+# print("Done plotting reattachment distances.")
 
-# plot topological distance of reattachment locations vs TII, hue = log_likelihood
-# difference
-print("Start plotting topological reattachment distances.")
-reattachment_topological_distances_path = os.path.join(
-    plots_folder, "topological_dist_of_likely_reattachments.pdf"
-)
-dist_of_likely_reattachments(
-    sorted_taxon_tii_list,
-    all_taxon_edge_df,
-    reattachment_distance_topological_csv,
-    reattachment_topological_distances_path,
-)
-print("Done plotting topological reattachment distances.")
+# # plot topological distance of reattachment locations vs TII, hue = log_likelihood
+# # difference
+# print("Start plotting topological reattachment distances.")
+# reattachment_topological_distances_path = os.path.join(
+#     plots_folder, "topological_dist_of_likely_reattachments.pdf"
+# )
+# dist_of_likely_reattachments(
+#     sorted_taxon_tii_list,
+#     all_taxon_edge_df,
+#     reattachment_distance_topological_csv,
+#     reattachment_topological_distances_path,
+# )
+# print("Done plotting topological reattachment distances.")
 
 # # plot edpl vs TII for each taxon
 # edpl_filepath = os.path.join(plots_folder, "edpl_vs_tii.pdf")
