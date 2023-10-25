@@ -140,8 +140,10 @@ def get_closest_msa_sequences(seq_id, mldist_file, p):
     Returns list of names of p closest sequences in MSA to seq_id.
     """
     ml_distances = get_ml_dist(mldist_file)
-    top_p_rows = ml_distances.nlargest(p, seq_id)
-    row_names = top_p_rows.index.tolist()
+    seq_id_row = ml_distances[seq_id]
+    seq_id_row = seq_id_row.drop(seq_id)
+    top_p = seq_id_row.nsmallest(p)
+    row_names = top_p.index.tolist()
     return row_names
 
 
