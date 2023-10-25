@@ -443,6 +443,37 @@ def tree_likeness_at_reattachment(
     plt.clf()
 
 
+def topological_tree_dist_closest_msa_sequence(
+    sorted_taxon_tii_list, mldist_file, all_taxon_edge_df, data_folder, plot_filepath
+):
+    """'
+    Plot topological distance of seq_id to taxon with closest sequence distance to seq_id
+    in best reattached tree for each seq_id.
+    """
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        tree = get_best_reattached_tree(seq_id, all_taxon_edge_df, data_folder)
+        closest_sequence = get_closest_msa_sequences(seq_id, mldist_file, 1)[0]
+        all_leaf_dists = {}
+        for leaf in tree.get_leaf_names():
+            if leaf != seq_id:
+                all_leaf_dists[leaf] = tree.get_distance(
+                    seq_id, leaf, topology_only=True
+                )
+        closest_leaf_dist = tree.get_distance(
+            seq_id, closest_sequence, topology_only=True
+        )
+        # take ratio of closest_leaf_dist to minimum leaf distance
+        closest_leaf_dist /= min(all_leaf_dists.values())
+        df.append([seq_id + " " + str(tii), closest_sequence, closest_leaf_dist])
+    df = pd.DataFrame(df, columns=["seq_id", "closest_sequence", "tree_dist"])
+    sns.scatterplot(data=df, x="seq_id", y="tree_dist")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 def seq_distance_distribution_closest_seq(
     sorted_taxon_tii_list, mldist_file, summary_plot_filepath, separate_plots_filename
 ):
@@ -1745,6 +1776,16 @@ sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 4)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
+
+
+print("Start plotting tree distance to closest MSA sequence.")
+plot_filename = os.path.join(
+    plots_folder, "topological_tree_dist_closest_msa_sequence.pdf"
+)
+topological_tree_dist_closest_msa_sequence(
+    sorted_taxon_tii_list, mldist_file, all_taxon_edge_df, data_folder, plot_filename
+)
+print("Done plotting tree distance to closest MSA sequence.")
 
 
 print("Start plotting ratio of sequence and tree distance.")
