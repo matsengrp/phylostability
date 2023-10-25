@@ -455,19 +455,20 @@ def topological_tree_dist_closest_msa_sequence(
     df = []
     for seq_id, tii in sorted_taxon_tii_list:
         tree = get_best_reattached_tree(seq_id, all_taxon_edge_df, data_folder)
-        closest_sequence = get_closest_msa_sequences(seq_id, mldist_file, 1)[0]
+        closest_sequences = get_closest_msa_sequences(seq_id, mldist_file, 3)
         all_leaf_dists = {}
         for leaf in tree.get_leaf_names():
             if leaf != seq_id:
                 all_leaf_dists[leaf] = tree.get_distance(
                     seq_id, leaf, topology_only=True
                 )
-        closest_leaf_dist = tree.get_distance(
-            seq_id, closest_sequence, topology_only=True
-        )
-        # take ratio of closest_leaf_dist to minimum leaf distance
-        closest_leaf_dist /= min(all_leaf_dists.values())
-        df.append([seq_id + " " + str(tii), closest_sequence, closest_leaf_dist])
+        for closest_sequence in closest_sequences:
+            closest_leaf_dist = tree.get_distance(
+                seq_id, closest_sequence, topology_only=True
+            )
+            # take ratio of closest_leaf_dist to minimum leaf distance
+            closest_leaf_dist /= min(all_leaf_dists.values())
+            df.append([seq_id + " " + str(tii), closest_sequence, closest_leaf_dist])
     df = pd.DataFrame(df, columns=["seq_id", "closest_sequence", "tree_dist"])
     sns.scatterplot(data=df, x="seq_id", y="tree_dist")
     plt.xticks(rotation=90)
