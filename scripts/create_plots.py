@@ -125,7 +125,7 @@ def get_best_reattached_tree_distances_to_seq_id(
     seq_id, all_taxon_edge_df, data_folder
 ):
     """ "
-    Return distance matrix for distances in tree with highest likelihood
+    Return dictionary with distances in tree with highest likelihood
     among all reattached trees (as per all_taxon_edge_df).
     """
     tree = get_best_reattached_tree(seq_id, all_taxon_edge_df, data_folder)
@@ -236,81 +236,6 @@ def nj_tii(mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath):
     plt.title("NJ TII vs ML TII")
     plt.xlabel("seq_id")
     plt.ylabel("NJ TII")
-    plt.tight_layout()
-    plt.savefig(plot_filepath)
-    plt.clf()
-
-
-def ratio_of_seq_and_tree_dist(
-    sorted_taxon_tii_list,
-    mldist_file,
-    all_taxon_edge_df,
-    data_folder,
-    reduced_tree_files,
-    plot_filepath,
-):
-    """
-    Plot difference in ratio of distances to seq_id: |d_seq1/d_seq2 - d_leaf1/d_leaf2|
-    where d_seq is sequence distance and d_leaf is tree sequence distance to seq_id.
-    """
-    mldist = get_ml_dist(mldist_file)
-    df = []
-    for seq_id, tii in sorted_taxon_tii_list:
-        best_reattached_tree = get_best_reattached_tree(
-            seq_id, all_taxon_edge_df, data_folder
-        )
-        reduced_tree_filepath = [
-            f for f in reduced_tree_files if "/" + seq_id + "/" in f
-        ][0]
-        reduced_tree = Tree(reduced_tree_filepath)
-        # with open(reduced_tree_filepath, "r") as f:
-        #     reduced_tree = Tree(f.readlines()[0].strip())
-        leaves = [
-            leaf for leaf in best_reattached_tree.get_leaf_names() if leaf != seq_id
-        ]
-        for leaf1, leaf2 in itertools.combinations(leaves, 2):
-            mrca = best_reattached_tree.get_common_ancestor([leaf1, leaf2])
-            mrca_support_reduced_tree = reduced_tree.get_common_ancestor(
-                [leaf1, leaf2]
-            ).support
-            if not mrca.is_root() and mrca_support_reduced_tree < 90:
-                # we only consider leaves on the same side of seq_id in the tree
-                p1 = get_nodes_on_path(best_reattached_tree, seq_id, leaf1)
-                p2 = get_nodes_on_path(best_reattached_tree, seq_id, leaf2)
-                if mrca not in p1 or mrca not in p2:
-                    continue
-                # add differences between distance ratios to df
-                tree_dist_leaf1 = best_reattached_tree.get_distance(
-                    seq_id, leaf1, topology_only=True
-                )
-                tree_dist_leaf2 = best_reattached_tree.get_distance(
-                    seq_id, leaf2, topology_only=True
-                )
-                seq_dist_leaf1 = mldist[seq_id][leaf1]
-                seq_dist_leaf2 = mldist[seq_id][leaf2]
-                if seq_dist_leaf1 > seq_dist_leaf2:
-                    difference = (seq_dist_leaf1 / seq_dist_leaf2) - (
-                        tree_dist_leaf1 / tree_dist_leaf2
-                    )
-                else:
-                    difference = (seq_dist_leaf2 / seq_dist_leaf1) - (
-                        tree_dist_leaf2 / tree_dist_leaf1
-                    )
-                df.append([seq_id, leaf2, leaf1, difference])
-    df = pd.DataFrame(df, columns=["seq_id", "leaf1", "leaf2", "difference"])
-
-    sns.stripplot(data=df, x="seq_id", y="difference")
-    plt.xticks(
-        range(len(sorted_taxon_tii_list)),
-        [
-            str(pair[0]) + " " + str(pair[1])
-            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
-        ],
-        rotation=90,
-    )
-    plt.title("Difference between tree distance and sequence distance")
-    plt.xlabel("seq_id")
-    plt.ylabel("Difference in distance")
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
@@ -663,7 +588,7 @@ def seq_distance_distribution_closest_seq(
                     [
                         seq_id + " " + str(tii),
                         closest_sequence,
-                        dist_to_closest_seq[i] - dist_to_seq[i],
+                        dist_to_closest_seq[i] / dist_to_seq[i],
                         dist_to_seq[i],
                         dist_to_closest_seq[i],
                     ]
@@ -913,7 +838,6 @@ def plot_seq_and_tree_dist_diff(
     sorted_taxon_tii_list,
     mldist_file,
     data_folder,
-    reduced_tree_files,
     diff_plot_filepath,
     ratio_plot_filepath,
 ):
@@ -925,13 +849,10 @@ def plot_seq_and_tree_dist_diff(
     distance_diffs = []
     distance_ratios = []
     for seq_id, tii in sorted_taxon_tii_list:
-        reduced_tree_file = [f for f in reduced_tree_files if "/" + seq_id + "/" in f][
-            0
-        ]
-        tree = Tree(reduced_tree_file)
+        tree = get_best_reattached_tree(seq_id, all_taxon_edge_df, data_folder)
         leaves = [leaf for leaf in tree.get_leaf_names() if leaf != seq_id]
-        for leaf1, leaf2 in itertools.combinations(leaves, 2):
-            ratio = tree.get_distance(leaf1, leaf2) / ml_distances[leaf1][leaf2]
+        for leaf in leaves:
+            ratio = tree.get_distance(seq_id, leaf) / ml_distances[seq_id][leaf]
             distance_ratios.append([seq_id + " " + str(tii), ratio])
 
         reattached_distance = get_best_reattached_tree_distances_to_seq_id(
@@ -1943,7 +1864,7 @@ taxon_tii_list = [
 ]
 sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 
-all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 4)
+all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 2)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
 
@@ -2097,7 +2018,6 @@ plot_seq_and_tree_dist_diff(
     sorted_taxon_tii_list,
     mldist_file,
     data_folder,
-    reduced_tree_files,
     distance_diff_filepath,
     ratio_plot_filepath,
 )
