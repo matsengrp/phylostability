@@ -258,7 +258,15 @@ def ratio_of_seq_and_tree_dist(
 
 
 def order_of_distances_to_seq_id(
-    sorted_taxon_tii_list, mldist_file, all_taxon_edge_df, data_folder, plot_filepath
+    sorted_taxon_tii_list,
+    mldist_file,
+    all_taxon_edge_df,
+    data_folder,
+    plot_filepath,
+    barplot_filepath,
+    histplot_filepath,
+    q=0,
+    c=10,
 ):
     """
     Plot difference in tree and sequence distance for sequences of taxon1 and taxon 2
@@ -267,6 +275,7 @@ def order_of_distances_to_seq_id(
     """
     mldist = get_ml_dist(mldist_file)
     df = []
+    hist_counts = []
     for seq_id, tii in sorted_taxon_tii_list:
         best_reattached_tree = get_best_reattached_tree(
             seq_id, all_taxon_edge_df, data_folder
@@ -274,50 +283,117 @@ def order_of_distances_to_seq_id(
         leaves = [
             leaf for leaf in best_reattached_tree.get_leaf_names() if leaf != seq_id
         ]
+        subset = []
         for leaf1, leaf2 in itertools.combinations(leaves, 2):
-            # if best_reattached_tree.get_distance(leaf1, leaf2, topology_only=True) < 6:
-            mrca = best_reattached_tree.get_common_ancestor([leaf1, leaf2])
-            # we only consider leaves on the same side of seq_id in the tree
-            p1 = get_nodes_on_path(best_reattached_tree, seq_id, leaf1)
-            p2 = get_nodes_on_path(best_reattached_tree, seq_id, leaf2)
-            if mrca not in p1 or mrca not in p2:
-                continue
+            # if best_reattached_tree.get_distance(leaf1, leaf2, topology_only=True) > 4:
+            # mrca = best_reattached_tree.get_common_ancestor([leaf1, leaf2])
+            # # Careful: Restricting by leaves being "on the same side" seems biased by rooting
+            # # we only consider leaves on the same side of seq_id in the tree
+            # p1 = get_nodes_on_path(best_reattached_tree, seq_id, leaf1)
+            # p2 = get_nodes_on_path(best_reattached_tree, seq_id, leaf2)
+            # if mrca not in p1 or mrca not in p2:
+            #     continue
+
             # add differences between sequence and tree distance to df if order of
             # distances between leaf1 and leaf2 to seq_id are different in tree and
             # msa distance matrix
-            tree_dist_leaf1 = best_reattached_tree.get_distance(seq_id, leaf1)
-            tree_dist_leaf2 = best_reattached_tree.get_distance(seq_id, leaf2)
+            tree_dist_leaf1 = best_reattached_tree.get_distance(
+                seq_id, leaf1, topology_only=True
+            )
+            tree_dist_leaf2 = best_reattached_tree.get_distance(
+                seq_id, leaf2, topology_only=True
+            )
             seq_dist_leaf1 = mldist[seq_id][leaf1]
             seq_dist_leaf2 = mldist[seq_id][leaf2]
-            if tree_dist_leaf1 < tree_dist_leaf2 and seq_dist_leaf1 > seq_dist_leaf2:
-                difference = abs(tree_dist_leaf1 - seq_dist_leaf1) + abs(
-                    tree_dist_leaf2 - seq_dist_leaf2
-                )
+            if (
+                tree_dist_leaf1 / tree_dist_leaf2 < 1 - q
+                and seq_dist_leaf1 / seq_dist_leaf2 > 1 + q
+            ):
                 difference = (
-                    tree_dist_leaf2 / tree_dist_leaf1 + seq_dist_leaf1 / seq_dist_leaf2
+                    seq_dist_leaf1 / seq_dist_leaf2 - tree_dist_leaf1 / tree_dist_leaf2
                 )
-                df.append([seq_id, leaf1, leaf2, difference])
-            elif tree_dist_leaf2 < tree_dist_leaf1 and seq_dist_leaf2 > seq_dist_leaf1:
-                difference = abs(tree_dist_leaf1 - seq_dist_leaf1) + abs(
-                    tree_dist_leaf2 - seq_dist_leaf2
+                subset.append([seq_id + " " + str(tii), leaf1, leaf2, difference])
+            elif (
+                tree_dist_leaf2 / tree_dist_leaf1 < 1 - q
+                and seq_dist_leaf2 / seq_dist_leaf1 > 1 + q
+            ):
+                difference = (
+                    seq_dist_leaf2 / seq_dist_leaf1 - tree_dist_leaf2 / tree_dist_leaf1
                 )
-                df.append([seq_id, leaf2, leaf1, difference])
+                subset.append([seq_id + " " + str(tii), leaf2, leaf1, difference])
+        subset_df = pd.DataFrame(
+            subset, columns=["seq_id", "leaf1", "leaf2", "difference"]
+        )
+        # filter out leaves that appear in less than c pairs of differently ordered leaves
+        for other_seq in [s for s, tii in sorted_taxon_tii_list if s != seq_id]:
+            count = subset_df["leaf1"].value_counts().get(other_seq, 0) + subset_df[
+                "leaf2"
+            ].value_counts().get(other_seq, 0)
+            hist_counts.append([seq_id + " " + str(tii), other_seq, count])
+            if count < c:
+                # delete all rows with 'other_seq' from dataset
+                subset = [l for l in subset if l[1] != other_seq and l[2] != other_seq]
+        df += subset
     df = pd.DataFrame(df, columns=["seq_id", "leaf1", "leaf2", "difference"])
 
+    plt.figure(figsize=(10, 6))
     sns.stripplot(data=df, x="seq_id", y="difference")
     plt.xticks(
-        range(len(sorted_taxon_tii_list)),
-        [
-            str(pair[0]) + " " + str(pair[1])
-            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
-        ],
         rotation=90,
     )
-    plt.title("Difference between tree distance and sequence distance")
-    plt.xlabel("seq_id")
-    plt.ylabel("Difference in distance")
+    plt.title("Difference between sequence distance and tree distance ratio")
+    plt.ylabel("Difference in distance ratios")
     plt.tight_layout()
     plt.savefig(plot_filepath)
+    plt.clf()
+
+    # Count the occurrences of each 'seq_id' in df
+    counts = df["seq_id"].value_counts().to_frame()
+    tii_list = []
+    for seq_id in counts.index:
+        tii_list.append(float(seq_id.split(" ")[1]))
+    counts["tii"] = tii_list
+    counts = counts.sort_values(by="tii")
+    counts.columns = ["count", "tii"]
+
+    # Create a bar plot
+    plt.figure(figsize=(10, 6))
+    sns.barplot(data=counts, x=counts.index, y="count")
+    plt.xticks(
+        rotation=90,
+    )
+    plt.ylabel("count")
+    plt.title("Number of change in order of distances (tree vs msa) to seq_id")
+    plt.tight_layout()
+    plt.savefig(barplot_filepath)
+
+    # plots number of other_seq in swapped pair for each seq_id separately
+    n = len(sorted_taxon_tii_list)
+    num_rows = math.ceil(math.sqrt(n))
+    num_cols = math.ceil(n / num_rows)
+
+    counts_df = pd.DataFrame(hist_counts, columns=["seq_id", "other_seq", "count"])
+    fig, axes = plt.subplots(
+        num_rows, num_cols, figsize=(15, 15), sharex=True, sharey=True
+    )
+    for index, (seq_id, tii) in enumerate(sorted_taxon_tii_list):
+        row = index // num_cols
+        col = index % num_cols
+        current_df = counts_df.loc[counts_df["seq_id"] == seq_id + " " + str(tii)]
+        current_df = current_df.sort_values(by="count", ascending=True)
+        sns.barplot(
+            data=current_df,
+            x="other_seq",
+            y="count",
+            ax=axes[row, col],
+        )
+        axes[row, col].set_title(tii)
+        axes[row, col].set_xlabel("")
+        axes[row, col].set_ylabel("")
+        axes[row, col].set_xticklabels("")
+
+    # plt.tight_layout()
+    plt.savefig(histplot_filepath)
     plt.clf()
 
 
@@ -1843,13 +1919,23 @@ ratio_of_seq_and_tree_dist(
     reduced_tree_files,
     plot_filepath,
 )
-print("Start plotting ratio of sequence and tree distance.")
+print("Done plotting ratio of sequence and tree distance.")
 
 
 print("Start plotting order of distances to seq_id in tree vs MSA.")
 plot_filepath = os.path.join(plots_folder, "order_of_distances_to_seq_id.pdf")
+barplot_filepath = os.path.join(plots_folder, "order_of_distances_to_seq_id_count.pdf")
+histplot_filepath = os.path.join(
+    plots_folder, "order_of_distances_to_seq_id_histplots.pdf"
+)
 order_of_distances_to_seq_id(
-    sorted_taxon_tii_list, mldist_file, all_taxon_edge_df, data_folder, plot_filepath
+    sorted_taxon_tii_list,
+    mldist_file,
+    all_taxon_edge_df,
+    data_folder,
+    plot_filepath,
+    barplot_filepath,
+    histplot_filepath,
 )
 print("Done plotting order of distances to seq_id in tree vs MSA.")
 
