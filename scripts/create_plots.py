@@ -8,6 +8,9 @@ import re
 import pickle
 import math
 import itertools
+from Bio import Phylo
+from Bio.Phylo.TreeConstruction import DistanceMatrix, DistanceTreeConstructor
+from io import StringIO
 
 
 def ete_dist(node1, node2, topology_only=False):
@@ -180,6 +183,62 @@ def get_nodes_on_path(tree, node1, node2):
             if ancestor not in nodes_on_path:
                 nodes_on_path.append(ancestor)
     return nodes_on_path
+
+
+def nj_tii(mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath):
+    """
+    Compute Neighbour Joining TII and compare to ML TII
+    """
+
+    def compute_nj_tree(d):
+        # convert d into lower triangular distance matrix as list of lists
+        matrix = []
+        i = 1
+        for row in d.index:
+            matrix.append([l for l in d[row][:i]])
+            i += 1
+        distance_matrix = DistanceMatrix(names=d.index.to_list(), matrix=matrix)
+        constructor = DistanceTreeConstructor()
+        tree = constructor.nj(distance_matrix)
+        return tree
+
+    full_mldist = get_ml_dist(mldist_file)
+    full_tree = compute_nj_tree(full_mldist)
+    # Convert tree from biopython to ete format
+    full_tree_newick = StringIO()
+    Phylo.write(full_tree, full_tree_newick, "newick")
+    full_tree_newick = full_tree_newick.getvalue()
+    full_tree = Tree(full_tree_newick, format=1)
+
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        f = (
+            data_folder
+            + "reduced_alignments/"
+            + seq_id
+            + "/reduced_alignment.fasta.mldist"
+        )
+        reduced_mldist = get_ml_dist(f)
+        reduced_tree = compute_nj_tree(reduced_mldist)
+        # Convert tree from biopython to ete format
+        reduced_tree_newick = StringIO()
+        Phylo.write(reduced_tree, reduced_tree_newick, "newick")
+        reduced_tree_newick = reduced_tree_newick.getvalue()
+        reduced_tree = Tree(reduced_tree_newick, format=1)
+
+        rf_dist = full_tree.robinson_foulds(reduced_tree, unrooted_trees=True)[0]
+        df.append([seq_id + " " + str(tii), rf_dist])
+    df = pd.DataFrame(df, columns=["seq_id", "rf_distance"])
+    sns.scatterplot(data=df, x="seq_id", y="rf_distance")
+    plt.xticks(
+        rotation=90,
+    )
+    plt.title("NJ TII vs ML TII")
+    plt.xlabel("seq_id")
+    plt.ylabel("NJ TII")
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
 
 
 def ratio_of_seq_and_tree_dist(
@@ -1888,6 +1947,11 @@ all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
 
+
+print("Start plotting NJ TII.")
+plot_filepath = os.path.join(plots_folder, "NJ_TII.pdf")
+nj_tii(mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath)
+print("Done plotting NJ TII.")
 
 print("Start plotting sequence distance to taxon closest in tree.")
 plot_filepath = os.path.join(
