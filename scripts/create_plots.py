@@ -185,9 +185,13 @@ def get_nodes_on_path(tree, node1, node2):
     return nodes_on_path
 
 
-def nj_tii(mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath):
+def nj_tii(
+    mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath, ratio_plot_filepath
+):
     """
-    Compute Neighbour Joining TII and compare to ML TII
+    Compute Neighbour Joining TII and compare to ML TII as well as average ratio of NJ
+    tree distances to sequence distances for each reduced tree as a measure of how tree
+    like the smaller alignment is.
     """
 
     def compute_nj_tree(d):
@@ -211,6 +215,7 @@ def nj_tii(mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath):
     full_tree = Tree(full_tree_newick, format=1)
 
     df = []
+    tree_likeness = []
     for seq_id, tii in sorted_taxon_tii_list:
         f = (
             data_folder
@@ -226,6 +231,23 @@ def nj_tii(mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath):
         reduced_tree_newick = reduced_tree_newick.getvalue()
         reduced_tree = Tree(reduced_tree_newick, format=1)
 
+        leaves = reduced_tree.get_leaf_names()
+        # compute ratio of nj tree distances and sequence distances
+        tl = 0
+        for leaf1, leaf2 in itertools.combinations(leaves, 2):
+            reduced_tree_dist = reduced_tree.get_distance(leaf1, leaf2)
+            reduced_ml_dist = reduced_mldist[leaf1][leaf2]
+            tl += reduced_tree_dist / reduced_ml_dist
+        tree_likeness.append(
+            [
+                seq_id,
+                leaf1,
+                leaf2,
+                tl
+                / (math.factorial(len(leaves)) / math.factorial(len(leaves) - 2) / 2),
+            ]
+        )
+
         rf_dist = full_tree.robinson_foulds(reduced_tree, unrooted_trees=True)[0]
         df.append([seq_id + " " + str(tii), rf_dist])
     df = pd.DataFrame(df, columns=["seq_id", "rf_distance"])
@@ -240,6 +262,20 @@ def nj_tii(mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath):
     plt.savefig(plot_filepath)
     plt.clf()
 
+    tree_likeness_df = pd.DataFrame(
+        tree_likeness, columns=["seq_id", "leaf1", "leaf2", "ratio"]
+    )
+    sns.scatterplot(data=tree_likeness_df, x="seq_id", y="ratio")
+    plt.xticks(
+        rotation=90,
+    )
+    plt.title("NJ distance : sequence distance ratio")
+    plt.xlabel("seq_id")
+    plt.ylabel("Ratio")
+    plt.tight_layout()
+    plt.savefig(ratio_plot_filepath)
+    plt.clf()
+
 
 def order_of_distances_to_seq_id(
     sorted_taxon_tii_list,
@@ -249,8 +285,6 @@ def order_of_distances_to_seq_id(
     plot_filepath,
     barplot_filepath,
     histplot_filepath,
-    q=0,
-    c=10,
 ):
     """
     Plot difference in tree and sequence distance for sequences of taxon1 and taxon 2
@@ -267,12 +301,26 @@ def order_of_distances_to_seq_id(
         leaves = [
             leaf for leaf in best_reattached_tree.get_leaf_names() if leaf != seq_id
         ]
+        reduced_tree = Tree(
+            data_folder
+            + "reduced_alignments/"
+            + seq_id
+            + "/reduced_alignment.fasta.treefile"
+        )
+        all_bootstraps = [
+            node.support
+            for node in reduced_tree.traverse()
+            if not node.is_leaf() and not node.is_root()
+        ]
+        q = np.quantile(all_bootstraps, 0.1)
         subset = []
         for leaf1, leaf2 in itertools.combinations(leaves, 2):
-            # if best_reattached_tree.get_distance(leaf1, leaf2, topology_only=True) > 4:
+            mrca = reduced_tree.get_common_ancestor([leaf1, leaf2])
+            if mrca.support >= q or mrca.support == 1.0:
+                continue
+            # # # Careful: Restricting by leaves being "on the same side" seems biased by rooting
+            # # # we only consider leaves on the same side of seq_id in the tree
             # mrca = best_reattached_tree.get_common_ancestor([leaf1, leaf2])
-            # # Careful: Restricting by leaves being "on the same side" seems biased by rooting
-            # # we only consider leaves on the same side of seq_id in the tree
             # p1 = get_nodes_on_path(best_reattached_tree, seq_id, leaf1)
             # p2 = get_nodes_on_path(best_reattached_tree, seq_id, leaf2)
             # if mrca not in p1 or mrca not in p2:
@@ -290,16 +338,16 @@ def order_of_distances_to_seq_id(
             seq_dist_leaf1 = mldist[seq_id][leaf1]
             seq_dist_leaf2 = mldist[seq_id][leaf2]
             if (
-                tree_dist_leaf1 / tree_dist_leaf2 < 1 - q
-                and seq_dist_leaf1 / seq_dist_leaf2 > 1 + q
+                tree_dist_leaf1 / tree_dist_leaf2 < 1
+                and seq_dist_leaf1 / seq_dist_leaf2 > 1
             ):
                 difference = (
                     seq_dist_leaf1 / seq_dist_leaf2 - tree_dist_leaf1 / tree_dist_leaf2
                 )
                 subset.append([seq_id + " " + str(tii), leaf1, leaf2, difference])
             elif (
-                tree_dist_leaf2 / tree_dist_leaf1 < 1 - q
-                and seq_dist_leaf2 / seq_dist_leaf1 > 1 + q
+                tree_dist_leaf2 / tree_dist_leaf1 < 1
+                and seq_dist_leaf2 / seq_dist_leaf1 > 1
             ):
                 difference = (
                     seq_dist_leaf2 / seq_dist_leaf1 - tree_dist_leaf2 / tree_dist_leaf1
@@ -308,15 +356,15 @@ def order_of_distances_to_seq_id(
         subset_df = pd.DataFrame(
             subset, columns=["seq_id", "leaf1", "leaf2", "difference"]
         )
-        # filter out leaves that appear in less than c pairs of differently ordered leaves
+        # # Select the 10 rows with highest "difference"
+        # sorted_list = sorted(subset, key=lambda x: x[3], reverse=True)
+        # subset = sorted_list[:10]
+
         for other_seq in [s for s, tii in sorted_taxon_tii_list if s != seq_id]:
             count = subset_df["leaf1"].value_counts().get(other_seq, 0) + subset_df[
                 "leaf2"
             ].value_counts().get(other_seq, 0)
             hist_counts.append([seq_id + " " + str(tii), other_seq, count])
-            if count < c:
-                # delete all rows with 'other_seq' from dataset
-                subset = [l for l in subset if l[1] != other_seq and l[2] != other_seq]
         df += subset
     df = pd.DataFrame(df, columns=["seq_id", "leaf1", "leaf2", "difference"])
 
@@ -1871,7 +1919,10 @@ print("Done reading data.")
 
 print("Start plotting NJ TII.")
 plot_filepath = os.path.join(plots_folder, "NJ_TII.pdf")
-nj_tii(mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath)
+ratio_plot_filepath = os.path.join(plots_folder, "NJ_tree_likeness.pdf")
+nj_tii(
+    mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath, ratio_plot_filepath
+)
 print("Done plotting NJ TII.")
 
 print("Start plotting sequence distance to taxon closest in tree.")
@@ -1892,19 +1943,6 @@ topological_tree_dist_closest_msa_sequence(
     sorted_taxon_tii_list, mldist_file, all_taxon_edge_df, data_folder, plot_filepath
 )
 print("Done plotting tree distance to closest MSA sequence.")
-
-
-print("Start plotting ratio of sequence and tree distance.")
-plot_filepath = os.path.join(plots_folder, "ratio_of_seq_and_tree_dist.pdf")
-ratio_of_seq_and_tree_dist(
-    sorted_taxon_tii_list,
-    mldist_file,
-    all_taxon_edge_df,
-    data_folder,
-    reduced_tree_files,
-    plot_filepath,
-)
-print("Done plotting ratio of sequence and tree distance.")
 
 
 print("Start plotting order of distances to seq_id in tree vs MSA.")
