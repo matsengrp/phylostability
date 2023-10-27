@@ -169,6 +169,11 @@ def get_seq_dists_to_seq_id(seq_id, mldist_file, no_seqs=None):
 
 
 def get_nodes_on_path(tree, node1, node2):
+    """
+    For any two input nodes, returns a list of all nodes on the
+    path between these nodes in the tree.
+    Input nodes can be nodes or node names in the tree.
+    """
     if isinstance(node1, str):
         node1 = tree.search_nodes(name=node1)[0]
     if isinstance(node2, str):
@@ -312,7 +317,7 @@ def order_of_distances_to_seq_id(
             for node in reduced_tree.traverse()
             if not node.is_leaf() and not node.is_root()
         ]
-        q = np.quantile(all_bootstraps, 0.1)
+        q = np.quantile(all_bootstraps, 0.5)
         subset = []
         for leaf1, leaf2 in itertools.combinations(leaves, 2):
             mrca = reduced_tree.get_common_ancestor([leaf1, leaf2])
@@ -326,14 +331,25 @@ def order_of_distances_to_seq_id(
             # if mrca not in p1 or mrca not in p2:
             #     continue
 
+            # only consider leaf1 and leaf2 if their path in reduced tree contains
+            # mostly low bootstrap nodes
+            low_support = high_support = 0
+            p = get_nodes_on_path(reduced_tree, leaf1, leaf2)
+            for node in p:
+                if node.support < q:
+                    low_support += 1
+                else:
+                    high_support += 1
+            if 2 * high_support >= low_support:
+                continue
             # add differences between sequence and tree distance to df if order of
             # distances between leaf1 and leaf2 to seq_id are different in tree and
             # msa distance matrix
             tree_dist_leaf1 = best_reattached_tree.get_distance(
-                seq_id, leaf1, topology_only=True
+                seq_id, leaf1, topology_only=False
             )
             tree_dist_leaf2 = best_reattached_tree.get_distance(
-                seq_id, leaf2, topology_only=True
+                seq_id, leaf2, topology_only=False
             )
             seq_dist_leaf1 = mldist[seq_id][leaf1]
             seq_dist_leaf2 = mldist[seq_id][leaf2]
@@ -1035,6 +1051,7 @@ def seq_distance_swarmplot(
     data_folder,
     plot_filepath,
     top5_only=False,
+    bootstrap_threshold=0.2,
 ):
     """
     For each taxon, plot the sequence distance (from iqtree .mldist file) as swarmplot,
@@ -1059,6 +1076,45 @@ def seq_distance_swarmplot(
                 df.append([seq_id + " " + str(tii), distances[seq_id][key]])
         df = pd.DataFrame(df, columns=["seq_id", "distance"])
         sns.stripplot(data=df, x="seq_id", y="distance")
+    elif bootstrap_threshold != None:
+        for seq_id, tii in sorted_taxon_tii_list:
+            reduced_tree_file = (
+                data_folder
+                + "reduced_alignments/"
+                + seq_id
+                + "/reduced_alignment.fasta.treefile"
+            )
+            reduced_tree = Tree(reduced_tree_file)
+            leaves = reduced_tree.get_leaf_names()
+            all_bootstraps = [
+                node.support
+                for node in reduced_tree.traverse()
+                if not node.is_root() and not node.is_leaf()
+            ]
+            q = np.quantile(all_bootstraps, bootstrap_threshold)
+
+            best_reattached_tree = get_best_reattached_tree(
+                seq_id, all_taxon_edge_df, data_folder
+            )
+            seq_id_node = best_reattached_tree.search_nodes(name=seq_id)[0]
+            # find node above which seq_id got reattached
+            below_seq_id = [
+                child for child in seq_id_node.up.children if child.name != seq_id
+            ][0].get_leaf_names()
+            below_seq_id = reduced_tree.get_common_ancestor(below_seq_id)
+            for leaf in leaves:
+                p = get_nodes_on_path(reduced_tree, below_seq_id, leaf)
+                low_support = high_support = 0
+                for node in p:
+                    if node.support < q:
+                        low_support += 1
+                    else:
+                        high_support += 1
+                if high_support >= low_support:
+                    continue
+                df.append([seq_id + " " + str(tii), leaf, distances[seq_id][leaf]])
+        df = pd.DataFrame(df, columns=["seq_id", "leaf", "distances"])
+        sns.stripplot(data=df, x="seq_id", y="distances")
     else:
         distances["seq_id"] = distances.index
         df_long = pd.melt(
@@ -1070,11 +1126,11 @@ def seq_distance_swarmplot(
     plt.ylabel("distances")
     plt.title("sequence distances vs. taxa sorted by TII")
     plt.xticks(
-        range(len(sorted_taxon_tii_list)),
-        [
-            str(pair[0]) + " " + str(pair[1])
-            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
-        ],
+        #     range(len(sorted_taxon_tii_list)),
+        #     [
+        #         str(pair[0]) + " " + str(pair[1])
+        #         for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
+        #     ],
         rotation=90,
     )
     plt.tight_layout()
