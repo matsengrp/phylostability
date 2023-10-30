@@ -190,6 +190,91 @@ def get_nodes_on_path(tree, node1, node2):
     return nodes_on_path
 
 
+def seq_distances_full_vs_reduced_tree(
+    sorted_taxon_tii_list,
+    mldist_file,
+    data_folder,
+    plot_filepath,
+    bootstrap_threshold=1,
+):
+    """
+    Plot difference between sequence distance matrices in full and reduced data sets
+    for all taxa.
+    If bootstrap_threshold < 1, the bootstrap_threshold-quantile q is used to filter out
+    pairs of taxa with high mrca bootstrap support, i.e. only pairs with mrca bootstrap
+    support less than q are plotted.
+    """
+    full_mldist = get_ml_dist(mldist_file)
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        reduced_mldist_path = (
+            data_folder
+            + "reduced_alignments/"
+            + seq_id
+            + "/reduced_alignment.fasta.mldist"
+        )
+        reduced_mldist = get_ml_dist(reduced_mldist_path)
+        reduced_tree_filepath = (
+            data_folder
+            + "reduced_alignments/"
+            + seq_id
+            + "/reduced_alignment.fasta.treefile"
+        )
+        reduced_tree = Tree(reduced_tree_filepath)
+        all_bootstraps = [
+            node.support
+            for node in reduced_tree.traverse()
+            if not node.is_leaf() and not node.is_root()
+        ]
+        q = np.quantile(all_bootstraps, bootstrap_threshold)
+        for leaf1, leaf2 in itertools.combinations(reduced_tree.get_leaf_names(), 2):
+            mrca = reduced_tree.get_common_ancestor([leaf1, leaf2])
+            if mrca.support < q and mrca.support != 1.0:
+                df.append(
+                    [
+                        seq_id + " " + str(tii),
+                        leaf1,
+                        leaf2,
+                        full_mldist[leaf1][leaf2] - reduced_mldist[leaf1][leaf2],
+                        tii,
+                    ]
+                )
+    df = pd.DataFrame(df, columns=["seq_id", "leaf1", "leaf2", "dist_diff", "tii"])
+    # categorise by whether the entry in dist_diff of df is positive or negative
+    df["dist_diff_category"] = pd.cut(
+        df["dist_diff"],
+        bins=[-float("inf"), 0, float("inf")],
+        labels=["Negative", "Positive"],
+    )
+    df["dist_diff_category"] = np.where(df["dist_diff"] < 0, "negative", "positive")
+    count_df = (
+        df.groupby(["seq_id", "tii", "dist_diff_category"])
+        .size()
+        .unstack(fill_value=0)
+        .reset_index()
+    )
+    count_df = count_df.sort_values(by="tii")
+    count_df = count_df.drop(columns=["tii"])
+    count_df = count_df.set_index("seq_id")
+    ax = count_df.plot(kind="bar", width=0.8, figsize=(10, 6))
+    ax.set_ylabel("Count")
+    ax.set_title("Distribution of Negative and Positive dist_diff for Each seq_id")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+
+    # sns.scatterplot(data=df, x="seq_id", y="dist_diff")
+    # plt.xticks(
+    #     rotation=90,
+    # )
+    # plt.title("Difference in sequence distance full and reduced alignment")
+    # plt.xlabel("seq_id")
+    # plt.ylabel("Distance difference")
+    # plt.tight_layout()
+    # plt.savefig(plot_filepath)
+    # plt.clf()
+
+
 def nj_tii(
     mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath, ratio_plot_filepath
 ):
@@ -2002,6 +2087,20 @@ sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 2)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
+
+
+print("Start plotting difference in sequence distances, full vs reduced alignments")
+plot_filepath = os.path.join(
+    plots_folder, "sequence_distance_diff_full_vs_reduced_tree.pdf"
+)
+seq_distances_full_vs_reduced_tree(
+    sorted_taxon_tii_list,
+    mldist_file,
+    data_folder,
+    plot_filepath,
+    bootstrap_threshold=0.05,
+)
+print("Done plotting difference in sequence distances, full vs reduced alignment.")
 
 
 print("Start plotting NJ TII.")
