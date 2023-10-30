@@ -779,11 +779,18 @@ def seq_distances_to_nearest_low_bootstrap_cluster(
 
 
 def tree_vs_sequence_dist_reattached_tree(
-    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, mldist_file, plot_filepath
+    sorted_taxon_tii_list,
+    all_taxon_edge_df,
+    data_folder,
+    mldist_file,
+    plot_filepath,
+    mrca_bootstrap_filter=1,
 ):
     """
     For each seq_id, plot distances inside tree vs sequence distances for all pairs of
-    taxa in reattached_tree.
+    taxa in reduced_tree (i.e. excluding seq_id).
+    We only plot pairs of taxon that have mrca with bootstrap support in lower
+    mrca_bootstrap_filter-quantile in reduced_tree.
     """
     tree_distances = []
     ml_distances = get_ml_dist(mldist_file)
@@ -791,18 +798,40 @@ def tree_vs_sequence_dist_reattached_tree(
         reattached_tree = get_best_reattached_tree(
             seq_id, all_taxon_edge_df, data_folder
         )
-        for leaf1, leaf2 in itertools.combinations(reattached_tree.get_leaves(), 2):
-            if leaf1 != leaf2:
-                dist = leaf1.get_distance(leaf2)
+        reduced_tree_file = (
+            data_folder
+            + "reduced_alignments/"
+            + seq_id
+            + "/reduced_alignment.fasta.treefile"
+        )
+        reduced_tree = Tree(reduced_tree_file)
+        all_bootstraps = [
+            node.support
+            for node in reduced_tree.traverse()
+            if not node.is_leaf() and not node.is_root()
+        ]
+        q = np.quantile(all_bootstraps, mrca_bootstrap_filter)
+        for leaf1, leaf2 in itertools.combinations(reduced_tree.get_leaf_names(), 2):
+            mrca = reduced_tree.get_common_ancestor([leaf1, leaf2])
+            if mrca.support < q and not mrca.support == 1.0:
+                reattached_dist = reattached_tree.get_distance(leaf1, leaf2)
+                reduced_dist = reduced_tree.get_distance(leaf1, leaf2)
                 tree_distances.append(
                     [
                         seq_id + " " + str(tii),
-                        dist,
-                        ml_distances[leaf1.name][leaf2.name],
+                        reattached_dist,
+                        reduced_dist,
+                        ml_distances[leaf1][leaf2],
                     ]
                 )
     df = pd.DataFrame(
-        tree_distances, columns=["seq_id", "tree_distance", "ml_distances"]
+        tree_distances,
+        columns=[
+            "seq_id",
+            "reattached_tree_distance",
+            "reduced_tree_distance",
+            "ml_distances",
+        ],
     )
     n = len(sorted_taxon_tii_list)
     num_rows = math.ceil(math.sqrt(n))
@@ -817,21 +846,23 @@ def tree_vs_sequence_dist_reattached_tree(
         current_df = df.loc[df["seq_id"] == seq_id + " " + str(tii)]
         sns.scatterplot(
             data=current_df,
-            x="tree_distance",
+            x="reattached_tree_distance",
             y="ml_distances",
             ax=axes[row, col],
         )
         joint_min = min(
-            current_df["tree_distance"].min(), current_df["ml_distances"].min()
+            current_df["reattached_tree_distance"].min(),
+            current_df["ml_distances"].min(),
         )
         joint_max = max(
-            current_df["tree_distance"].max(), current_df["ml_distances"].max()
+            current_df["reattached_tree_distance"].max(),
+            current_df["ml_distances"].max(),
         )
 
         axes[row, col].plot(
             [joint_min, joint_max], [joint_min, joint_max], color="red", linestyle="--"
         )
-        axes[row, col].set_title(tii)
+        axes[row, col].set_title(seq_id + " " + str(tii))
         axes[row, col].set_xlabel("")
         axes[row, col].set_ylabel("")
 
@@ -2041,7 +2072,12 @@ print("Done plotting tree vs sequence distances to reattached sequence.")
 print("Start plotting tree vs sequence distances at reattachment.")
 plot_filepath = os.path.join(plots_folder, "tree_vs_sequence_dist_reattached_tree.pdf")
 tree_vs_sequence_dist_reattached_tree(
-    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, mldist_file, plot_filepath
+    sorted_taxon_tii_list,
+    all_taxon_edge_df,
+    data_folder,
+    mldist_file,
+    plot_filepath,
+    mrca_bootstrap_filter=0.1,
 )
 print("Done plotting tree vs sequence distances at reattachment.")
 
