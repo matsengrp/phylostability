@@ -190,6 +190,62 @@ def get_nodes_on_path(tree, node1, node2):
     return nodes_on_path
 
 
+def low_bootstrap_seq_vs_tree_dist(
+    sorted_taxon_tii_list,
+    mldist_file,
+    data_folder,
+    plot_filepath,
+    bootstrap_threshold=1,
+):
+    """
+    Plot ratio of average sequence to tree distance for all taxa in cluster with
+    low bootstrap support in reduced tree for each seq_id.
+    """
+    df = []
+    mldist = get_ml_dist(mldist_file)
+    for seq_id, tii in sorted_taxon_tii_list:
+        reduced_tree_file = (
+            data_folder
+            + "reduced_alignments/"
+            + seq_id
+            + "/reduced_alignment.fasta.treefile"
+        )
+        reduced_tree = Tree(reduced_tree_file)
+        all_bootstraps = [
+            node.support
+            for node in reduced_tree.traverse()
+            if not node.is_root() and not node.is_leaf()
+        ]
+        q = np.quantile(all_bootstraps, bootstrap_threshold)
+        low_bootstrap_nodes = [
+            node
+            for node in reduced_tree.traverse()
+            if not node.is_root() and not node.is_leaf() and node.support < q
+        ]
+        for node in low_bootstrap_nodes:
+            child1_cluster = node.children[0].get_leaf_names()
+            child2_cluster = node.children[1].get_leaf_names()
+            tree_dist = 0
+            ml_dist = 0
+            for leaf1, leaf2 in itertools.product(child1_cluster, child2_cluster):
+                tree_dist += reduced_tree.get_distance(leaf1, leaf2)
+                ml_dist += mldist[leaf1][leaf2]
+            df.append([seq_id + " " + str(tii), node.support, tree_dist / ml_dist])
+            if abs(tree_dist / ml_dist - 1) > 0.4:
+                print(seq_id, tii, node)
+    df = pd.DataFrame(df, columns=["seq_id", "bootstrap", "ratio"])
+    sns.scatterplot(data=df, x="seq_id", y="ratio")
+    plt.xticks(
+        rotation=90,
+    )
+    plt.title("Ratio of avg tree to avg sequence distance for low bootstrap clusters")
+    plt.xlabel("seq_id")
+    plt.ylabel("Ratio")
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 def seq_distances_full_vs_reduced_tree(
     sorted_taxon_tii_list,
     mldist_file,
@@ -2087,6 +2143,22 @@ sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 2)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
+
+
+print(
+    "Start plotting ratios of avg tree to avg sequence distance for low bootstrap nodes."
+)
+plot_filepath = os.path.join(plots_folder, "low_bootstrap_seq_vs_tree_dist.pdf")
+low_bootstrap_seq_vs_tree_dist(
+    sorted_taxon_tii_list,
+    mldist_file,
+    data_folder,
+    plot_filepath,
+    bootstrap_threshold=0.1,
+)
+print(
+    "Start plotting ratios of avg tree to avg sequence distance for low bootstrap nodes."
+)
 
 
 print("Start plotting difference in sequence distances, full vs reduced alignments")
