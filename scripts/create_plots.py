@@ -190,6 +190,70 @@ def get_nodes_on_path(tree, node1, node2):
     return nodes_on_path
 
 
+def compute_nj_tree(d):
+    """
+    Compute NJ tree for distance matrix d (pd.DataFrame).
+    Returns a tree in ete format
+    """
+    # convert d into lower triangular distance matrix as list of lists
+    matrix = []
+    i = 1
+    for row in d.index:
+        matrix.append([l for l in d[row][:i]])
+        i += 1
+    distance_matrix = DistanceMatrix(names=d.index.to_list(), matrix=matrix)
+    constructor = DistanceTreeConstructor()
+    tree = constructor.nj(distance_matrix)
+    # convert tree to ete
+    tree_newick = StringIO()
+    Phylo.write(tree, tree_newick, "newick")
+    tree_newick = tree_newick.getvalue()
+    tree = Tree(tree_newick, format=1)
+    return tree
+
+
+def NJ_vs_best_reattached_tree_sequence_fit(
+    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, mldist_file, plot_filepath
+):
+    """
+    Plot difference of NJ tree taxon distances to sequence distance and
+    best reattached tree taxon distances to sequence distances to see
+    how good a fit the reattached tree is for the sequence distances.
+    """
+
+    def get_average_dist_diff(mldist, tree):
+        diff = 0
+        num_leaves = len(tree)
+        for leaf1, leaf2 in itertools.combinations(tree.get_leaf_names(), 2):
+            diff += abs(tree.get_distance(leaf1, leaf2) - mldist[leaf1][leaf2])
+        diff /= num_leaves * (num_leaves - 1) / 2
+        return diff
+
+    df = []
+    mldist = get_ml_dist(mldist_file)
+    nj_tree = compute_nj_tree(mldist)
+    nj_diff = get_average_dist_diff(mldist, nj_tree)
+    for seq_id, tii in sorted_taxon_tii_list:
+        best_reattached_tree = get_best_reattached_tree(
+            seq_id, all_taxon_edge_df, data_folder
+        )
+        best_reattached_tree_diff = get_average_dist_diff(mldist, best_reattached_tree)
+        df.append([seq_id + " " + str(tii), nj_diff - best_reattached_tree_diff])
+    df = pd.DataFrame(df, columns=["seq_id", "diff"])
+    sns.scatterplot(data=df, x="seq_id", y="diff")
+    plt.xticks(
+        rotation=90,
+    )
+    plt.title(
+        "Difference in sequence to tree distances for NJ and best reattached tree"
+    )
+    plt.xlabel("seq_id")
+    plt.ylabel("Distance difference")
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 def low_bootstrap_seq_vs_tree_dist(
     sorted_taxon_tii_list,
     mldist_file,
@@ -338,25 +402,9 @@ def nj_tii(
     like the smaller alignment is.
     """
 
-    def compute_nj_tree(d):
-        # convert d into lower triangular distance matrix as list of lists
-        matrix = []
-        i = 1
-        for row in d.index:
-            matrix.append([l for l in d[row][:i]])
-            i += 1
-        distance_matrix = DistanceMatrix(names=d.index.to_list(), matrix=matrix)
-        constructor = DistanceTreeConstructor()
-        tree = constructor.nj(distance_matrix)
-        return tree
-
     full_mldist = get_ml_dist(mldist_file)
     full_tree = compute_nj_tree(full_mldist)
     # Convert tree from biopython to ete format
-    full_tree_newick = StringIO()
-    Phylo.write(full_tree, full_tree_newick, "newick")
-    full_tree_newick = full_tree_newick.getvalue()
-    full_tree = Tree(full_tree_newick, format=1)
 
     df = []
     tree_likeness = []
@@ -369,11 +417,6 @@ def nj_tii(
         )
         reduced_mldist = get_ml_dist(f)
         reduced_tree = compute_nj_tree(reduced_mldist)
-        # Convert tree from biopython to ete format
-        reduced_tree_newick = StringIO()
-        Phylo.write(reduced_tree, reduced_tree_newick, "newick")
-        reduced_tree_newick = reduced_tree_newick.getvalue()
-        reduced_tree = Tree(reduced_tree_newick, format=1)
 
         leaves = reduced_tree.get_leaf_names()
         # compute ratio of nj tree distances and sequence distances
@@ -2152,6 +2195,16 @@ sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 2)
 # all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
+
+
+print("Start plotting tree fit sequence data of NJ vs reattached tree.")
+plot_filepath = os.path.join(
+    plots_folder, "NJ_vs_best_reattached_tree_sequence_fit.pdf"
+)
+NJ_vs_best_reattached_tree_sequence_fit(
+    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, mldist_file, plot_filepath
+)
+print("Start plotting tree fit sequence data of NJ vs reattached tree.")
 
 
 print(
