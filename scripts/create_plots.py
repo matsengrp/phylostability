@@ -231,8 +231,6 @@ def low_bootstrap_seq_vs_tree_dist(
                 tree_dist += reduced_tree.get_distance(leaf1, leaf2)
                 ml_dist += mldist[leaf1][leaf2]
             df.append([seq_id + " " + str(tii), node.support, tree_dist / ml_dist])
-            if abs(tree_dist / ml_dist - 1) > 0.4:
-                print(seq_id, tii, node)
     df = pd.DataFrame(df, columns=["seq_id", "bootstrap", "ratio"])
     sns.scatterplot(data=df, x="seq_id", y="ratio")
     plt.xticks(
@@ -1216,18 +1214,22 @@ def likelihood_swarmplots(sorted_taxon_tii_list, all_taxon_edge_df, filepath):
     plt.clf()
 
 
-def seq_distance_swarmplot(
+def seq_distances(
     distance_filepath,
     sorted_taxon_tii_list,
     all_taxon_edge_df,
     data_folder,
     plot_filepath,
     top5_only=False,
-    bootstrap_threshold=0.2,
+    bootstrap_threshold=1,
 ):
     """
     For each taxon, plot the sequence distance (from iqtree .mldist file) as swarmplot,
-    sorted according to increasing TII
+    sorted according to increasing TII.
+    We can filter the sequence distances we plot by
+    (i) top5_only: only plot distances of 5 leaves that are closeset to reattachment position
+    (ii) bootstrap_threshold < 1: only plot distance of leaves where on the path between
+    best reattachment and leaf more than half of the nodes have bootstrap support < bootstrap_threshold
     """
     distances = get_ml_dist(distance_filepath)
     np.fill_diagonal(distances.values, np.nan)
@@ -1248,7 +1250,7 @@ def seq_distance_swarmplot(
                 df.append([seq_id + " " + str(tii), distances[seq_id][key]])
         df = pd.DataFrame(df, columns=["seq_id", "distance"])
         sns.stripplot(data=df, x="seq_id", y="distance")
-    elif bootstrap_threshold != None:
+    elif bootstrap_threshold < 1:
         for seq_id, tii in sorted_taxon_tii_list:
             reduced_tree_file = (
                 data_folder
@@ -1306,6 +1308,13 @@ def seq_distance_swarmplot(
         rotation=90,
     )
     plt.tight_layout()
+    if bootstrap_threshold < 1:
+        plot_filepath = plot_filepath.split(".")[0]
+        plot_filepath += "_bootstrap_threshold_" + str(bootstrap_threshold) + ".pdf"
+    elif top5_only:
+        plot_filepath = plot_filepath.split(".")[0]
+        plot_filepath += "_top5_only.pdf"
+
     plt.savefig(plot_filepath)
     plt.clf()
 
@@ -2393,12 +2402,13 @@ print("Done plotting likelihoods of reattached trees.")
 # swarmplot sequence distances from mldist files for each taxon, sort by TII
 print("Start plotting MSA sequence distances.")
 seq_distance_filepath = os.path.join(plots_folder, "seq_distance_vs_tii.pdf")
-seq_distance_swarmplot(
+seq_distances(
     mldist_file,
     sorted_taxon_tii_list,
     all_taxon_edge_df,
     data_folder,
     seq_distance_filepath,
+    bootstrap_threshold=0.2,
 )
 print("Done plotting MSA sequence distances.")
 
