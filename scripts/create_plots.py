@@ -254,6 +254,68 @@ def NJ_vs_best_reattached_tree_sequence_fit(
     plt.clf()
 
 
+def low_bootstrap_cluster_distances_to_seq_id(
+    sorted_taxon_tii_list,
+    mldist_file,
+    all_taxon_edge_df,
+    data_folder,
+    plot_filepath,
+    bootstrap_threshold=1,
+):
+    """
+    For each seq_id, look at all nodes with low bootstrap support and plot difference in
+    avg seq_dist to tree_dist ratio for the two clusters of the children of that low
+    support node. Tree distances come from best_reattached_tree and sequence distances
+    from the mldist file that iqtree outputs for the full dataset.
+    """
+    mldist = get_ml_dist(mldist_file)
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        best_reattached_tree = get_best_reattached_tree(
+            seq_id, all_taxon_edge_df, data_folder
+        )
+        # We need to take bootstrap support from reduced tree
+        reduced_tree_file = (
+            data_folder
+            + "reduced_alignments/"
+            + seq_id
+            + "/reduced_alignment.fasta.treefile"
+        )
+        reduced_tree = Tree(reduced_tree_file)
+        all_bootstraps = [
+            node.support
+            for node in reduced_tree.traverse()
+            if not node.is_root() and not node.is_leaf()
+        ]
+        q = np.quantile(all_bootstraps, bootstrap_threshold)
+        for node in reduced_tree.traverse():
+            if node.support <= q and not node.is_leaf() and not node.is_root():
+                cluster1 = node.children[0].get_leaf_names()
+                cluster2 = node.children[1].get_leaf_names()
+                cluster1_dist_ratio = cluster2_dist_ratio = 0
+                for leaf in cluster1:
+                    cluster1_dist_ratio += mldist[seq_id][
+                        leaf
+                    ] / best_reattached_tree.get_distance(seq_id, leaf)
+                cluster1_dist_ratio /= len(cluster1)
+                for leaf in cluster2:
+                    cluster2_dist_ratio += mldist[seq_id][
+                        leaf
+                    ] / best_reattached_tree.get_distance(seq_id, leaf)
+                cluster2_dist_ratio /= len(cluster2)
+                df.append(
+                    [
+                        seq_id + " " + str(tii),
+                        abs(cluster1_dist_ratio - cluster2_dist_ratio),
+                    ]
+                )
+    df = pd.DataFrame(df, columns=["seq_id", "distance_ratios"])
+    sns.scatterplot(data=df, x="seq_id", y="distance_ratios")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+
+
 def low_bootstrap_seq_vs_tree_dist(
     sorted_taxon_tii_list,
     mldist_file,
@@ -262,8 +324,8 @@ def low_bootstrap_seq_vs_tree_dist(
     bootstrap_threshold=1,
 ):
     """
-    Plot ratio of average sequence to tree distance for all taxa in cluster with
-    low bootstrap support in reduced tree for each seq_id.
+    Plot ratio of average sequence to tree distance for all taxa in the two clusters
+    that are children of nodes with low bootstrap support in reduced tree for each seq_id.
     """
     df = []
     mldist = get_ml_dist(mldist_file)
@@ -2213,6 +2275,25 @@ all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
 
 
+print(
+    "Start plotting avg cluster distance difference to seq_id for children of low bootstrap nodes."
+)
+plot_filepath = os.path.join(
+    plots_folder, "low_bootstrap_cluster_distances_to_seq_id.pdf"
+)
+low_bootstrap_cluster_distances_to_seq_id(
+    sorted_taxon_tii_list,
+    mldist_file,
+    all_taxon_edge_df,
+    data_folder,
+    plot_filepath,
+    bootstrap_threshold=0.2,
+)
+print(
+    "Done plotting avg cluster distance difference to seq_id for children of low bootstrap nodes."
+)
+
+
 print("Start plotting tree fit sequence data of NJ vs reattached tree.")
 plot_filepath = os.path.join(
     plots_folder, "NJ_vs_best_reattached_tree_sequence_fit.pdf"
@@ -2502,7 +2583,7 @@ print("Done plotting bootstrap and bts.")
 print("Start plotting reattachment heights.")
 taxon_height_plot_filepath = os.path.join(plots_folder, "taxon_height_vs_tii.pdf")
 taxon_height_swarmplot(
-    all_taxon_edge_df, sorted_taxon_tii_list, taxon_height_plot_filepath
+    filtered_all_taxon_edge_df, sorted_taxon_tii_list, taxon_height_plot_filepath
 )
 reattachment_branch_length_plot_filepath = os.path.join(
     plots_folder, "reattachment_branch_length_vs_tii.pdf"
