@@ -294,8 +294,10 @@ def low_bootstrap_seq_vs_tree_dist(
             for leaf1, leaf2 in itertools.product(child1_cluster, child2_cluster):
                 tree_dist += reduced_tree.get_distance(leaf1, leaf2)
                 ml_dist += mldist[leaf1][leaf2]
-            df.append([seq_id + " " + str(tii), node.support, tree_dist / ml_dist])
-    df = pd.DataFrame(df, columns=["seq_id", "bootstrap", "ratio"])
+            df.append(
+                [seq_id + " " + str(tii), node.support, ml_dist / tree_dist, ml_dist]
+            )
+    df = pd.DataFrame(df, columns=["seq_id", "bootstrap", "ratio", "mldist"])
     sns.scatterplot(data=df, x="seq_id", y="ratio")
     plt.xticks(
         rotation=90,
@@ -303,6 +305,18 @@ def low_bootstrap_seq_vs_tree_dist(
     plt.title("Ratio of avg tree to avg sequence distance for low bootstrap clusters")
     plt.xlabel("seq_id")
     plt.ylabel("Ratio")
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+    plot_filepath = plot_filepath.split(".")[0] + "_mldist.pdf"
+    sns.scatterplot(data=df, x="seq_id", y="mldist")
+    plt.xticks(
+        rotation=90,
+    )
+    plt.title("Average sequence distance for low bootstrap clusters")
+    plt.xlabel("seq_id")
+    plt.ylabel("Sequence distance")
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
@@ -2192,8 +2206,10 @@ taxon_tii_list = [
 ]
 sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 
-all_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.02, 2)
-# all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
+filtered_all_taxon_edge_df = aggregate_and_filter_by_likelihood(
+    taxon_edge_df_csv, 0.02, 2
+)
+all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
 
 
@@ -2422,7 +2438,7 @@ reattachment_distances_path = os.path.join(
 )
 dist_of_likely_reattachments(
     sorted_taxon_tii_list,
-    all_taxon_edge_df,
+    filtered_all_taxon_edge_df,
     reattachment_distance_csv,
     reattachment_distances_path,
 )
@@ -2436,7 +2452,7 @@ reattachment_topological_distances_path = os.path.join(
 )
 dist_of_likely_reattachments(
     sorted_taxon_tii_list,
-    all_taxon_edge_df,
+    filtered_all_taxon_edge_df,
     reattachment_distance_topological_csv,
     reattachment_topological_distances_path,
 )
