@@ -254,6 +254,62 @@ def NJ_vs_best_reattached_tree_sequence_fit(
     plt.clf()
 
 
+def reattachment_distance_to_low_support_node(
+    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, bootstrap_threshold=1
+):
+    """
+    Plot (topological) distance of reattachment position in best_reattached_tree to
+    nearest low bootstrap node for each seq_id.
+    """
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        best_reattached_tree = get_best_reattached_tree(
+            seq_id, all_taxon_edge_df, data_folder
+        )
+        reduced_tree_file = (
+            data_folder
+            + "reduced_alignments/"
+            + seq_id
+            + "/reduced_alignment.fasta.treefile"
+        )
+        reduced_tree = Tree(reduced_tree_file)
+        all_bootstraps = [
+            node.support
+            for node in reduced_tree.traverse()
+            if not node.is_root() and not node.is_leaf()
+        ]
+        q = np.quantile(all_bootstraps, bootstrap_threshold)
+        # parent of seq_id is reattachment_node
+        reattachment_node = best_reattached_tree.search_nodes(name=seq_id)[0].up
+        reattachment_child = [
+            node for node in reattachment_node.children if node.name != seq_id
+        ][0]
+        cluster = reattachment_child.get_leaf_names()
+        node_in_reduced_tree = reduced_tree.get_common_ancestor(cluster)
+        # find closest node with low bootstrap support
+        min_dist_found = float("inf")
+        for node in [node for node in reduced_tree.traverse() if not node.is_leaf()]:
+            # take max of distance of two endpoints of nodes at which we reattach
+            if not node.is_root():
+                dist = max(
+                    [
+                        ete_dist(node, node_in_reduced_tree, topology_only=True),
+                        ete_dist(node.up, node_in_reduced_tree, topology_only=True),
+                    ]
+                )
+            else:
+                dist = ete_dist(node, node_in_reduced_tree, topology_only=True)
+            if node.support < q and dist < min_dist_found:
+                min_dist_found = dist
+        df.append([seq_id + " " + str(tii), min_dist_found])
+    df = pd.DataFrame(df, columns=["seq_id", "distance"])
+    sns.scatterplot(data=df, x="seq_id", y="distance")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 def low_bootstrap_cluster_distances_to_seq_id(
     sorted_taxon_tii_list,
     mldist_file,
@@ -2273,6 +2329,16 @@ filtered_all_taxon_edge_df = aggregate_and_filter_by_likelihood(
 )
 all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
+
+
+print("Start plotting reattachment distance to low support node.")
+plot_filepath = os.path.join(
+    plots_folder, "reattachment_distance_to_low_support_node.pdf"
+)
+reattachment_distance_to_low_support_node(
+    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, bootstrap_threshold=0.2
+)
+print("Done plotting reattachment distance to low support node.")
 
 
 print(
