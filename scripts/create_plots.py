@@ -792,13 +792,6 @@ def bootstrap_and_bts_plot(
         test=False,
     )
 
-    # plot BTS values
-    sns.swarmplot(data=branch_scores_df, x="bts")
-    plt.title("BTS")
-    plt.tight_layout()
-    plt.savefig(bts_plot_filepath)
-    plt.clf()
-
     # plot BTS vs bootstrap values
     # sort both dataframes so we plot corresponding values correctly
     branch_scores_df = branch_scores_df.sort_values(
@@ -837,55 +830,6 @@ def bootstrap_and_bts_plot(
     plt.ylabel("branch taxon score (bts)")
     plt.tight_layout()
     plt.savefig(bts_vs_bootstrap_path)
-    plt.clf()
-
-    # plot for local bootstrap support
-    plt.figure(figsize=(10, 6))
-    # Ensure dataframe respects the order of sorted_taxon_tii_list for 'seq_id'
-    local_bootstrap_df["seq_id"] = pd.Categorical(
-        local_bootstrap_df["seq_id"],
-        categories=[pair[0] for pair in sorted_taxon_tii_list],
-        ordered=True,
-    )
-
-    # Now, you can plot directly:
-    plt.figure(figsize=(10, 6))
-    sns.stripplot(
-        data=local_bootstrap_df, x="seq_id", y="bootstrap_support", hue="location"
-    )
-
-    # X-axis labels: Use the sorted taxon-TII pairs to label the x-ticks
-    plt.xticks(
-        range(len(sorted_taxon_tii_list)),
-        [str(pair[0]) + " " + str(pair[1]) for pair in sorted_taxon_tii_list],
-        rotation=90,
-    )
-
-    plt.xlabel("taxa (sorted by TII)")
-    plt.ylabel("bootstrap support")
-    plt.title("stripplot of bootstrap support vs. taxa sorted by TII")
-    plt.tight_layout()
-    plt.savefig(local_bootstrap_plot_filepath)
-    plt.clf()
-
-    # plot bootstrap support of reduced alignments vs tii
-    plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-    sns.stripplot(data=bootstrap_df, x="seq_id", y="bootstrap_support")
-    plt.xticks(
-        range(len(sorted_taxon_tii_list)),
-        [
-            str(pair[0]) + " " + str(pair[1])
-            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
-        ],
-        rotation=90,
-    )
-
-    # Set labels and title
-    plt.xlabel("taxa (sorted by TII)")
-    plt.ylabel("bootstrap support")
-    plt.title("stripplot of bootstrap support vs. taxa sorted by TII")
-    plt.tight_layout()
-    plt.savefig(bootstrap_plot_filepath)
     plt.clf()
 
 
