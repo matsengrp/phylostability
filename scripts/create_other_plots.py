@@ -1,3 +1,11 @@
+from pathlib import Path
+import seaborn as sns
+import matplotlib.pyplot as plt
+import os
+import numpy as np
+import math
+import itertools
+
 from utils import *
 
 
@@ -1117,6 +1125,8 @@ reattachment_distance_topological_csv = (
     snakemake.input.reattachment_distance_topological_csv
 )
 
+plots_folder = os.path.join(plots_folder, "other_plots/")
+Path(plots_folder).mkdir(parents=True, exist_ok=True)
 
 print("Start reading, aggregating, and filtering data.")
 taxon_df = pd.read_csv(taxon_df_csv, index_col=0)
