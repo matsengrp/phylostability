@@ -187,18 +187,6 @@ rule create_plots:
         full_tree=rules.run_iqtree_on_full_dataset.output.tree
     output:
         temp(touch("create_plots.done")),
-        plots_folder+"dist_of_likely_reattachments.pdf",
-        plots_folder+"topological_dist_of_likely_reattachments.pdf",
-        plots_folder+"likelihood_swarmplots.pdf",
-        plots_folder+"seq_distance_vs_tii.pdf",
-        plots_folder+"bootstrap_vs_tii.pdf",
-        plots_folder+"local_bootstrap_vs_tii.pdf",
-        plots_folder+"bts_scores.pdf",
-        plots_folder+"bts_vs_bootstrap.pdf",
-        plots_folder+"taxon_height_vs_tii.pdf",
-        plots_folder+"reattachment_branch_length_vs_tii.pdf",
-        plots_folder+"sequence_distance_differences.pdf",
-        plots_folder+"seq_distances_to_nearest_low_bootstrap_cluster.pdf"
     params:
         plots_folder=plots_folder,
         data_folder=data_folder

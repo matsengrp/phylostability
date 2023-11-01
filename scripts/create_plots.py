@@ -2233,6 +2233,9 @@ def seq_distance_differences_swarmplot(
 def mldist_plots(
     mldist_file, sorted_taxon_tii_list, plot_filepath, closest_taxa_plot_filepath
 ):
+    """
+    Plot mldist[i][j]/(mldist[j][seq_id]+mldist[i][seq_id]) for every seq_id and all i,j.
+    """
     mldist = pd.read_table(
         mldist_file, skiprows=[0], header=None, delim_whitespace=True, index_col=0
     )
