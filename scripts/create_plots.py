@@ -144,7 +144,6 @@ def order_of_distances_to_seq_id(
     data_folder,
     plot_filepath,
     barplot_filepath,
-    histplot_filepath,
 ):
     """
     Plot difference in tree and sequence distance for sequences of taxon1 and taxon 2
@@ -281,35 +280,6 @@ def order_of_distances_to_seq_id(
     plt.title("Number of change in order of distances (tree vs msa) to seq_id")
     plt.tight_layout()
     plt.savefig(barplot_filepath)
-
-    # plots number of other_seq in swapped pair for each seq_id separately
-    n = len(sorted_taxon_tii_list)
-    num_rows = math.ceil(math.sqrt(n))
-    num_cols = math.ceil(n / num_rows)
-
-    counts_df = pd.DataFrame(hist_counts, columns=["seq_id", "other_seq", "count"])
-    fig, axes = plt.subplots(
-        num_rows, num_cols, figsize=(15, 15), sharex=True, sharey=True
-    )
-    for index, (seq_id, tii) in enumerate(sorted_taxon_tii_list):
-        row = index // num_cols
-        col = index % num_cols
-        current_df = counts_df.loc[counts_df["seq_id"] == seq_id + " " + str(tii)]
-        current_df = current_df.sort_values(by="count", ascending=True)
-        sns.barplot(
-            data=current_df,
-            x="other_seq",
-            y="count",
-            ax=axes[row, col],
-        )
-        axes[row, col].set_title(tii)
-        axes[row, col].set_xlabel("")
-        axes[row, col].set_ylabel("")
-        axes[row, col].set_xticklabels("")
-
-    # plt.tight_layout()
-    plt.savefig(histplot_filepath)
-    plt.clf()
 
 
 def seq_and_tree_dist_diff(
@@ -989,7 +959,6 @@ order_of_distances_to_seq_id(
     data_folder,
     plot_filepath,
     barplot_filepath,
-    histplot_filepath,
 )
 print("Done plotting order of distances to seq_id in tree vs MSA.")
 
