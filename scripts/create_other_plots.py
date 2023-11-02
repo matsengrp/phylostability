@@ -425,11 +425,16 @@ def msa_distance_closest_topological_dist(
 
 
 def seq_distance_distribution_closest_seq(
-    sorted_taxon_tii_list, mldist_file, summary_plot_filepath, separate_plots_filename
+    sorted_taxon_tii_list,
+    mldist_file,
+    all_taxon_edge_df,
+    data_folder,
+    summary_plot_filepath,
+    separate_plots_filename,
 ):
     """
     For each seq_id, find closest sequence in MSA -> closest_sequence.
-    Plot difference of MSA distances of all sequences to seq_if and MSA distance of all
+    Plot difference of MSA distances of all sequences to seq_id and MSA distance of all
     sequences to closest_sequence.
     """
     df = []
@@ -437,15 +442,27 @@ def seq_distance_distribution_closest_seq(
         closest_sequence = get_closest_msa_sequences(seq_id, mldist_file, 1)[0]
         dist_to_seq = get_seq_dists_to_seq_id(seq_id, mldist_file)
         dist_to_closest_seq = get_seq_dists_to_seq_id(closest_sequence, mldist_file)
-        for i in dist_to_seq:
-            if i != closest_sequence:
+
+        best_reattached_tree = get_best_reattached_tree(
+            seq_id, all_taxon_edge_df, data_folder
+        )
+        for seq in dist_to_seq:
+            if seq != closest_sequence:
+                seq_id_tree_dist = best_reattached_tree.get_distance(seq_id, seq)
+                closest_seq_tree_dist = best_reattached_tree.get_distance(
+                    closest_sequence, seq
+                )
+                # we can interpret the following ratios as the msa distance normalised by
+                # branch lengths, i.e. as distance per branch length unit
+                seq_id_ratio = dist_to_seq[seq] / seq_id_tree_dist
+                closest_seq_ratio = dist_to_closest_seq[seq] / closest_seq_tree_dist
                 df.append(
                     [
                         seq_id + " " + str(tii),
                         closest_sequence,
-                        dist_to_closest_seq[i] / dist_to_seq[i],
-                        dist_to_seq[i],
-                        dist_to_closest_seq[i],
+                        closest_seq_ratio / seq_id_ratio,
+                        seq_id_ratio,
+                        closest_seq_ratio,
                     ]
                 )
     df = pd.DataFrame(
@@ -458,6 +475,7 @@ def seq_distance_distribution_closest_seq(
             "dist_to_closest_seq",
         ],
     )
+    plt.figure(figsize=(10, 6))
     sns.stripplot(data=df, x="seq_id", y="distance_difference")
     plt.xticks(rotation=90)
     plt.tight_layout()
@@ -1287,7 +1305,12 @@ separate_plots_filename = os.path.join(
     plots_folder, "seq_distance_distribution_closest_seq_separeate_seq_ids.pdf"
 )
 seq_distance_distribution_closest_seq(
-    sorted_taxon_tii_list, mldist_file, summary_plot_filename, separate_plots_filename
+    sorted_taxon_tii_list,
+    mldist_file,
+    all_taxon_edge_df,
+    data_folder,
+    summary_plot_filename,
+    separate_plots_filename,
 )
 print(
     "Start plotting difference in MSA distances for seq_id:all and closest_seq_to_seq_id:all."
