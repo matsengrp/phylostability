@@ -312,37 +312,6 @@ def order_of_distances_to_seq_id(
     plt.clf()
 
 
-def reattachment_seq_dist_vs_tree_dist(
-    sorted_taxon_tii_list, all_taxon_edge_df, mldist_file, data_folder
-):
-    """
-    Plot difference in sequence and tree distance in optimised reattached
-    tree between seq_id and all other taxa.
-    """
-    ml_distances = get_ml_dist(mldist_file)
-    df = []
-    for seq_id, tii in sorted_taxon_tii_list:
-        best_reattached_tree = get_best_reattached_tree(
-            seq_id, all_taxon_edge_df, data_folder
-        )
-        for leaf in best_reattached_tree.get_leaf_names():
-            if leaf != seq_id:
-                df.append(
-                    [
-                        seq_id + " " + str(tii),
-                        ml_distances[seq_id][leaf]
-                        - best_reattached_tree.get_distance(seq_id, leaf),
-                    ]
-                )
-    plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-    df = pd.DataFrame(df, columns=["seq_id", "distance_diff"])
-    sns.stripplot(data=df, x="seq_id", y="distance_diff")
-    plt.xticks(rotation=90)
-    plt.tight_layout()
-    plt.savefig(plot_filepath)
-    plt.clf()
-
-
 def seq_and_tree_dist_diff(
     all_taxon_edge_df,
     sorted_taxon_tii_list,
@@ -1023,14 +992,6 @@ order_of_distances_to_seq_id(
     histplot_filepath,
 )
 print("Done plotting order of distances to seq_id in tree vs MSA.")
-
-
-print("Start plotting tree vs sequence distances to reattached sequence.")
-plot_filepath = os.path.join(plots_folder, "reattachment_seq_dist_vs_tree_dist.pdf")
-reattachment_seq_dist_vs_tree_dist(
-    sorted_taxon_tii_list, all_taxon_edge_df, mldist_file, data_folder
-)
-print("Done plotting tree vs sequence distances to reattached sequence.")
 
 
 print("Start plotting sequence and tree distance differences.")
