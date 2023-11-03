@@ -23,7 +23,8 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        "create_plots.done"
+        "create_plots.done",
+        "create_other_plots.done"
 
 # Define the rule to extract the best model for iqtree on the full MSA
 rule model_test_iqtree:
@@ -174,10 +175,43 @@ rule aggregate_reattachment_data_per_taxon:
     script:
         "scripts/aggregate_reattachment_data_per_taxon.py"
 
+
+rule write_spr_tii_trees:
+    input:
+        full_tree=data_folder+input_alignment+".treefile",
+    output:
+        tree_pair_files=expand(data_folder+"reduced_alignments/{seq_id}/tii_trees.txt", seq_id = get_seq_ids(input_alignment))
+    params:
+        data_folder=data_folder
+    script:
+        "scripts/write_spr_tii_trees.py"
+
+
+rule compute_spr_tii:
+    input:
+        tree_pair_files=data_folder+"reduced_alignments/{seq_id}/tii_trees.txt"
+    output:
+        spr_output=data_folder+"reduced_alignments/{seq_id}/spr_output.txt"
+    shell:
+        """
+        ../uspr/uspr < {input.tree_pair_files} > {output.spr_output}
+        """
+
+rule add_spr_tii_to_df:
+    input:
+        csv=data_folder+"reduced_alignments/reattachment_data_per_taxon.csv",
+        spr_files=expand(data_folder+"reduced_alignments/{seq_id}/spr_output.txt", seq_id = get_seq_ids(input_alignment))
+    output:
+        temp(touch("add_spr_tii_to_df.done")),
+        csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_spr_tii.csv",
+    script:
+        "scripts/add_spr_tii_to_df.py"
+
+
 # create plots
 rule create_plots:
     input:
-        taxon_df_csv=rules.aggregate_reattachment_data_per_taxon.output.output_csv,
+        taxon_df_csv=rules.add_spr_tii_to_df.output.csv,
         reattachment_distance_csv=rules.aggregate_reattachment_data_per_taxon.output.reattachment_distance_csv,
         reattachment_distance_topological_csv=rules.aggregate_reattachment_data_per_taxon.output.reattachment_distance_topological_csv,
         taxon_edge_df_csv=expand(data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment)),
@@ -195,7 +229,7 @@ rule create_plots:
 
 rule create_other_plots:
     input:
-        taxon_df_csv=rules.aggregate_reattachment_data_per_taxon.output.output_csv,
+        taxon_df_csv=rules.add_spr_tii_to_df.output.csv,
         reattachment_distance_csv=rules.aggregate_reattachment_data_per_taxon.output.reattachment_distance_csv,
         reattachment_distance_topological_csv=rules.aggregate_reattachment_data_per_taxon.output.reattachment_distance_topological_csv,
         taxon_edge_df_csv=expand(data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment)),
