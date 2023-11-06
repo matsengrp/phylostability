@@ -8,3 +8,5 @@ dependencies:
   - ete3
   - seaborn
   - matplotlib
+  - python
+  - epa-ng
