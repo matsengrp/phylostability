@@ -23,8 +23,9 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        "create_plots.done",
-        "create_other_plots.done"
+        epa_result=expand(data_folder+"reduced_alignments/{seq_id}/epa_result.jplace", seq_id = get_seq_ids(input_alignment))
+        # "create_plots.done",
+        # "create_other_plots.done"
 
 # Define the rule to extract the best model for iqtree on the full MSA
 rule model_test_iqtree:
@@ -93,6 +94,7 @@ rule get_restricted_trees:
     script:
         "scripts/create_restricted_trees.py"
 
+
 # Define the rule to run IQ-TREE on the reduced MSA
 rule run_iqtree_restricted_alignments:
     input:
@@ -107,9 +109,10 @@ rule run_iqtree_restricted_alignments:
         if [[ -f "{input.reduced_msa}.iqtree" ]]; then
           echo "Ignoring iqtree run on {input.reduced_msa}, since it is already done."
         else
-          iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa} -bb 1000
+          iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa} -bb 1000 -redo
         fi
         """
+
 
 # Define the rule to attach the pruned taxon at each edge
 rule reattach_removed_sequence:
@@ -122,6 +125,36 @@ rule reattach_removed_sequence:
         seq_id=lambda wildcards: wildcards.seq_id
     script:
         "scripts/reattach_removed_sequence.py"
+
+
+rule extract_single_fastas:
+    input:
+        msa=input_alignment
+    output:
+        taxon_msa=expand(data_folder+"reduced_alignments/{seq_id}/single_taxon.fasta", seq_id=get_seq_ids(input_alignment)),
+        without_taxon_msa=expand(data_folder+"reduced_alignments/{seq_id}/without_taxon.fasta", seq_id=get_seq_ids(input_alignment))
+    script:
+        "scripts/extract_single_taxon_msa.py"
+
+
+rule epa_reattachment:
+    input:
+        rules.run_iqtree_restricted_alignments.output.done,
+        tree=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
+        model=data_folder+"iqtree-model.txt",
+        taxon_msa=data_folder+"reduced_alignments/{seq_id}/single_taxon.fasta",
+        without_taxon_msa=data_folder+"reduced_alignments/{seq_id}/without_taxon.fasta",
+    output:
+        epa_result=data_folder+"reduced_alignments/{seq_id}/epa_result.jplace",
+    params:
+        output_folder=data_folder+"reduced_alignments/{seq_id}"
+    shell:
+        """
+        read -r model < {input.model}
+        echo $model
+        epa-ng --ref-msa {input.without_taxon_msa} --tree {input.tree} --query {input.taxon_msa} --model $model -w {params.output_folder} --redo
+        """
+
 
 rule run_iqtree_on_augmented_topologies:
    input:
