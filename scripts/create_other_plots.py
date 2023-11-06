@@ -51,6 +51,63 @@ def NJ_vs_best_reattached_tree_sequence_fit(
     plt.clf()
 
 
+def per_unit_branch_distance_difference_within_low_bootstrap_cluster(
+    sorted_taxon_tii_list,
+    mldist_file,
+    all_taxon_edge_df,
+    data_folder,
+    plot_filepath,
+    bootstrap_threshold=1,
+):
+    mldist = get_ml_dist(mldist_file)
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        best_reattached_tree = get_best_reattached_tree(
+            seq_id, all_taxon_edge_df, data_folder
+        )
+        reduced_tree = Tree(
+            data_folder
+            + "reduced_alignments/"
+            + seq_id
+            + "/reduced_alignment.fasta.treefile"
+        )
+        all_bootstraps = [
+            node.support
+            for node in reduced_tree.iter_descendants()
+            if not node.is_leaf()
+        ]
+        q = np.quantile(all_bootstraps, bootstrap_threshold)
+        nodes_to_consider = [
+            node
+            for node in reduced_tree.iter_descendants()
+            if node.support < q and node.support != 1.0 and not node.is_leaf()
+        ]
+        for node in nodes_to_consider:
+            distances = []
+            for leaf in node.get_leaf_names():
+                distances.append(
+                    mldist[seq_id][leaf]
+                    / best_reattached_tree.get_distance(seq_id, leaf)
+                )
+            avg_distance = sum(distances) / len(distances)
+            variance = np.var(distances)
+            df.append(
+                [
+                    seq_id + " " + str(tii),
+                    max(distances) - min(distances),
+                    avg_distance,
+                    variance,
+                ]
+            )
+    df = pd.DataFrame(
+        df, columns=["seq_id", "distance_ratio", "average_distance", "variance"]
+    )
+    sns.scatterplot(data=df, x="seq_id", y="variance")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+
+
 def low_bootstrap_cluster_distances_to_seq_id(
     sorted_taxon_tii_list,
     mldist_file,
@@ -1160,6 +1217,23 @@ filtered_all_taxon_edge_df = aggregate_and_filter_by_likelihood(
 )
 all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
+
+
+print(
+    "Start plotting per unit branch distance difference within low bootstrap cluster."
+)
+plot_filepath = os.path.join(
+    plots_folder, "per_unit_branch_distance_difference_within_low_bootstrap_cluster.pdf"
+)
+per_unit_branch_distance_difference_within_low_bootstrap_cluster(
+    sorted_taxon_tii_list,
+    mldist_file,
+    all_taxon_edge_df,
+    data_folder,
+    plot_filepath,
+    bootstrap_threshold=0.1,
+)
+print("Done plotting per unit branch distance difference within low bootstrap cluster.")
 
 
 print(
