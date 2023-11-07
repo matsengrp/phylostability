@@ -23,7 +23,7 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        epa_result=expand(data_folder+"reduced_alignments/{seq_id}/epa_result.jplace", seq_id = get_seq_ids(input_alignment))
+        expand(data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv", seq_id = get_seq_ids(input_alignment))
         # "create_plots.done",
         # "create_other_plots.done"
 
@@ -85,15 +85,6 @@ rule run_iqtree_on_full_dataset:
         fi
         """
 
-rule get_restricted_trees:
-    input:
-        data_folder+"run_iqtree_on_full_dataset.done",
-        full_tree=data_folder+input_alignment+".treefile"
-    output:
-        restricted_trees=expand(data_folder+"reduced_alignments/{seq_id}/restricted_tree.treefile", seq_id=get_seq_ids(input_alignment))
-    script:
-        "scripts/create_restricted_trees.py"
-
 
 # Define the rule to run IQ-TREE on the reduced MSA
 rule run_iqtree_restricted_alignments:
@@ -112,19 +103,6 @@ rule run_iqtree_restricted_alignments:
           iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa} -bb 1000 -redo
         fi
         """
-
-
-# Define the rule to attach the pruned taxon at each edge
-rule reattach_removed_sequence:
-    input:
-        rules.run_iqtree_restricted_alignments.output.done,
-        reduced_tree_nwk=rules.run_iqtree_restricted_alignments.output.tree
-    output:
-        topologies=expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk", edge=get_attachment_edge_indices(input_alignment))
-    params:
-        seq_id=lambda wildcards: wildcards.seq_id
-    script:
-        "scripts/reattach_removed_sequence.py"
 
 
 rule extract_single_fastas:
@@ -156,57 +134,17 @@ rule epa_reattachment:
         """
 
 
-rule run_iqtree_on_augmented_topologies:
-   input:
-       msa=input_alignment,
-       topology_file=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk",
-       full_model=rules.extract_model_for_full_iqtree_run.output.model
-   output:
-       alldone=temp(touch(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done")),
-       treefile=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile",
-       mlfile=temp(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.iqtree"),
-       other=temp(expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{{edge}}.nwk_branch_length.{suffix}",
-        suffix=[suf for suf in IQTREE_SUFFIXES if suf not in ["iqtree", "treefile"]]))
-   shell:
-       """
-       if test -f "{input.topology_file}_branch_length.iqtree"; then
-         echo "Ignoring iqtree run on {input.topology_file}_branch_length, since it is already done."
-       else
-         iqtree -s {input.msa} -m $(cat {input.full_model}) -te {input.topology_file} --prefix {input.topology_file}_branch_length
-       fi
-        """
-
-# this rule adds a specific key to the global dictionary
-rule extract_reattachment_data_per_taxon_and_edge:
+rule extract_reattachment_statistics:
     input:
-        ready_to_run=expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.run_iqtree.done", edge=get_attachment_edge_indices(input_alignment)),
-        treefiles=expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile", edge=get_attachment_edge_indices(input_alignment)),
-        mlfiles=expand(data_folder+"reduced_alignments/{{seq_id}}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.iqtree", edge=get_attachment_edge_indices(input_alignment)),
-        mldist_file=data_folder+input_alignment+".mldist",
-        full_tree_file=rules.run_iqtree_on_full_dataset.output.tree
+        epa_results=expand(data_folder+"reduced_alignments/{seq_id}/epa_result.jplace", seq_id = get_seq_ids(input_alignment)),
+        full_tree=data_folder+input_alignment+".treefile"
     output:
-        csv_name=data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv"
-    params:
-        seq_id=lambda wildcards: wildcards.seq_id
-    script:
-        "scripts/extract_reattachment_data_per_taxon_and_edge.py"
-
-rule aggregate_reattachment_data_per_taxon:
-    input:
-        full_treefile=data_folder+input_alignment+".treefile",
-        treefiles=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta_add_at_edge_{edge}.nwk_branch_length.treefile", edge=get_attachment_edge_indices(input_alignment), seq_id=get_seq_ids(input_alignment)),
-        reduced_treefile=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
-        reduced_tree_mlfile=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.iqtree", seq_id=get_seq_ids(input_alignment)),
-        taxon_dictionary=expand(data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment))
-    output:
-        output_csv=data_folder+"reduced_alignments/reattachment_data_per_taxon.csv",
-        reattachment_distance_csv=expand(data_folder+"reduced_alignments/{seq_id}/reattachment_distances.csv", seq_id=get_seq_ids(input_alignment)),
-        reattachment_distance_topological_csv=expand(data_folder+"reduced_alignments/{seq_id}/reattachment_distances_topological.csv", seq_id=get_seq_ids(input_alignment))
+        reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_tree.nwk", seq_id = get_seq_ids(input_alignment)),
+        output_csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv"
     params:
         seq_ids=get_seq_ids(input_alignment),
-        edges=get_attachment_edge_indices(input_alignment),
     script:
-        "scripts/aggregate_reattachment_data_per_taxon.py"
+        "scripts/extract_reattachment_statistics.py"
 
 
 rule write_spr_tii_trees:
@@ -240,41 +178,4 @@ rule add_spr_tii_to_df:
     script:
         "scripts/add_spr_tii_to_df.py"
 
-
-# create plots
-rule create_plots:
-    input:
-        taxon_df_csv=rules.add_spr_tii_to_df.output.csv,
-        reattachment_distance_csv=rules.aggregate_reattachment_data_per_taxon.output.reattachment_distance_csv,
-        reattachment_distance_topological_csv=rules.aggregate_reattachment_data_per_taxon.output.reattachment_distance_topological_csv,
-        taxon_edge_df_csv=expand(data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment)),
-        reduced_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", 
-        seq_id=get_seq_ids(input_alignment)),
-        mldist_file=data_folder+input_alignment+".mldist",
-        full_tree=rules.run_iqtree_on_full_dataset.output.tree
-    output:
-        temp(touch("create_plots.done")),
-    params:
-        plots_folder=plots_folder,
-        data_folder=data_folder
-    script:
-        "scripts/create_plots.py"
-
-rule create_other_plots:
-    input:
-        taxon_df_csv=rules.add_spr_tii_to_df.output.csv,
-        reattachment_distance_csv=rules.aggregate_reattachment_data_per_taxon.output.reattachment_distance_csv,
-        reattachment_distance_topological_csv=rules.aggregate_reattachment_data_per_taxon.output.reattachment_distance_topological_csv,
-        taxon_edge_df_csv=expand(data_folder+"reduced_alignments/{seq_id}/extract_reattachment_data_per_taxon_and_edge.csv", seq_id=get_seq_ids(input_alignment)),
-        reduced_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", 
-        seq_id=get_seq_ids(input_alignment)),
-        mldist_file=data_folder+input_alignment+".mldist",
-        full_tree=rules.run_iqtree_on_full_dataset.output.tree
-    output:
-        temp(touch("create_other_plots.done")),
-    params:
-        plots_folder=plots_folder,
-        data_folder=data_folder
-    script:
-        "scripts/create_other_plots.py"
 
