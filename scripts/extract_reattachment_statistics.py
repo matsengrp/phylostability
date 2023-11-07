@@ -40,16 +40,18 @@ def get_reattached_tree(newick_str, edge_num, seq_id, distal_length, pendant_len
     pattern = re.compile(r"([\w]+):[0-9.]+\{" + str(edge_num) + "\}")
     match = pattern.search(new_newick_str)
     sibling_node_id = match.group(1)
+    if sibling_node_id.isdigit():
+        sibling_node_id = str(int(sibling_node_id))
 
     # delete edge numbers in curly brackets
     ete_newick_str = re.sub(r"\{\d+\}", "", new_newick_str)
 
     # add new node to tree
     tree = Tree(ete_newick_str, format=2)
-    for node in tree.traverse():
-        if not node.is_leaf() and not node.is_root():
-            node.name = str(int(node.support))
-    sibling = tree.search_nodes(name=str(sibling_node_id))[0]
+    for node in [node for node in tree.iter_descendants() if not node.is_leaf()]:
+        # label at internal nodes are interpreted as support, we need to set names to be that value
+        node.name = str(int(node.support))
+    sibling = tree.search_nodes(name=sibling_node_id)[0]
     reattachment_branch_length = sibling.dist
 
     dist_from_parent = reattachment_branch_length - distal_length
@@ -60,9 +62,11 @@ def get_reattached_tree(newick_str, edge_num, seq_id, distal_length, pendant_len
     new_internal_node.add_child(name=seq_id, dist=pendant_length)
 
     # add support values back to tree and save reattached tree (new internal node gets support 1.0)
-    for node in [node for node in tree.traverse() if not node.is_leaf()]:
-        if node.name in int_node_dict:
-            node.name = int_node_dict[node.name]
+    for node in [node for node in tree.iter_descendants() if not node.is_leaf()]:
+        if str(int(node.name)) in int_node_dict:
+            n = str(int(node.name))
+            node.name = int_node_dict[n]
+            node.support = int_node_dict[n]
     return tree, reattachment_branch_length
 
 
@@ -105,7 +109,7 @@ for seq_id in seq_ids:
         dict["tree"], placements[0], seq_id, distal_length, pendant_length
     )
     with open(tree_file, "w") as f:
-        f.write(reattached_tree.write())
+        f.write(reattached_tree.write(format=0))
 
     rf_distance = full_tree.robinson_foulds(reattached_tree, unrooted_trees=True)[0]
     taxon_height = calculate_taxon_height(reattached_tree, seq_id)
@@ -128,7 +132,7 @@ df = pd.DataFrame(
         "like_weight_ratio",
         "reattachment_branch_length",
         "pendant_branch_length",
-        "rf_distance",
+        "tii",
         "taxon_height",
     ],
 )
