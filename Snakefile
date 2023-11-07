@@ -4,7 +4,7 @@ from Bio import SeqIO
 # input/output file names
 input_alignment="input_alignment.fasta"
 data_folder="data/"
-plots_folder="plots/"
+plots_folder="plots/epa/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
 
@@ -23,9 +23,7 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        expand(data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv", seq_id = get_seq_ids(input_alignment))
-        # "create_plots.done",
-        # "create_other_plots.done"
+        "create_plots.done"
 
 # Define the rule to extract the best model for iqtree on the full MSA
 rule model_test_iqtree:
@@ -179,3 +177,17 @@ rule add_spr_tii_to_df:
         "scripts/add_spr_tii_to_df.py"
 
 
+rule create_plots:
+    input:
+        csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv",
+        full_tree=data_folder+input_alignment+".treefile",
+        reduced_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
+        reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_tree.nwk", seq_id=get_seq_ids(input_alignment)),
+        mldist=data_folder+input_alignment+".mldist",
+        reduced_mldist=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist", seq_id=get_seq_ids(input_alignment)),
+    output:
+        temp(touch("create_plots.done")),
+    params:
+        plots_folder=plots_folder
+    script:
+        "scripts/create_plots.py"

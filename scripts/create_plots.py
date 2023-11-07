@@ -10,8 +10,12 @@ import itertools
 from utils import *
 
 
+def get_seq_id_file(seq_id, files):
+    return [f for f in files if "/" + seq_id + "/" in f][0]
+
+
 def reattachment_distance_to_low_support_node(
-    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, bootstrap_threshold=1
+    sorted_taxon_tii_list, reattached_tree_files, bootstrap_threshold=1
 ):
     """
     Plot (topological) distance of reattachment position in best_reattached_tree to
@@ -19,42 +23,32 @@ def reattachment_distance_to_low_support_node(
     """
     df = []
     for seq_id, tii in sorted_taxon_tii_list:
-        best_reattached_tree = get_best_reattached_tree(
-            seq_id, all_taxon_edge_df, data_folder
-        )
-        reduced_tree_file = (
-            data_folder
-            + "reduced_alignments/"
-            + seq_id
-            + "/reduced_alignment.fasta.treefile"
-        )
-        reduced_tree = Tree(reduced_tree_file)
+        reattached_tree_file = get_seq_id_file(seq_id, reattached_tree_files)
+        reattached_tree = Tree(reattached_tree_file)
+        reattachment_node = reattached_tree.search_nodes(name=seq_id)[0].up
         all_bootstraps = [
             node.support
-            for node in reduced_tree.traverse()
-            if not node.is_root() and not node.is_leaf()
+            for node in reattached_tree.traverse()
+            if not node.is_root() and not node.is_leaf() and node != reattachment_node
         ]
         q = np.quantile(all_bootstraps, bootstrap_threshold)
         # parent of seq_id is reattachment_node
-        reattachment_node = best_reattached_tree.search_nodes(name=seq_id)[0].up
-        reattachment_child = [
-            node for node in reattachment_node.children if node.name != seq_id
-        ][0]
-        cluster = reattachment_child.get_leaf_names()
-        node_in_reduced_tree = reduced_tree.get_common_ancestor(cluster)
-        # find closest node with low bootstrap support
         min_dist_found = float("inf")
-        for node in [node for node in reduced_tree.traverse() if not node.is_leaf()]:
+        for node in [
+            node
+            for node in reattached_tree.traverse()
+            if not node.is_leaf() and node != reattachment_node
+        ]:
             # take max of distance of two endpoints of nodes at which we reattach
             if not node.is_root():
                 dist = max(
                     [
-                        ete_dist(node, node_in_reduced_tree, topology_only=True),
-                        ete_dist(node.up, node_in_reduced_tree, topology_only=True),
+                        ete_dist(node, reattachment_node, topology_only=True),
+                        ete_dist(node.up, reattachment_node, topology_only=True),
                     ]
                 )
             else:
-                dist = ete_dist(node, node_in_reduced_tree, topology_only=True)
+                dist = ete_dist(node, reattachment_node, topology_only=True)
             if node.support < q and dist < min_dist_found:
                 min_dist_found = dist
         df.append([seq_id + " " + str(tii), min_dist_found])
@@ -67,7 +61,11 @@ def reattachment_distance_to_low_support_node(
 
 
 def nj_tii(
-    mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath, ratio_plot_filepath
+    mldist_file,
+    sorted_taxon_tii_list,
+    reduced_mldist_files,
+    plot_filepath,
+    ratio_plot_filepath,
 ):
     """
     Compute Neighbour Joining TII and compare to ML TII as well as average ratio of NJ
@@ -82,12 +80,7 @@ def nj_tii(
     df = []
     tree_likeness = []
     for seq_id, tii in sorted_taxon_tii_list:
-        f = (
-            data_folder
-            + "reduced_alignments/"
-            + seq_id
-            + "/reduced_alignment.fasta.mldist"
-        )
+        f = get_seq_id_file(seq_id, reduced_mldist_files)
         reduced_mldist = get_ml_dist(f)
         reduced_tree = compute_nj_tree(reduced_mldist)
 
@@ -140,8 +133,7 @@ def nj_tii(
 def order_of_distances_to_seq_id(
     sorted_taxon_tii_list,
     mldist_file,
-    all_taxon_edge_df,
-    data_folder,
+    reattached_tree_files,
     plot_filepath,
     barplot_filepath,
 ):
@@ -155,43 +147,33 @@ def order_of_distances_to_seq_id(
     df = []
     hist_counts = []
     for seq_id, tii in sorted_taxon_tii_list:
-        best_reattached_tree = get_best_reattached_tree(
-            seq_id, all_taxon_edge_df, data_folder
-        )
+        reattached_tree_file = get_seq_id_file(seq_id, reattached_tree_files)
+        reattached_tree = Tree(reattached_tree_file)
         # find maximum distance between any two leaves in best_reattached_tree
         max_tree_dist = 0
-        for leaf1, leaf2 in itertools.combinations(
-            best_reattached_tree.get_leaves(), 2
-        ):
+        for leaf1, leaf2 in itertools.combinations(reattached_tree.get_leaves(), 2):
             if leaf1.get_distance(leaf2) > max_tree_dist:
                 max_tree_dist = leaf1.get_distance(leaf2)
 
-        leaves = [
-            leaf for leaf in best_reattached_tree.get_leaf_names() if leaf != seq_id
-        ]
-        reduced_tree = Tree(
-            data_folder
-            + "reduced_alignments/"
-            + seq_id
-            + "/reduced_alignment.fasta.treefile"
-        )
+        leaves = [leaf for leaf in reattached_tree.get_leaf_names() if leaf != seq_id]
+        reattachment_node = reattached_tree.search_nodes(name=seq_id)[0].up
         all_bootstraps = [
             node.support
-            for node in reduced_tree.traverse()
-            if not node.is_leaf() and not node.is_root()
+            for node in reattached_tree.traverse()
+            if not node.is_leaf() and not node.is_root() and node != reattachment_node
         ]
         q = np.quantile(all_bootstraps, 0.1)
         subset = []
         for leaf1, leaf2 in itertools.combinations(leaves, 2):
-            mrca = reduced_tree.get_common_ancestor([leaf1, leaf2])
+            mrca = reattached_tree.get_common_ancestor([leaf1, leaf2])
             if mrca.support >= q or mrca.support == 1.0:
                 continue
 
             # # # Careful: Restricting by leaves being "on the same side" seems biased by rooting
             # # # we only consider leaves on the same side of seq_id in the tree
-            # mrca = best_reattached_tree.get_common_ancestor([leaf1, leaf2])
-            # p1 = get_nodes_on_path(best_reattached_tree, seq_id, leaf1)
-            # p2 = get_nodes_on_path(best_reattached_tree, seq_id, leaf2)
+            # mrca = reattached_tree.get_common_ancestor([leaf1, leaf2])
+            # p1 = get_nodes_on_path(reattached_tree, seq_id, leaf1)
+            # p2 = get_nodes_on_path(reattached_tree, seq_id, leaf2)
             # if mrca not in p1 or mrca not in p2:
             #     continue
 
@@ -210,11 +192,11 @@ def order_of_distances_to_seq_id(
             # distances between leaf1 and leaf2 to seq_id are different in tree and
             # msa distance matrix
             tree_dist_leaf1 = (
-                best_reattached_tree.get_distance(seq_id, leaf1, topology_only=True)
+                reattached_tree.get_distance(seq_id, leaf1, topology_only=True)
                 / max_tree_dist
             )
             tree_dist_leaf2 = (
-                best_reattached_tree.get_distance(seq_id, leaf2, topology_only=True)
+                reattached_tree.get_distance(seq_id, leaf2, topology_only=True)
                 / max_tree_dist
             )
             seq_dist_leaf1 = mldist[seq_id][leaf1] / max_mldist
@@ -283,11 +265,9 @@ def order_of_distances_to_seq_id(
 
 
 def seq_and_tree_dist_diff(
-    all_taxon_edge_df,
     sorted_taxon_tii_list,
     mldist_file,
-    data_folder,
-    diff_plot_filepath,
+    reattached_tree_files,
     ratio_plot_filepath,
 ):
     """
@@ -295,33 +275,15 @@ def seq_and_tree_dist_diff(
     to corresponding distance in best reattached tree.
     """
     ml_distances = get_ml_dist(mldist_file)
-    distance_diffs = []
     distance_ratios = []
     for seq_id, tii in sorted_taxon_tii_list:
-        tree = get_best_reattached_tree(seq_id, all_taxon_edge_df, data_folder)
+        treefile = get_seq_id_file(seq_id, reattached_tree_files)
+        tree = Tree(treefile)
         leaves = [leaf for leaf in tree.get_leaf_names() if leaf != seq_id]
         # fill distance_ratios
         for leaf in leaves:
             ratio = ml_distances[seq_id][leaf] / tree.get_distance(seq_id, leaf)
             distance_ratios.append([seq_id + " " + str(tii), ratio])
-
-    #     # fill distance_diffs
-    #     reattached_distance = get_best_reattached_tree_distances_to_seq_id(
-    #         seq_id, all_taxon_edge_df, data_folder
-    #     )
-    #     q = np.quantile(list(reattached_distance.values()), 1)
-    #     for seq in reattached_distance:
-    #         if reattached_distance[seq] < q:
-    #             diff = reattached_distance[seq] - ml_distances[seq_id][seq]
-    #             distance_diffs.append([seq_id + str(tii), diff])
-
-    # df = pd.DataFrame(distance_diffs, columns=["seq_id", "distance_diff"])
-    # sns.stripplot(data=df, x="seq_id", y="distance_diff")
-    # # plt.axhline(0, color="red")
-    # plt.xticks(rotation=90)
-    # plt.tight_layout()
-    # plt.savefig(diff_plot_filepath)
-    # plt.clf()
 
     plt.figure(figsize=(10, 6))  # Adjust figure size if needed
     df = pd.DataFrame(distance_ratios, columns=["seq_id", "distance_ratio"])
@@ -333,259 +295,247 @@ def seq_and_tree_dist_diff(
     plt.clf()
 
 
-def likelihood_swarmplots(sorted_taxon_tii_list, all_taxon_edge_df, filepath):
+def likelihood_swarmplots(sorted_taxon_tii_list, csv, filepath):
     """
     For each taxon, plot the log likelihood of all optimised reattachments as swarmplot,
     sorted according to increasing TII
     """
-    all_taxon_edge_df["seq_id"] = pd.Categorical(
-        all_taxon_edge_df["seq_id"],
-        categories=[
-            pair[0] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
-        ],
+    # CAREFUL: The likelhood in the csv is not the actual likelihood, it is using masking!
+    df = pd.read_csv(csv)
+    # Sort the DataFrame based on 'tii'
+    df_sorted = df.sort_values(by="tii")
+    df_sorted["combined_label"] = (
+        df_sorted["seq_id"] + " (" + df_sorted["tii"].astype(str) + ")"
+    )
+    df_sorted["combined_label"] = pd.Categorical(
+        df_sorted["combined_label"],
+        categories=df_sorted["combined_label"],
         ordered=True,
     )
-    all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
-    plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-    sns.stripplot(data=all_taxon_edge_df, x="seq_id", y="likelihood")
-
-    # Add a horizontal line at the maximum likelihood value
-    max_likelihood = all_taxon_edge_df["likelihood"].max()
-    plt.axhline(y=max_likelihood, color="r")
-
+    sns.swarmplot(data=df_sorted, x="combined_label", y="likelihood")
     plt.xlabel("taxa (sorted by TII)")
     plt.ylabel("Log likelihood")
-    plt.title("stripplot of log likelihood vs. taxa sorted by TII")
-    plt.xticks(
-        range(len(sorted_taxon_tii_list)),
-        [
-            str(pair[0]) + " " + str(pair[1])
-            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
-        ],
-        rotation=90,
-    )
-    plt.tight_layout()
-    plt.savefig(filepath)
-    plt.clf()
-
-
-def find_reattachment_edge(branchlength_str, seq_id):
-    """
-    Return ID for edge on which seq_id is attached in branchlength_str.
-    This ID is a string containing of the leaf names whose cluster corresponds
-    to one of the end nodes of the edge.
-    """
-    pattern = rf"\['(([\w/.]+,)+[\w/.]+)'"
-    matches = re.findall(pattern, branchlength_str)
-    matches = [m[0] for m in matches]
-    seq_id_clusters = [m for m in matches if seq_id in m]
-    if len(seq_id_clusters) > 0:
-        new_seq_id_clusters = []
-        for cluster in seq_id_clusters:
-            cluster_list = cluster.split(",")
-            if seq_id in cluster_list:
-                cluster_list.remove(seq_id)
-            new_seq_id_clusters.append(",".join(cluster_list))
-        # return smallest cluster containing seq_id, as this must be the one of the
-        # edge on which seq_id is attached
-        return min(new_seq_id_clusters, key=lambda s: s.count(","))
-    else:
-        # if we haven't found a cluster with sequence_id, then seq_id must be in
-        # the complement of all clusters. In this case we want to return the biggest
-        # cluster
-        return max(matches, key=lambda s: s.count(","))
-
-
-def get_reattachment_distances(df, reattachment_distance_csv, seq_id):
-    """
-    Return dataframe with distances between reattachment locations that are represented
-    in df for taxon seq_id.
-    This assumes tha the reattachment locations in df are a subset of those in
-    reattachment_distance_csv.
-    """
-    filtered_df = df[df["seq_id"] == seq_id]
-    reattachment_distances_file = [
-        csv for csv in reattachment_distance_csv if "/" + seq_id + "/" in csv
-    ][0]
-
-    all_taxa = set(df["seq_id"].unique())
-
-    reattachment_edges = []
-    # find IDs (str of taxon sets) of reattachment edges
-    for branchlengths in filtered_df["branchlengths"]:
-        reattachment_edges.append(find_reattachment_edge(branchlengths, seq_id))
-    reattachment_distances = pd.read_csv(reattachment_distances_file, index_col=0)
-    column_names = {}
-    for s in reattachment_distances.columns[:-1]:
-        column_names[s] = set(s.split(","))
-
-    # because of rooting, the edge IDs in reattachment_distances might be the
-    # complement of the edge IDs we get from find_reattachment_edge()
-    # we save those in replace (dict) and change the identifier in
-    # reattachment_edges
-    replace = {}  # save edge identifying strings that need replacement
-    for edge_node in reattachment_edges:
-        # if cluster of edge_node is not in columns of reattachment_distance,
-        # the complement of that cluster will be in there
-        edge_node_set = set(edge_node.split(","))
-        if edge_node_set not in column_names.values():
-            complement_nodes = all_taxa - edge_node_set
-            complement_nodes = complement_nodes - set([seq_id])
-            complement_node_str = [
-                s for s in column_names if column_names[s] == complement_nodes
-            ][0]
-            replace[edge_node] = complement_node_str
-    # make all replacements in reattachmend_edges
-    for edge_node in replace:
-        reattachment_edges.remove(edge_node)
-        reattachment_edges.append(replace[edge_node])
-
-    # update index of reattachment_distancess
-    col_list = reattachment_distances.columns.to_list()
-    col_list.remove("likelihoods")
-    reattachment_distances = reattachment_distances.set_index(pd.Index(col_list))
-
-    # create distance matrix of reattachment positions that are present in input df
-    # and again add likelihoods in last column
-    filtered_reattachments = reattachment_distances.loc[
-        reattachment_edges, reattachment_edges
-    ]
-    filtered_reattachments["likelihoods"] = reattachment_distances.loc[
-        reattachment_edges, "likelihoods"
-    ]
-    return filtered_reattachments
-
-
-def dist_of_likely_reattachments(
-    sorted_taxon_tii_list, all_taxon_edge_df, reattachment_distance_csv, filepath
-):
-    """
-    Plot distance between all pairs of reattachment locations in all_taxon_edge_df.
-    We plot these distances for each taxon, sorted according to increasing TII, and
-    colour the datapooints by log likelihood difference.
-    """
-    pairwise_df = []
-    # create DataFrame containing all distances and likelihood
-    for i, (seq_id, tii) in enumerate(sorted_taxon_tii_list):
-        reattachment_distances = get_reattachment_distances(
-            all_taxon_edge_df, reattachment_distance_csv, seq_id
-        )
-        max_likelihood_reattachment = reattachment_distances.loc[
-            reattachment_distances["likelihoods"].idxmax()
-        ].name
-        # create new df with pairwise distances + likelihood difference
-        for i in range(len(reattachment_distances)):
-            for j in range(i + 1, len(reattachment_distances)):
-                best_reattachment = False
-                if (
-                    reattachment_distances.columns[i] == max_likelihood_reattachment
-                ) or (reattachment_distances.columns[j] == max_likelihood_reattachment):
-                    best_reattachment = True
-                ll_diff = abs(
-                    reattachment_distances["likelihoods"][i]
-                    - reattachment_distances["likelihoods"][j]
-                )
-                pairwise_df.append(
-                    [
-                        seq_id + " " + str(tii),
-                        reattachment_distances.columns[i],
-                        reattachment_distances.columns[j],
-                        reattachment_distances.iloc[i, j],
-                        ll_diff,
-                        best_reattachment,
-                    ]
-                )
-    pairwise_df = pd.DataFrame(
-        pairwise_df,
-        columns=[
-            "seq_id",
-            "edge1",
-            "edge2",
-            "distance",
-            "ll_diff",
-            "best_reattachment",
-        ],
-    )
-    # Filter the DataFrame for each marker type -- cross for distances to best
-    # reattachment position
-    df_marker_o = pairwise_df[pairwise_df["best_reattachment"] == False]
-    df_marker_X = pairwise_df[pairwise_df["best_reattachment"] == True]
-
-    # Create the plot
-    fig, ax = plt.subplots(figsize=(10, 6))
-    if len(pairwise_df) == 0:
-        print("All taxa have unique reattachment locations.")
-        plt.savefig(filepath)  # save empty plot to not break snakemake output
-        plt.clf()
-        return 0
-
-    # Plot marker 'o' (only if more than two datapoints)
-    if len(df_marker_o) > 0:
-        sns.stripplot(
-            data=df_marker_o,
-            x="seq_id",
-            y="distance",
-            hue="ll_diff",
-            palette="viridis",
-            alpha=0.7,
-            marker="o",
-            jitter=True,
-            size=7,
-        )
-
-    # Plot marker 'X'
-    sns.stripplot(
-        data=df_marker_X,
-        x="seq_id",
-        y="distance",
-        hue="ll_diff",
-        palette="viridis",
-        alpha=0.7,
-        marker="X",
-        jitter=True,
-        size=9,
-    )
-
-    # Add colorbar
-    norm = plt.Normalize(pairwise_df["ll_diff"].min(), pairwise_df["ll_diff"].max())
-    sm = plt.cm.ScalarMappable(cmap="viridis", norm=norm)
-    sm.set_array([])
-    cbar = plt.colorbar(sm, ax=ax, pad=0.1)
-    cbar.set_label("ll_diff")
-
-    # Other plot customizations
-    plt.legend([], [], frameon=False)
-    plt.ylabel("distance between reattachment locations")
-    plt.title("Distance between optimal reattachment locations")
+    plt.title("Log likelihood vs. taxa sorted by TII")
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.savefig(filepath)
     plt.clf()
 
 
+# def find_reattachment_edge(branchlength_str, seq_id):
+#     """
+#     Return ID for edge on which seq_id is attached in branchlength_str.
+#     This ID is a string containing of the leaf names whose cluster corresponds
+#     to one of the end nodes of the edge.
+#     """
+#     pattern = rf"\['(([\w/.]+,)+[\w/.]+)'"
+#     matches = re.findall(pattern, branchlength_str)
+#     matches = [m[0] for m in matches]
+#     seq_id_clusters = [m for m in matches if seq_id in m]
+#     if len(seq_id_clusters) > 0:
+#         new_seq_id_clusters = []
+#         for cluster in seq_id_clusters:
+#             cluster_list = cluster.split(",")
+#             if seq_id in cluster_list:
+#                 cluster_list.remove(seq_id)
+#             new_seq_id_clusters.append(",".join(cluster_list))
+#         # return smallest cluster containing seq_id, as this must be the one of the
+#         # edge on which seq_id is attached
+#         return min(new_seq_id_clusters, key=lambda s: s.count(","))
+#     else:
+#         # if we haven't found a cluster with sequence_id, then seq_id must be in
+#         # the complement of all clusters. In this case we want to return the biggest
+#         # cluster
+#         return max(matches, key=lambda s: s.count(","))
+
+
+# def get_reattachment_distances(df, reattachment_distance_csv, seq_id):
+#     """
+#     Return dataframe with distances between reattachment locations that are represented
+#     in df for taxon seq_id.
+#     This assumes tha the reattachment locations in df are a subset of those in
+#     reattachment_distance_csv.
+#     """
+#     filtered_df = df[df["seq_id"] == seq_id]
+#     reattachment_distances_file = [
+#         csv for csv in reattachment_distance_csv if "/" + seq_id + "/" in csv
+#     ][0]
+
+#     all_taxa = set(df["seq_id"].unique())
+
+#     reattachment_edges = []
+#     # find IDs (str of taxon sets) of reattachment edges
+#     for branchlengths in filtered_df["branchlengths"]:
+#         reattachment_edges.append(find_reattachment_edge(branchlengths, seq_id))
+#     reattachment_distances = pd.read_csv(reattachment_distances_file, index_col=0)
+#     column_names = {}
+#     for s in reattachment_distances.columns[:-1]:
+#         column_names[s] = set(s.split(","))
+
+#     # because of rooting, the edge IDs in reattachment_distances might be the
+#     # complement of the edge IDs we get from find_reattachment_edge()
+#     # we save those in replace (dict) and change the identifier in
+#     # reattachment_edges
+#     replace = {}  # save edge identifying strings that need replacement
+#     for edge_node in reattachment_edges:
+#         # if cluster of edge_node is not in columns of reattachment_distance,
+#         # the complement of that cluster will be in there
+#         edge_node_set = set(edge_node.split(","))
+#         if edge_node_set not in column_names.values():
+#             complement_nodes = all_taxa - edge_node_set
+#             complement_nodes = complement_nodes - set([seq_id])
+#             complement_node_str = [
+#                 s for s in column_names if column_names[s] == complement_nodes
+#             ][0]
+#             replace[edge_node] = complement_node_str
+#     # make all replacements in reattachmend_edges
+#     for edge_node in replace:
+#         reattachment_edges.remove(edge_node)
+#         reattachment_edges.append(replace[edge_node])
+
+#     # update index of reattachment_distancess
+#     col_list = reattachment_distances.columns.to_list()
+#     col_list.remove("likelihoods")
+#     reattachment_distances = reattachment_distances.set_index(pd.Index(col_list))
+
+#     # create distance matrix of reattachment positions that are present in input df
+#     # and again add likelihoods in last column
+#     filtered_reattachments = reattachment_distances.loc[
+#         reattachment_edges, reattachment_edges
+#     ]
+#     filtered_reattachments["likelihoods"] = reattachment_distances.loc[
+#         reattachment_edges, "likelihoods"
+#     ]
+#     return filtered_reattachments
+
+
+# def dist_of_likely_reattachments(
+#     sorted_taxon_tii_list, all_taxon_edge_df, reattachment_distance_csv, filepath
+# ):
+#     """
+#     Plot distance between all pairs of reattachment locations in all_taxon_edge_df.
+#     We plot these distances for each taxon, sorted according to increasing TII, and
+#     colour the datapooints by log likelihood difference.
+#     """
+#     pairwise_df = []
+#     # create DataFrame containing all distances and likelihood
+#     for i, (seq_id, tii) in enumerate(sorted_taxon_tii_list):
+#         reattachment_distances = get_reattachment_distances(
+#             all_taxon_edge_df, reattachment_distance_csv, seq_id
+#         )
+#         max_likelihood_reattachment = reattachment_distances.loc[
+#             reattachment_distances["likelihoods"].idxmax()
+#         ].name
+#         # create new df with pairwise distances + likelihood difference
+#         for i in range(len(reattachment_distances)):
+#             for j in range(i + 1, len(reattachment_distances)):
+#                 best_reattachment = False
+#                 if (
+#                     reattachment_distances.columns[i] == max_likelihood_reattachment
+#                 ) or (reattachment_distances.columns[j] == max_likelihood_reattachment):
+#                     best_reattachment = True
+#                 ll_diff = abs(
+#                     reattachment_distances["likelihoods"][i]
+#                     - reattachment_distances["likelihoods"][j]
+#                 )
+#                 pairwise_df.append(
+#                     [
+#                         seq_id + " " + str(tii),
+#                         reattachment_distances.columns[i],
+#                         reattachment_distances.columns[j],
+#                         reattachment_distances.iloc[i, j],
+#                         ll_diff,
+#                         best_reattachment,
+#                     ]
+#                 )
+#     pairwise_df = pd.DataFrame(
+#         pairwise_df,
+#         columns=[
+#             "seq_id",
+#             "edge1",
+#             "edge2",
+#             "distance",
+#             "ll_diff",
+#             "best_reattachment",
+#         ],
+#     )
+#     # Filter the DataFrame for each marker type -- cross for distances to best
+#     # reattachment position
+#     df_marker_o = pairwise_df[pairwise_df["best_reattachment"] == False]
+#     df_marker_X = pairwise_df[pairwise_df["best_reattachment"] == True]
+
+#     # Create the plot
+#     fig, ax = plt.subplots(figsize=(10, 6))
+#     if len(pairwise_df) == 0:
+#         print("All taxa have unique reattachment locations.")
+#         plt.savefig(filepath)  # save empty plot to not break snakemake output
+#         plt.clf()
+#         return 0
+
+#     # Plot marker 'o' (only if more than two datapoints)
+#     if len(df_marker_o) > 0:
+#         sns.stripplot(
+#             data=df_marker_o,
+#             x="seq_id",
+#             y="distance",
+#             hue="ll_diff",
+#             palette="viridis",
+#             alpha=0.7,
+#             marker="o",
+#             jitter=True,
+#             size=7,
+#         )
+
+#     # Plot marker 'X'
+#     sns.stripplot(
+#         data=df_marker_X,
+#         x="seq_id",
+#         y="distance",
+#         hue="ll_diff",
+#         palette="viridis",
+#         alpha=0.7,
+#         marker="X",
+#         jitter=True,
+#         size=9,
+#     )
+
+#     # Add colorbar
+#     norm = plt.Normalize(pairwise_df["ll_diff"].min(), pairwise_df["ll_diff"].max())
+#     sm = plt.cm.ScalarMappable(cmap="viridis", norm=norm)
+#     sm.set_array([])
+#     cbar = plt.colorbar(sm, ax=ax, pad=0.1)
+#     cbar.set_label("ll_diff")
+
+#     # Other plot customizations
+#     plt.legend([], [], frameon=False)
+#     plt.ylabel("distance between reattachment locations")
+#     plt.title("Distance between optimal reattachment locations")
+#     plt.xticks(rotation=90)
+#     plt.tight_layout()
+#     plt.savefig(filepath)
+#     plt.clf()
+
+
 def get_bootstrap_and_bts_scores(
     reduced_tree_files,
     full_tree_file,
     sorted_taxon_tii_list,
-    all_taxon_edge_df,
+    csv,
     test=False,
 ):
     """
     Returns three DataFrames:
-    (i) branch_score_df containing bts values for all edges in tree in full_tree_file
+    (i) branch_scores_df containing bts values for all edges in tree in full_tree_file
     (ii) bootstrap_df: bootstrap support by seq_id for reduced trees (without seq_id)
     (iii) full_tree_bootstrap_df: bootstrap support for tree in full_tree_file
-    (iv) local_bootstrap_df: only low bootstrap values for the clade including or below
-    the reattachment position for each seq_id
     If test==True, we save the pickled bts_score DataFrame in "test_data/bts_df.p"
     to then be able to use it for testing.
     """
+    csv = pd.read_csv(csv)
+
     bootstrap_df = []
-    local_bootstrap_df = []
 
-    with open(full_tree_file, "r") as f:
-        full_tree = Tree(f.readlines()[0].strip())
-
+    full_tree = Tree(full_tree_file)
     num_leaves = len(full_tree)
 
     # initialise branch score dict with sets of leaves representing edges of
@@ -611,57 +561,9 @@ def get_bootstrap_and_bts_scores(
     ).transpose()
 
     for treefile in reduced_tree_files:
-        with open(treefile, "r") as f:
-            tree = Tree(f.readlines()[0].strip())
+        tree = Tree(treefile)
         seq_id = treefile.split("/")[-2]
         tii = [p[1] for p in sorted_taxon_tii_list if p[0] == seq_id][0]
-
-        # get local boostrap values
-        # find reattachment position with highest likelihood
-        row = all_taxon_edge_df.loc[(all_taxon_edge_df["seq_id"] == seq_id)].nlargest(
-            1, "likelihood"
-        )
-        branchlength_str = row["branchlengths"].iloc()[0]
-        reattachment_edge = find_reattachment_edge(branchlength_str, seq_id)
-        cluster = reattachment_edge.split(",")
-        if len(cluster) > 1:
-            ancestor = tree.get_common_ancestor(cluster)
-        else:
-            ancestor = tree.search_nodes(name=cluster[0])[0].up
-        path_to_reattachment = ancestor.get_ancestors()
-        path_to_reattachment.reverse()
-        path_to_reattachment = path_to_reattachment[1:]  # ignore tree root
-        path_to_reattachment.append(ancestor)
-        # First find the root of the biggest cluster containing seq_id as leaf
-        # and having bootstrap support < 90
-        cluster_root = None
-        for node in path_to_reattachment:
-            if not node.is_root() and node.support < 90:
-                cluster_root = node
-                break
-            else:
-                continue
-
-        # stop traversing below a node if that node has support < threshold
-        def conditional_traverse(node, threshold=90):
-            if node.support <= threshold:
-                yield node
-                for child in node.children:
-                    yield from conditional_traverse(child, threshold)
-
-        # traverse subtree and collect bootstrap support
-        if cluster_root != None:
-            for node in conditional_traverse(cluster_root, threshold=90):
-                if not node.is_leaf():
-                    local_bootstrap_df.append(
-                        [seq_id, node.support, tii, "above_reattachment"]
-                    )
-        else:
-            for node in conditional_traverse(ancestor, threshold=90):
-                if not node.is_leaf() and not node.is_root():
-                    local_bootstrap_df.append(
-                        [seq_id, node.support, tii, "below_reattachment"]
-                    )
 
         # collect bootstrap support and bts for all nodes in tree
         for node in tree.traverse("postorder"):
@@ -677,11 +579,10 @@ def get_bootstrap_and_bts_scores(
                 leaf_str = ",".join(sorted(leaf_list))
                 if leaf_str in branch_scores:
                     branch_scores[leaf_str] += 1
-                    edge_found = True
+                    continue
                 leaf_str_extended = ",".join(sorted(leaf_list + [seq_id]))
-                if leaf_str_extended in branch_scores:
+                if not edge_found and leaf_str_extended in branch_scores:
                     branch_scores[leaf_str_extended] += 1
-                if edge_found:
                     continue
                 # edge ID might be complement of leaf set
                 # this could happen if rooting of tree is different to that of full_tree
@@ -694,11 +595,12 @@ def get_bootstrap_and_bts_scores(
                 leaf_str = ",".join(complement_leaves)
                 if leaf_str in branch_scores:
                     branch_scores[leaf_str] += 1
+                    continue
                 leaf_str_extended = ",".join(complement_leaves + [seq_id])
                 if leaf_str_extended in branch_scores:
                     branch_scores[leaf_str_extended] += 1
     # normalise BTS
-    # Divide by num_leaves - 2 if edge es incident to cherry, as it cannot be present in
+    # Divide by num_leaves - 2 if edge is incident to cherry, as it cannot be present in
     # either of the two trees where one of those cherry leaves is pruned
     for branch_score in branch_scores:
         if branch_score.count(",") == 1 or branch_score.count(",") == num_leaves - 3:
@@ -708,11 +610,6 @@ def get_bootstrap_and_bts_scores(
         branch_scores[branch_score] = int(branch_scores[branch_score])
     branch_scores_df = pd.DataFrame(branch_scores, index=["bts"]).transpose()
 
-    local_bootstrap_df = pd.DataFrame(
-        local_bootstrap_df, columns=["seq_id", "bootstrap_support", "tii", "location"]
-    )
-    local_bootstrap_df = local_bootstrap_df.sort_values("tii")
-
     bootstrap_df = pd.DataFrame(
         bootstrap_df, columns=["seq_id", "bootstrap_support", "tii"]
     )
@@ -721,7 +618,7 @@ def get_bootstrap_and_bts_scores(
     if test == True:
         with open("test_data/bts_df.p", "wb") as f:
             pickle.dump(branch_scores_df, file=f)
-    return branch_scores_df, bootstrap_df, full_tree_bootstrap_df, local_bootstrap_df
+    return branch_scores_df, bootstrap_df, full_tree_bootstrap_df
 
 
 def bootstrap_and_bts_plot(
@@ -729,18 +626,17 @@ def bootstrap_and_bts_plot(
     full_tree_file,
     sorted_taxon_tii_list,
     bts_vs_bootstrap_path,
-    all_taxon_edge_df,
+    csv,
 ):
     (
         branch_scores_df,
         bootstrap_df,
         full_tree_bootstrap_df,
-        local_bootstrap_df,
     ) = get_bootstrap_and_bts_scores(
         reduced_tree_files,
         full_tree_file,
         sorted_taxon_tii_list,
-        all_taxon_edge_df,
+        csv,
         test=False,
     )
 
@@ -785,145 +681,57 @@ def bootstrap_and_bts_plot(
     plt.clf()
 
 
-def taxon_height_swarmplot(all_taxon_edge_df, sorted_taxon_tii_list, plot_filepath):
+def df_column_swarmplot(csv, col_name, plot_filepath):
     """
-    For each taxon, plot the height of the reattachment for all possible reattachment
-    edges as a swarmplot vs its TII values
+    For each taxon, plot the value in column col_name vs TII values
     """
-    all_taxon_edge_df["seq_id"] = pd.Categorical(
-        all_taxon_edge_df["seq_id"],
-        categories=[
-            pair[0] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
-        ],
+    df = pd.read_csv(csv)
+    # Sort the DataFrame based on 'tii'
+    df_sorted = df.sort_values(by="tii")
+    df_sorted["combined_label"] = (
+        df_sorted["seq_id"] + " (" + df_sorted["tii"].astype(str) + ")"
+    )
+    df_sorted["combined_label"] = pd.Categorical(
+        df_sorted["combined_label"],
+        categories=df_sorted["combined_label"],
         ordered=True,
     )
-    all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
 
     plt.figure(figsize=(10, 6))
-    # We'll use a scatter plot to enable the use of a colormap
-    norm = plt.Normalize(
-        all_taxon_edge_df["likelihood"].min(), all_taxon_edge_df["likelihood"].max()
-    )
-    sm = plt.cm.ScalarMappable(cmap="viridis", norm=norm)
-    sm.set_array([])
-
-    for i, taxon in enumerate(all_taxon_edge_df["seq_id"].cat.categories):
-        subset = all_taxon_edge_df[all_taxon_edge_df["seq_id"] == taxon]
-        # only plot best reattachment height
-        subset = subset[subset["likelihood"] == subset["likelihood"].max()]
-        plt.scatter(
-            [i] * subset.shape[0],
-            subset["taxon_height"],
-            c=subset["likelihood"],
-            cmap="viridis",
-            edgecolors="black",
-            linewidth=0.5,
-        )
-
-    cbar = plt.colorbar(sm, ax=plt.gca())
-    cbar.set_label("log likelihood")
+    sns.swarmplot(data=df_sorted, x="combined_label", y=col_name)
 
     # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
-    plt.ylabel("reattachment height")
-    plt.title("stripplot of reattachment height vs. taxa sorted by TII")
+    plt.ylabel(col_name)
+    plt.title(col_name + " vs. taxa sorted by TII")
 
-    plt.xticks(
-        range(len(sorted_taxon_tii_list)),
-        [
-            str(pair[0]) + " " + str(pair[1])
-            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
-        ],
-        rotation=90,
-    )
+    plt.xticks(rotation=90)
 
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
 
 
-def reattachment_branch_length_swarmplot(
-    all_taxon_edge_df, sorted_taxon_tii_list, plot_filepath
-):
-    """
-    For each taxon, plot the reattachment branch length for all possible reattachment
-    edges as a swarmplot vs its TII values
-    """
-    all_taxon_edge_df["seq_id"] = pd.Categorical(
-        all_taxon_edge_df["seq_id"],
-        categories=[
-            pair[0] for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
-        ],
-        ordered=True,
-    )
-    all_taxon_edge_df = all_taxon_edge_df.sort_values("seq_id")
-
-    plt.figure(figsize=(10, 6))  # Adjust figure size if needed
-
-    # We'll use a scatter plot to enable the use of a colormap
-    norm = plt.Normalize(
-        all_taxon_edge_df["likelihood"].min(), all_taxon_edge_df["likelihood"].max()
-    )
-    sm = plt.cm.ScalarMappable(cmap="viridis", norm=norm)
-    sm.set_array([])
-
-    for i, taxon in enumerate(all_taxon_edge_df["seq_id"].cat.categories):
-        subset = all_taxon_edge_df[all_taxon_edge_df["seq_id"] == taxon]
-        plt.scatter(
-            [i] * subset.shape[0],
-            subset["reattachment_branch_length"],
-            c=subset["likelihood"],
-            cmap="viridis",
-            edgecolors="black",
-            linewidth=0.5,
-        )
-
-    cbar = plt.colorbar(sm, ax=plt.gca())
-    cbar.set_label("log likelihood")
-
-    # Set labels and title
-    plt.xlabel("taxa (sorted by TII)")
-    plt.ylabel("reattachment branch length")
-    plt.title("stripplot of reattachment branch length vs. taxa sorted by TII")
-
-    plt.xticks(
-        range(len(sorted_taxon_tii_list)),
-        [
-            str(pair[0]) + " " + str(pair[1])
-            for pair in sorted(sorted_taxon_tii_list, key=lambda x: x[1])
-        ],
-        rotation=90,
-    )
-
-    plt.tight_layout()
-    plt.savefig(plot_filepath)
-    plt.clf()
-
-
-taxon_df_csv = snakemake.input.taxon_df_csv
-taxon_edge_df_csv = snakemake.input.taxon_edge_df_csv
-reduced_tree_files = snakemake.input.reduced_trees
+csv = snakemake.input.csv
 full_tree_file = snakemake.input.full_tree
-mldist_file = snakemake.input.mldist_file
+reattached_tree_files = snakemake.input.reattached_trees
+reduced_tree_files = snakemake.input.reduced_trees
+mldist_file = snakemake.input.mldist
+reduced_mldist_files = snakemake.input.reduced_mldist
+
 plots_folder = snakemake.params.plots_folder
-data_folder = snakemake.params.data_folder
-reattachment_distance_csv = snakemake.input.reattachment_distance_csv
-reattachment_distance_topological_csv = (
-    snakemake.input.reattachment_distance_topological_csv
-)
+
+if not os.path.exists(plots_folder):
+    os.makedirs(plots_folder)
 
 print("Start reading, aggregating, and filtering data.")
-taxon_df = pd.read_csv(taxon_df_csv, index_col=0)
+taxon_df = pd.read_csv(csv, index_col=0)
 taxon_df.index.name = "taxon_name"
 
 taxon_tii_list = [
-    (taxon_name, tii) for taxon_name, tii in zip(taxon_df.index, taxon_df["tii"])
+    (taxon_name, tii) for taxon_name, tii in zip(taxon_df.seq_id, taxon_df["tii"])
 ]
 sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
-
-filtered_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 0.1, 4)
-best_two_taxon_edge_df = aggregate_and_filter_by_likelihood(taxon_edge_df_csv, 1, 2)
-all_taxon_edge_df = aggregate_taxon_edge_dfs(taxon_edge_df_csv)
 print("Done reading data.")
 
 
@@ -932,7 +740,7 @@ plot_filepath = os.path.join(
     plots_folder, "reattachment_distance_to_low_support_node.pdf"
 )
 reattachment_distance_to_low_support_node(
-    sorted_taxon_tii_list, all_taxon_edge_df, data_folder, bootstrap_threshold=0.2
+    sorted_taxon_tii_list, reattached_tree_files, bootstrap_threshold=1
 )
 print("Done plotting reattachment distance to low support node.")
 
@@ -941,7 +749,11 @@ print("Start plotting NJ TII.")
 plot_filepath = os.path.join(plots_folder, "NJ_TII.pdf")
 ratio_plot_filepath = os.path.join(plots_folder, "NJ_tree_likeness.pdf")
 nj_tii(
-    mldist_file, sorted_taxon_tii_list, data_folder, plot_filepath, ratio_plot_filepath
+    mldist_file,
+    sorted_taxon_tii_list,
+    reduced_mldist_files,
+    plot_filepath,
+    ratio_plot_filepath,
 )
 print("Done plotting NJ TII.")
 
@@ -955,8 +767,7 @@ histplot_filepath = os.path.join(
 order_of_distances_to_seq_id(
     sorted_taxon_tii_list,
     mldist_file,
-    all_taxon_edge_df,
-    data_folder,
+    reattached_tree_files,
     plot_filepath,
     barplot_filepath,
 )
@@ -967,52 +778,47 @@ print("Start plotting sequence and tree distance differences.")
 distance_diff_filepath = os.path.join(plots_folder, "seq_and_tree_dist_diff.pdf")
 ratio_plot_filepath = os.path.join(plots_folder, "seq_and_tree_dist_ratio.pdf")
 seq_and_tree_dist_diff(
-    all_taxon_edge_df,
     sorted_taxon_tii_list,
     mldist_file,
-    data_folder,
-    distance_diff_filepath,
+    reattached_tree_files,
     ratio_plot_filepath,
 )
 print("Done plotting sequence and tree distance differences.")
 
 
-# plot branch length distance of reattachment locations vs TII, hue = log_likelihood
-# difference
-print("Start plotting reattachment distances.")
-reattachment_distances_path = os.path.join(
-    plots_folder, "dist_of_likely_reattachments.pdf"
-)
-dist_of_likely_reattachments(
-    sorted_taxon_tii_list,
-    best_two_taxon_edge_df,
-    reattachment_distance_csv,
-    reattachment_distances_path,
-)
-print("Done plotting reattachment distances.")
+# # plot branch length distance of reattachment locations vs TII, hue = log_likelihood
+# # difference
+# print("Start plotting reattachment distances.")
+# reattachment_distances_path = os.path.join(
+#     plots_folder, "dist_of_likely_reattachments.pdf"
+# )
+# dist_of_likely_reattachments(
+#     sorted_taxon_tii_list,
+#     best_two_taxon_edge_df,
+#     reattachment_distance_csv,
+#     reattachment_distances_path,
+# )
+# print("Done plotting reattachment distances.")
 
-# plot topological distance of reattachment locations vs TII, hue = log_likelihood
-# difference
-print("Start plotting topological reattachment distances.")
-reattachment_topological_distances_path = os.path.join(
-    plots_folder, "topological_dist_of_likely_reattachments.pdf"
-)
-dist_of_likely_reattachments(
-    sorted_taxon_tii_list,
-    best_two_taxon_edge_df,
-    reattachment_distance_topological_csv,
-    reattachment_topological_distances_path,
-)
-print("Done plotting topological reattachment distances.")
+# # plot topological distance of reattachment locations vs TII, hue = log_likelihood
+# # difference
+# print("Start plotting topological reattachment distances.")
+# reattachment_topological_distances_path = os.path.join(
+#     plots_folder, "topological_dist_of_likely_reattachments.pdf"
+# )
+# dist_of_likely_reattachments(
+#     sorted_taxon_tii_list,
+#     best_two_taxon_edge_df,
+#     reattachment_distance_topological_csv,
+#     reattachment_topological_distances_path,
+# )
+# print("Done plotting topological reattachment distances.")
 
-# # plot edpl vs TII for each taxon
-# edpl_filepath = os.path.join(plots_folder, "edpl_vs_tii.pdf")
-# edpl_vs_tii_scatterplot(taxon_df, edpl_filepath)
 
 # swarmplot likelihoods of reattached trees for each taxon, sort by TII
 print("Start plotting likelihoods of reattached trees.")
 ll_filepath = os.path.join(plots_folder, "likelihood_swarmplots.pdf")
-likelihood_swarmplots(sorted_taxon_tii_list, all_taxon_edge_df, ll_filepath)
+likelihood_swarmplots(sorted_taxon_tii_list, csv, ll_filepath)
 print("Done plotting likelihoods of reattached trees.")
 
 
@@ -1027,24 +833,34 @@ bootstrap_and_bts_plot(
     full_tree_file,
     sorted_taxon_tii_list,
     bts_vs_bootstrap_path,
-    all_taxon_edge_df,
+    csv,
 )
 print("Done plotting bootstrap and bts.")
 
 print("Start plotting reattachment heights.")
 taxon_height_plot_filepath = os.path.join(plots_folder, "taxon_height_vs_tii.pdf")
-taxon_height_swarmplot(
-    filtered_taxon_edge_df, sorted_taxon_tii_list, taxon_height_plot_filepath
-)
+df_column_swarmplot(csv, "taxon_height", taxon_height_plot_filepath)
 print("Done plotting reattachment heights.")
 
 print("Start plotting reattachment branch length.")
 reattachment_branch_length_plot_filepath = os.path.join(
     plots_folder, "reattachment_branch_length_vs_tii.pdf"
 )
-reattachment_branch_length_swarmplot(
-    filtered_taxon_edge_df,
-    sorted_taxon_tii_list,
+df_column_swarmplot(
+    csv,
+    "reattachment_branch_length",
     reattachment_branch_length_plot_filepath,
+)
+print("Done plotting reattachment branch length.")
+
+
+print("Start plotting pendant branch length.")
+pendant_branch_length_plot_filepath = os.path.join(
+    plots_folder, "pendant_branch_length_vs_tii.pdf"
+)
+df_column_swarmplot(
+    csv,
+    "pendant_branch_length",
+    pendant_branch_length_plot_filepath,
 )
 print("Done plotting reattachment branch length.")
