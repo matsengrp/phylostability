@@ -145,38 +145,6 @@ rule extract_reattachment_statistics:
         "scripts/extract_reattachment_statistics.py"
 
 
-rule write_spr_tii_trees:
-    input:
-        full_tree=data_folder+input_alignment+".treefile",
-    output:
-        tree_pair_files=expand(data_folder+"reduced_alignments/{seq_id}/tii_trees.txt", seq_id = get_seq_ids(input_alignment))
-    params:
-        data_folder=data_folder
-    script:
-        "scripts/write_spr_tii_trees.py"
-
-
-rule compute_spr_tii:
-    input:
-        tree_pair_files=data_folder+"reduced_alignments/{seq_id}/tii_trees.txt"
-    output:
-        spr_output=data_folder+"reduced_alignments/{seq_id}/spr_output.txt"
-    shell:
-        """
-        ../uspr/uspr < {input.tree_pair_files} > {output.spr_output}
-        """
-
-rule add_spr_tii_to_df:
-    input:
-        csv=data_folder+"reduced_alignments/reattachment_data_per_taxon.csv",
-        spr_files=expand(data_folder+"reduced_alignments/{seq_id}/spr_output.txt", seq_id = get_seq_ids(input_alignment))
-    output:
-        temp(touch("add_spr_tii_to_df.done")),
-        csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_spr_tii.csv",
-    script:
-        "scripts/add_spr_tii_to_df.py"
-
-
 rule create_plots:
     input:
         csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv",
