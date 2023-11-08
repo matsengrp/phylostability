@@ -23,7 +23,9 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
+        # data_folder+"iqtree-model.txt",
         "create_plots.done"
+
 
 # Define the rule to extract the best model for iqtree on the full MSA
 rule model_test_iqtree:
@@ -34,24 +36,21 @@ rule model_test_iqtree:
         modeltest=data_folder+input_alignment+"_model.iqtree"
     shell:
         """
-        if [[ -f "{data_folder}{input.msa}_model.iqtree" ]]; then
-          echo "Ignoring iqtree ModelFinder run on {input.msa}, since it is already done."
-        else
-          iqtree -s {input.msa} --prefix {data_folder}{input.msa}_model -m MF
-        fi
+        iqtree -s {input.msa} --prefix {data_folder}{input.msa}_model -m MF -redo
         """
+
 
 # Define the rule to extract the model from the IQ-TREE run on the full msa
 rule extract_model_for_full_iqtree_run:
     input:
         data_folder+"model-test-iqtree.done",
-        msa=rules.model_test_iqtree.output.modeltest
+        iqtree=rules.model_test_iqtree.output.modeltest,
+        epa_models="../epa-models.txt"
     output:
         model=data_folder+"iqtree-model.txt"
-    shell:
-        """
-        echo $(grep "Best-fit model" {input.msa} | cut -d ":" -f 2) > {output.model}
-        """
+    script:
+        "scripts/extract_model.py"
+
 
 # Define the rule to remove a sequence from the MSA and write the reduced MSA to a file
 rule remove_sequence:
@@ -64,6 +63,7 @@ rule remove_sequence:
     script:
         "scripts/remove_sequence.py"
 
+
 # Define the rule to run IQ-TREE on the full MSA and get model parameters
 rule run_iqtree_on_full_dataset:
     input:
@@ -75,12 +75,8 @@ rule run_iqtree_on_full_dataset:
         mldist=data_folder+input_alignment+".mldist"
     shell:
         """
-        if [[ -f "{data_folder}{input.msa}.iqtree" ]]; then
-          echo "Ignoring iqtree run on {input.msa}, since it is already done."
-        else
-          cp {input.msa} {data_folder}
-          iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {data_folder}{input.msa} -bb 1000
-        fi
+        cp {input.msa} {data_folder}
+        iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {data_folder}{input.msa} -bb 1000 -redo
         """
 
 
@@ -95,11 +91,7 @@ rule run_iqtree_restricted_alignments:
         mlfile=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.iqtree"
     shell:
         """
-        if [[ -f "{input.reduced_msa}.iqtree" ]]; then
-          echo "Ignoring iqtree run on {input.reduced_msa}, since it is already done."
-        else
-          iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa} -bb 1000 -redo
-        fi
+        iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa} -bb 1000 -redo
         """
 
 
