@@ -37,7 +37,7 @@ def get_reattached_tree(newick_str, edge_num, seq_id, distal_length, pendant_len
     new_newick_str = new_newick_str[:-1]  # delete extra ) at end of string
 
     # find label of node above which we reattach edge
-    pattern = re.compile(r"([\w]+):[0-9.]+\{" + str(edge_num) + "\}")
+    pattern = re.compile(r"([\w.]+):[0-9.]+\{" + str(edge_num) + "\}")
     match = pattern.search(new_newick_str)
     sibling_node_id = match.group(1)
     if sibling_node_id.isdigit():
