@@ -14,6 +14,15 @@ def get_seq_id_file(seq_id, files):
     return [f for f in files if "/" + seq_id + "/" in f][0]
 
 
+def get_reattached_trees(treefile, best=True):
+    with open(treefile, "r") as f:
+        content = f.readlines()
+        if best:
+            return Tree(content[0].strip())
+        else:
+            return [Tree(str) for str in content.strip()]
+
+
 def reattachment_distance_to_low_support_node(
     sorted_taxon_tii_list, reattached_tree_files, bootstrap_threshold=1
 ):
@@ -24,7 +33,7 @@ def reattachment_distance_to_low_support_node(
     df = []
     for seq_id, tii in sorted_taxon_tii_list:
         reattached_tree_file = get_seq_id_file(seq_id, reattached_tree_files)
-        reattached_tree = Tree(reattached_tree_file)
+        reattached_tree = get_reattached_trees(reattached_tree_file)
         reattachment_node = reattached_tree.search_nodes(name=seq_id)[0].up
         all_bootstraps = [
             node.support
@@ -148,7 +157,7 @@ def order_of_distances_to_seq_id(
     hist_counts = []
     for seq_id, tii in sorted_taxon_tii_list:
         reattached_tree_file = get_seq_id_file(seq_id, reattached_tree_files)
-        reattached_tree = Tree(reattached_tree_file)
+        reattached_tree = get_reattached_trees(reattached_tree_file)
         # find maximum distance between any two leaves in best_reattached_tree
         max_tree_dist = 0
         for leaf1, leaf2 in itertools.combinations(reattached_tree.get_leaves(), 2):
@@ -278,7 +287,7 @@ def seq_and_tree_dist_diff(
     distance_ratios = []
     for seq_id, tii in sorted_taxon_tii_list:
         treefile = get_seq_id_file(seq_id, reattached_tree_files)
-        tree = Tree(treefile)
+        tree = get_reattached_trees(treefile)
         leaves = [leaf for leaf in tree.get_leaf_names() if leaf != seq_id]
         # fill distance_ratios
         for leaf in leaves:
@@ -587,7 +596,7 @@ def get_bootstrap_and_bts_scores(
     ).transpose()
 
     for treefile in reduced_tree_files:
-        tree = Tree(treefile)
+        tree = get_reattached_trees(treefile)
         seq_id = treefile.split("/")[-2]
         tii = [p[1] for p in sorted_taxon_tii_list if p[0] == seq_id][0]
 
@@ -714,17 +723,9 @@ def df_column_swarmplot(csv, col_name, plot_filepath):
     df = pd.read_csv(csv)
     # Sort the DataFrame based on 'tii'
     df_sorted = df.sort_values(by="tii")
-    df_sorted["combined_label"] = (
-        df_sorted["seq_id"] + " (" + df_sorted["tii"].astype(str) + ")"
-    )
-    df_sorted["combined_label"] = pd.Categorical(
-        df_sorted["combined_label"],
-        categories=df_sorted["combined_label"],
-        ordered=True,
-    )
 
     plt.figure(figsize=(10, 6))
-    sns.swarmplot(data=df_sorted, x="combined_label", y=col_name)
+    sns.stripplot(data=df_sorted, x="seq_id", y=col_name)
 
     # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
@@ -755,7 +756,8 @@ taxon_df = pd.read_csv(csv, index_col=0)
 taxon_df.index.name = "taxon_name"
 
 taxon_tii_list = [
-    (taxon_name, tii) for taxon_name, tii in zip(taxon_df.seq_id, taxon_df["tii"])
+    (seq_id.split(" ")[0], seq_id.split(" ")[1])
+    for seq_id in taxon_df["seq_id"].unique()
 ]
 sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 print("Done reading data.")
@@ -841,19 +843,6 @@ print("Done plotting sequence and tree distance differences.")
 # print("Done plotting topological reattachment distances.")
 
 
-print("Start plotting LWR of reattached trees.")
-ll_filepath = os.path.join(plots_folder, "likelihood_weight_ratio.pdf")
-likelihood_ratio(csv, ll_filepath)
-print("Done plotting LWR of reattached trees.")
-
-
-# swarmplot likelihoods of reattached trees for each taxon, sort by TII
-print("Start plotting likelihoods of reattached trees.")
-ll_filepath = os.path.join(plots_folder, "likelihood_swarmplots.pdf")
-likelihood_swarmplots(csv, ll_filepath)
-print("Done plotting likelihoods of reattached trees.")
-
-
 # swarmplot bootstrap support reduced tree for each taxon, sort by TII
 print("Start plotting bootstrap and bts.")
 bootstrap_plot_filepath = os.path.join(plots_folder, "bootstrap_vs_tii.pdf")
@@ -868,6 +857,18 @@ bootstrap_and_bts_plot(
     csv,
 )
 print("Done plotting bootstrap and bts.")
+
+
+# Swarmplots of statistics we can get straight out of csv file
+print("Start plotting likelihoods of reattached trees.")
+ll_filepath = os.path.join(plots_folder, "likelihood_swarmplots.pdf")
+df_column_swarmplot(csv, "likelihood", ll_filepath)
+print("Done plotting likelihoods of reattached trees.")
+
+print("Start plotting LWR of reattached trees.")
+lwr_filepath = os.path.join(plots_folder, "likelihood_weight_ratio.pdf")
+df_column_swarmplot(csv, "like_weight_ratio", lwr_filepath)
+print("Done plotting LWR of reattached trees.")
 
 print("Start plotting reattachment heights.")
 taxon_height_plot_filepath = os.path.join(plots_folder, "taxon_height_vs_tii.pdf")

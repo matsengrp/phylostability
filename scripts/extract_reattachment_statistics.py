@@ -95,35 +95,39 @@ for seq_id in seq_ids:
 
     # compute and safe reattached tree
     tree_file = [f for f in reattached_trees if "/" + seq_id + "/" in f][0]
-    placements = dict["placements"][0]["p"]
+    placements = dict["placements"][0][
+        "p"
+    ]  # this is a list of lists, each containing information for one reattachment
     # TODO: Check if this is always the best placement and what it means if we have more than one placement in epa_result.jplace
-    if isinstance(placements[0], list):
-        placements = placements[0]
-    edge_num = placements[0]
-    likelihood = placements[1]
-    like_weight_ratio = placements[2]
-    distal_length = placements[3]
-    pendant_length = placements[4]
+    newick_trees = []
+    for placement in placements:
+        edge_num = placement[0]
+        likelihood = placement[1]
+        like_weight_ratio = placement[2]
+        distal_length = placement[3]
+        pendant_length = placement[4]
 
-    reattached_tree, reattachment_branch_length = get_reattached_tree(
-        dict["tree"], placements[0], seq_id, distal_length, pendant_length
-    )
+        reattached_tree, reattachment_branch_length = get_reattached_tree(
+            dict["tree"], placement[0], seq_id, distal_length, pendant_length
+        )
+        newick_trees.append(reattached_tree.write(format=0))
+
+        rf_distance = full_tree.robinson_foulds(reattached_tree, unrooted_trees=True)[0]
+        taxon_height = calculate_taxon_height(reattached_tree, seq_id)
+        output.append(
+            [
+                seq_id + " " + str(rf_distance),
+                likelihood,
+                like_weight_ratio,
+                reattachment_branch_length,
+                pendant_length,
+                rf_distance,
+                taxon_height,
+            ]
+        )
     with open(tree_file, "w") as f:
-        f.write(reattached_tree.write(format=0))
-
-    rf_distance = full_tree.robinson_foulds(reattached_tree, unrooted_trees=True)[0]
-    taxon_height = calculate_taxon_height(reattached_tree, seq_id)
-    output.append(
-        [
-            seq_id,
-            likelihood,
-            like_weight_ratio,
-            reattachment_branch_length,
-            pendant_length,
-            rf_distance,
-            taxon_height,
-        ]
-    )
+        for newick_str in newick_trees:
+            f.write(newick_str + "\n")
 df = pd.DataFrame(
     output,
     columns=[

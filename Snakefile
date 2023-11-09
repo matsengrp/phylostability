@@ -23,7 +23,6 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        # data_folder+"iqtree-model.txt",
         "create_plots.done"
 
 
@@ -128,7 +127,7 @@ rule extract_reattachment_statistics:
         epa_results=expand(data_folder+"reduced_alignments/{seq_id}/epa_result.jplace", seq_id = get_seq_ids(input_alignment)),
         full_tree=data_folder+input_alignment+".treefile"
     output:
-        reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_tree.nwk", seq_id = get_seq_ids(input_alignment)),
+        reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_trees.nwk", seq_id = get_seq_ids(input_alignment)),
         output_csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv"
     params:
         seq_ids=get_seq_ids(input_alignment),
@@ -141,7 +140,7 @@ rule create_plots:
         csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv",
         full_tree=data_folder+input_alignment+".treefile",
         reduced_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
-        reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_tree.nwk", seq_id=get_seq_ids(input_alignment)),
+        reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_trees.nwk", seq_id=get_seq_ids(input_alignment)),
         mldist=data_folder+input_alignment+".mldist",
         reduced_mldist=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist", seq_id=get_seq_ids(input_alignment)),
     output:
