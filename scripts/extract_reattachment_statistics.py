@@ -5,6 +5,7 @@ import re
 
 epa_result_files = snakemake.input.epa_results
 full_tree_file = snakemake.input.full_tree
+restricted_trees = snakemake.input.restricted_trees
 
 reattached_trees = snakemake.output.reattached_trees
 output_csv = snakemake.output.output_csv
@@ -95,10 +96,16 @@ for seq_id in seq_ids:
 
     # compute and safe reattached tree
     tree_file = [f for f in reattached_trees if "/" + seq_id + "/" in f][0]
+
+    # Compute RF TII
+    restricted_tree_file = [f for f in restricted_trees if "/" + seq_id + "/" in f][0]
+    rf_distance = full_tree.robinson_foulds(
+        Tree(restricted_tree_file), unrooted_trees=True
+    )[0]
+
     placements = dict["placements"][0][
         "p"
     ]  # this is a list of lists, each containing information for one reattachment
-    # TODO: Check if this is always the best placement and what it means if we have more than one placement in epa_result.jplace
     newick_trees = []
     for placement in placements:
         edge_num = placement[0]
@@ -110,10 +117,8 @@ for seq_id in seq_ids:
         reattached_tree, reattachment_branch_length = get_reattached_tree(
             dict["tree"], placement[0], seq_id, distal_length, pendant_length
         )
-        newick_trees.append(reattached_tree.write(format=0))
-
-        rf_distance = full_tree.robinson_foulds(reattached_tree, unrooted_trees=True)[0]
         taxon_height = calculate_taxon_height(reattached_tree, seq_id)
+        newick_trees.append(reattached_tree.write(format=0))
         output.append(
             [
                 seq_id + " " + str(rf_distance),
@@ -125,6 +130,7 @@ for seq_id in seq_ids:
                 taxon_height,
             ]
         )
+
     with open(tree_file, "w") as f:
         for newick_str in newick_trees:
             f.write(newick_str + "\n")

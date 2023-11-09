@@ -125,6 +125,7 @@ rule epa_reattachment:
 rule extract_reattachment_statistics:
     input:
         epa_results=expand(data_folder+"reduced_alignments/{seq_id}/epa_result.jplace", seq_id = get_seq_ids(input_alignment)),
+        restricted_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",seq_id=get_seq_ids(input_alignment)),
         full_tree=data_folder+input_alignment+".treefile"
     output:
         reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_trees.nwk", seq_id = get_seq_ids(input_alignment)),
