@@ -109,7 +109,7 @@ rule epa_reattachment:
     input:
         rules.run_iqtree_restricted_alignments.output.done,
         tree=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
-        model=data_folder+"iqtree-model.txt",
+        model=rules.extract_model_for_full_iqtree_run.output.model,
         taxon_msa=data_folder+"reduced_alignments/{seq_id}/single_taxon.fasta",
         without_taxon_msa=data_folder+"reduced_alignments/{seq_id}/without_taxon.fasta",
     output:
@@ -118,8 +118,7 @@ rule epa_reattachment:
         output_folder=data_folder+"reduced_alignments/{seq_id}"
     shell:
         """
-        read -r model < {input.model}
-        echo $model
+        model=$(cat {input.model})
         epa-ng --ref-msa {input.without_taxon_msa} --tree {input.tree} --query {input.taxon_msa} --model $model -w {params.output_folder} --redo
         """
 
