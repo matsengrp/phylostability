@@ -295,7 +295,7 @@ def seq_and_tree_dist_diff(
     plt.clf()
 
 
-def likelihood_swarmplots(sorted_taxon_tii_list, csv, filepath):
+def likelihood_swarmplots(csv, filepath):
     """
     For each taxon, plot the log likelihood of all optimised reattachments as swarmplot,
     sorted according to increasing TII
@@ -316,6 +316,32 @@ def likelihood_swarmplots(sorted_taxon_tii_list, csv, filepath):
     plt.xlabel("taxa (sorted by TII)")
     plt.ylabel("Log likelihood")
     plt.title("Log likelihood vs. taxa sorted by TII")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(filepath)
+    plt.clf()
+
+
+def likelihood_ratio(csv, filepath):
+    """
+    For each taxon, plot the log likelihood of all optimised reattachments as swarmplot,
+    sorted according to increasing TII
+    """
+    df = pd.read_csv(csv)
+    # Sort the DataFrame based on 'tii'
+    df_sorted = df.sort_values(by="tii")
+    df_sorted["combined_label"] = (
+        df_sorted["seq_id"] + " (" + df_sorted["tii"].astype(str) + ")"
+    )
+    df_sorted["combined_label"] = pd.Categorical(
+        df_sorted["combined_label"],
+        categories=df_sorted["combined_label"],
+        ordered=True,
+    )
+    sns.swarmplot(data=df_sorted, x="combined_label", y="like_weight_ratio")
+    plt.xlabel("taxa (sorted by TII)")
+    plt.ylabel("LWR")
+    plt.title("Likelihood weight ration (LWR) vs. taxa sorted by TII")
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.savefig(filepath)
@@ -815,10 +841,16 @@ print("Done plotting sequence and tree distance differences.")
 # print("Done plotting topological reattachment distances.")
 
 
+print("Start plotting LWR of reattached trees.")
+ll_filepath = os.path.join(plots_folder, "likelihood_weight_ratio.pdf")
+likelihood_ratio(csv, ll_filepath)
+print("Done plotting LWR of reattached trees.")
+
+
 # swarmplot likelihoods of reattached trees for each taxon, sort by TII
 print("Start plotting likelihoods of reattached trees.")
 ll_filepath = os.path.join(plots_folder, "likelihood_swarmplots.pdf")
-likelihood_swarmplots(sorted_taxon_tii_list, csv, ll_filepath)
+likelihood_swarmplots(csv, ll_filepath)
 print("Done plotting likelihoods of reattached trees.")
 
 
