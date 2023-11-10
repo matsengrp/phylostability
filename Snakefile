@@ -23,7 +23,8 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        "create_plots.done"
+        "create_plots.done",
+        "create_other_plots.done"
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -150,3 +151,19 @@ rule create_plots:
         plots_folder=plots_folder
     script:
         "scripts/create_plots.py"
+
+
+rule create_other_plots:
+    input:
+        csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv",
+        full_tree=data_folder+input_alignment+".treefile",
+        reduced_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
+        reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_trees.nwk", seq_id=get_seq_ids(input_alignment)),
+        mldist=data_folder+input_alignment+".mldist",
+        reduced_mldist=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist", seq_id=get_seq_ids(input_alignment)),
+    output:
+        temp(touch("create_other_plots.done")),
+    params:
+        plots_folder=plots_folder
+    script:
+        "scripts/create_other_plots.py"

@@ -5,6 +5,10 @@ from Bio.Phylo.TreeConstruction import DistanceMatrix, DistanceTreeConstructor
 from io import StringIO
 
 
+def get_seq_id_file(seq_id, files):
+    return [f for f in files if "/" + seq_id + "/" in f][0]
+
+
 def ete_dist(node1, node2, topology_only=False):
     # if one of the nodes is a leaf and child of the other one, we need to add one
     # to their distance because get_distance() returns number of nodes between
@@ -31,48 +35,6 @@ def ete_dist(node1, node2, topology_only=False):
         )
 
 
-def aggregate_taxon_edge_dfs(csv_list):
-    """
-    Aggregate all dataframes in csv_list into one dataframe for plotting.
-    """
-    dfs = []
-    for csv_file in csv_list:
-        taxon_df = pd.read_csv(csv_file)
-        dfs.append(taxon_df)
-    df = pd.concat(dfs, ignore_index=True)
-    df = df.rename(columns={0: "seq_id"})
-    return df
-
-
-def aggregate_and_filter_by_likelihood(taxon_edge_csv_list, p, hard_threshold=3):
-    """
-    Reads and aggregates taxon_edge_csv_list dataframes for all taxa, while
-    also filtering out by likelihood.
-    p is a value between 0 and 1, so that only taxon reattachments whose trees have
-    likelihood greater than max_likelihood - p * (max_likelihood - min_likelihood)
-    are added to the aggregated dataframe.
-    """
-    dfs = []
-    for csv_file in taxon_edge_csv_list:
-        taxon_df = pd.read_csv(csv_file)
-        # filter by likelihood
-        min_likelihood = taxon_df["likelihood"].min()
-        max_likelihood = taxon_df["likelihood"].max()
-        threshold = max_likelihood - p * (max_likelihood - min_likelihood)
-        filtered_df = taxon_df[taxon_df["likelihood"] >= threshold]
-        if len(filtered_df) > hard_threshold:
-            filtered_df = filtered_df.nlargest(hard_threshold, "likelihood")
-        # append to df for all taxa
-        dfs.append(filtered_df)
-    df = pd.concat(dfs, ignore_index=True)
-    df = df.rename(columns={0: "seq_id"})
-    if "Unnamed: 0.1" in df.columns:
-        df.set_index("Unnamed: 0.1", inplace=True)
-    elif "Unnamed: 0" in df.columns:
-        df.set_index("Unnamed: 0", inplace=True)
-    return df
-
-
 def get_ml_dist(mldist_file):
     """
     Read ml_dist from input filename and return df with rownames=colnames=seq_ids.
@@ -88,46 +50,13 @@ def get_ml_dist(mldist_file):
     return ml_distances
 
 
-def get_best_reattached_tree(seq_id, all_taxon_edge_df, data_folder):
-    """
-    Return best reattached tree with seq_id (best means highest likelihood)
-    of reattachment edge as given in all_taxon_edge_df.
-    """
-    filtered_df = all_taxon_edge_df.loc[all_taxon_edge_df["seq_id"] == seq_id]
-    if isinstance(filtered_df.index[0], str):
-        best_edge_id = filtered_df["likelihood"].idxmax()
-    else:
-        best_edge_id = filtered_df.loc[filtered_df["likelihood"].idxmax()][0]
-    if not isinstance(best_edge_id, str):
-        best_edge_id = filtered_df["likelihood"].idxmax()
-    best_edge_id = best_edge_id.split("_")[-1]
-    tree_filepath = (
-        data_folder
-        + "reduced_alignments/"
-        + seq_id
-        + "/reduced_alignment.fasta_add_at_edge_"
-        + str(best_edge_id)
-        + ".nwk_branch_length.treefile"
-    )
-    tree = Tree(tree_filepath)
-    return tree
-
-
-def get_best_reattached_tree_distances_to_seq_id(
-    seq_id, all_taxon_edge_df, data_folder
-):
-    """ "
-    Return dictionary with distances in tree with highest likelihood
-    among all reattached trees (as per all_taxon_edge_df).
-    """
-    tree = get_best_reattached_tree(seq_id, all_taxon_edge_df, data_folder)
-    leaves = tree.get_leaf_names()
-    # Compute distance for each leaf to seq_id leaf
-    distances = {}
-    for i, leaf in enumerate(leaves):
-        if leaf != seq_id:
-            distances[leaf] = tree.get_distance(leaf, seq_id)
-    return distances
+def get_reattached_trees(treefile, best=True):
+    with open(treefile, "r") as f:
+        content = f.readlines()
+        if best:
+            return Tree(content[0].strip())
+        else:
+            return [Tree(str) for str in content.strip()]
 
 
 def get_closest_msa_sequences(seq_id, mldist_file, p):

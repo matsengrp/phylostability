@@ -10,19 +10,6 @@ import itertools
 from utils import *
 
 
-def get_seq_id_file(seq_id, files):
-    return [f for f in files if "/" + seq_id + "/" in f][0]
-
-
-def get_reattached_trees(treefile, best=True):
-    with open(treefile, "r") as f:
-        content = f.readlines()
-        if best:
-            return Tree(content[0].strip())
-        else:
-            return [Tree(str) for str in content.strip()]
-
-
 def reattachment_distance_to_low_support_node(
     sorted_taxon_tii_list, reattached_tree_files, bootstrap_threshold=1
 ):
