@@ -2,7 +2,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import os
 import numpy as np
-import re
 import pickle
 import math
 import itertools
@@ -338,8 +337,9 @@ def plot_reattachment_distances(
         reattachment_distances = get_reattachment_distances(
             reduced_tree, treefile, seq_id
         )
-        df += [[seq_id + " " + str(tii), d] for d in reattachment_distances]
-    df = pd.DataFrame(df, columns=["seq_id", "distances"])
+        df += [[seq_id + " " + str(tii), d, int(tii)] for d in reattachment_distances]
+    df = pd.DataFrame(df, columns=["seq_id", "distances", "tii"])
+    df = df.sort_values("tii")
     sns.stripplot(data=df, x="seq_id", y="distances")
     plt.title("Distances between best reattachment positions")
     plt.ylabel("Topological distances")
@@ -554,7 +554,7 @@ taxon_df = pd.read_csv(csv, index_col=0)
 taxon_df.index.name = "taxon_name"
 
 taxon_tii_list = [
-    (seq_id.split(" ")[0], seq_id.split(" ")[1])
+    (seq_id.split(" ")[0], int(seq_id.split(" ")[1]))
     for seq_id in taxon_df["seq_id"].unique()
 ]
 sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
