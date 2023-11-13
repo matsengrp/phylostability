@@ -349,113 +349,6 @@ def plot_reattachment_distances(
     plt.clf()
 
 
-# def dist_of_likely_reattachments(
-#     sorted_taxon_tii_list, all_taxon_edge_df, reattachment_distance_csv, filepath
-# ):
-#     """
-#     Plot distance between all pairs of reattachment locations in all_taxon_edge_df.
-#     We plot these distances for each taxon, sorted according to increasing TII, and
-#     colour the datapooints by log likelihood difference.
-#     """
-#     pairwise_df = []
-#     # create DataFrame containing all distances and likelihood
-#     for i, (seq_id, tii) in enumerate(sorted_taxon_tii_list):
-#         reattachment_distances = get_reattachment_distances(
-#             all_taxon_edge_df, reattachment_distance_csv, seq_id
-#         )
-#         max_likelihood_reattachment = reattachment_distances.loc[
-#             reattachment_distances["likelihoods"].idxmax()
-#         ].name
-#         # create new df with pairwise distances + likelihood difference
-#         for i in range(len(reattachment_distances)):
-#             for j in range(i + 1, len(reattachment_distances)):
-#                 best_reattachment = False
-#                 if (
-#                     reattachment_distances.columns[i] == max_likelihood_reattachment
-#                 ) or (reattachment_distances.columns[j] == max_likelihood_reattachment):
-#                     best_reattachment = True
-#                 ll_diff = abs(
-#                     reattachment_distances["likelihoods"][i]
-#                     - reattachment_distances["likelihoods"][j]
-#                 )
-#                 pairwise_df.append(
-#                     [
-#                         seq_id + " " + str(tii),
-#                         reattachment_distances.columns[i],
-#                         reattachment_distances.columns[j],
-#                         reattachment_distances.iloc[i, j],
-#                         ll_diff,
-#                         best_reattachment,
-#                     ]
-#                 )
-#     pairwise_df = pd.DataFrame(
-#         pairwise_df,
-#         columns=[
-#             "seq_id",
-#             "edge1",
-#             "edge2",
-#             "distance",
-#             "ll_diff",
-#             "best_reattachment",
-#         ],
-#     )
-#     # Filter the DataFrame for each marker type -- cross for distances to best
-#     # reattachment position
-#     df_marker_o = pairwise_df[pairwise_df["best_reattachment"] == False]
-#     df_marker_X = pairwise_df[pairwise_df["best_reattachment"] == True]
-
-#     # Create the plot
-#     fig, ax = plt.subplots(figsize=(10, 6))
-#     if len(pairwise_df) == 0:
-#         print("All taxa have unique reattachment locations.")
-#         plt.savefig(filepath)  # save empty plot to not break snakemake output
-#         plt.clf()
-#         return 0
-
-#     # Plot marker 'o' (only if more than two datapoints)
-#     if len(df_marker_o) > 0:
-#         sns.stripplot(
-#             data=df_marker_o,
-#             x="seq_id",
-#             y="distance",
-#             hue="ll_diff",
-#             palette="viridis",
-#             alpha=0.7,
-#             marker="o",
-#             jitter=True,
-#             size=7,
-#         )
-
-#     # Plot marker 'X'
-#     sns.stripplot(
-#         data=df_marker_X,
-#         x="seq_id",
-#         y="distance",
-#         hue="ll_diff",
-#         palette="viridis",
-#         alpha=0.7,
-#         marker="X",
-#         jitter=True,
-#         size=9,
-#     )
-
-#     # Add colorbar
-#     norm = plt.Normalize(pairwise_df["ll_diff"].min(), pairwise_df["ll_diff"].max())
-#     sm = plt.cm.ScalarMappable(cmap="viridis", norm=norm)
-#     sm.set_array([])
-#     cbar = plt.colorbar(sm, ax=ax, pad=0.1)
-#     cbar.set_label("ll_diff")
-
-#     # Other plot customizations
-#     plt.legend([], [], frameon=False)
-#     plt.ylabel("distance between reattachment locations")
-#     plt.title("Distance between optimal reattachment locations")
-#     plt.xticks(rotation=90)
-#     plt.tight_layout()
-#     plt.savefig(filepath)
-#     plt.clf()
-
-
 def get_bootstrap_and_bts_scores(
     reduced_tree_files,
     full_tree_file,
@@ -725,20 +618,6 @@ seq_and_tree_dist_diff(
     ratio_plot_filepath,
 )
 print("Done plotting sequence and tree distance differences.")
-
-# # plot topological distance of reattachment locations vs TII, hue = log_likelihood
-# # difference
-# print("Start plotting topological reattachment distances.")
-# reattachment_topological_distances_path = os.path.join(
-#     plots_folder, "topological_dist_of_likely_reattachments.pdf"
-# )
-# dist_of_likely_reattachments(
-#     sorted_taxon_tii_list,
-#     best_two_taxon_edge_df,
-#     reattachment_distance_topological_csv,
-#     reattachment_topological_distances_path,
-# )
-# print("Done plotting topological reattachment distances.")
 
 
 # swarmplot bootstrap support reduced tree for each taxon, sort by TII
