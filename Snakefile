@@ -45,7 +45,6 @@ rule extract_model_for_full_iqtree_run:
     input:
         data_folder+"model-test-iqtree.done",
         iqtree=rules.model_test_iqtree.output.modeltest,
-        epa_models="../epa-models.txt"
     output:
         model=data_folder+"iqtree-model.txt"
     script:

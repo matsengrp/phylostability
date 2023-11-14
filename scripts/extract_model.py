@@ -1,7 +1,6 @@
 import re
 
 iqtree_file = snakemake.input.iqtree
-epa_models = snakemake.input.epa_models
 
 model_file = snakemake.output.model
 
