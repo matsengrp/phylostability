@@ -4,6 +4,7 @@ import json
 import re
 import numpy as np
 import itertools
+import ast
 
 from utils import *
 
@@ -15,7 +16,8 @@ full_mldist_file = snakemake.input.full_mldist_file
 restricted_mldist_files = snakemake.input.restricted_mldist_files
 
 reattached_tree_files = snakemake.output.reattached_trees
-output_csv = snakemake.output.output_csv
+plot_csv = snakemake.output.plot_csv
+random_forest_csv = snakemake.output.random_forest_csv
 
 seq_ids = snakemake.params.seq_ids
 
@@ -433,4 +435,28 @@ df = pd.DataFrame(
         "seq_distance_ratios_closest_seq",
     ],
 )
-df.to_csv(output_csv)
+df.to_csv(plot_csv)
+
+
+# replace lists by mean and standard deviation for training random forest
+def calculate_mean_std(cell):
+    if isinstance(cell, list) or isinstance(cell, np.ndarray):
+        # cell is already a list or a numpy array
+        arr = np.array(cell)
+        mean_val = np.mean(arr)
+        std_val = np.std(arr)
+        return mean_val, std_val
+    else:
+        # Return NaN if the cell is not a list or array
+        return np.nan, np.nan
+
+
+# Loop through each column in the DataFrame
+for col in df.columns:
+    if (
+        df[col].dtype == object and col != "seq_id"
+    ):  # Apply only to columns with object type
+        # Create new columns for mean and standard deviation
+        df[f"{col}_mean"], df[f"{col}_std"] = zip(*df[col].map(calculate_mean_std))
+        df = df.drop(columns=[col])
+df.to_csv(random_forest_csv)
