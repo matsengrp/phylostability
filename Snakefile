@@ -142,7 +142,7 @@ rule extract_reattachment_statistics:
 
 rule random_forest_regression:
     input:
-        csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv",
+        csv=data_folder+"reduced_alignments/random_forest_input.csv",
         epa_results=expand(data_folder+"reduced_alignments/{seq_id}/epa_result.jplace", seq_id = get_seq_ids(input_alignment))
     output:
         model_features_file=temp("model_feature_importances.csv"),

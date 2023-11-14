@@ -198,14 +198,17 @@ def plot_random_forest_results(results_csv, plot_filepath):
 
 
 def plot_random_forest_model_features(model_features_csv, plot_filepath):
-    df = pd.read_csv(model_features_csv, names=["feature_name", "importance"])
+    df = pd.read_csv(
+        model_features_csv, names=["feature_name", "importance"], skiprows=1
+    )
     plt.figure(figsize=(10, 6))
-    sns.barplot(df, x="feature_name", y="importance")
+    sns.barplot(data=df, x="feature_name", y="importance")
     plt.title("feature importance for random forest regression")
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
+
 
 csv = snakemake.input.csv
 full_tree_file = snakemake.input.full_tree
