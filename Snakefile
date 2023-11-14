@@ -23,7 +23,8 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        "create_plots.done"
+        "create_plots.done",
+        "create_other_plots.done",
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -126,9 +127,11 @@ rule extract_reattachment_statistics:
     input:
         epa_results=expand(data_folder+"reduced_alignments/{seq_id}/epa_result.jplace", seq_id = get_seq_ids(input_alignment)),
         restricted_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",seq_id=get_seq_ids(input_alignment)),
-        full_tree=data_folder+input_alignment+".treefile"
+        full_tree=data_folder+input_alignment+".treefile",
+        full_mldist_file=data_folder+input_alignment+".mldist",
+        restricted_mldist_files=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist",seq_id=get_seq_ids(input_alignment)),
     output:
-        reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_trees.nwk", seq_id = get_seq_ids(input_alignment)),
+        reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_tree.nwk", seq_id = get_seq_ids(input_alignment)),
         output_csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv"
     params:
         seq_ids=get_seq_ids(input_alignment),
@@ -142,7 +145,7 @@ rule create_plots:
         random_forest_csv="random_forest_regression.csv",
         full_tree=data_folder+input_alignment+".treefile",
         reduced_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
-        reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_trees.nwk", seq_id=get_seq_ids(input_alignment)),
+        reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_tree.nwk", seq_id=get_seq_ids(input_alignment)),
         mldist=data_folder+input_alignment+".mldist",
         reduced_mldist=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist", seq_id=get_seq_ids(input_alignment)),
     output:
@@ -164,3 +167,19 @@ rule random_forest_regression:
         output_file_name="random_forest_regression.csv"
     script:
         "scripts/random_forest_regression.py"
+
+        
+rule create_other_plots:
+    input:
+        csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv",
+        full_tree=data_folder+input_alignment+".treefile",
+        reduced_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
+        reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_tree.nwk", seq_id=get_seq_ids(input_alignment)),
+        mldist=data_folder+input_alignment+".mldist",
+        reduced_mldist=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist", seq_id=get_seq_ids(input_alignment)),
+    output:
+        temp(touch("create_other_plots.done")),
+    params:
+        plots_folder=plots_folder
+    script:
+        "scripts/create_other_plots.py"
