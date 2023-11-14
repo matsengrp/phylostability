@@ -5,8 +5,8 @@ from sklearn.metrics import mean_squared_error
 
 column_name = snakemake.params.column_to_predict
 csv = snakemake.input.csv
+output_csv = snakemake.params.output_file_name
 epa_results = snakemake.input.epa_results
-all_done_filename = snakemake.params.output_file_name
 taxon_name_col="seq_id"
 
 def train_random_forest(df, column_name):
@@ -24,16 +24,15 @@ def train_random_forest(df, column_name):
     predictions = model.predict(X_test)
 
     # Evaluate the model
+    model_result = pd.DataFrame({"predicted":predictions, "actual":y_test})
     mse = mean_squared_error(y_test, predictions)
     print(f"Mean Squared Error: {mse}")
-    return mse
+    return model_result
 
 def create_tii_df():
     taxon_df = pd.read_csv(csv, index_col=0)
     return taxon_df
 
 df = create_tii_df()
-error = train_random_forest(df, column_name)
-
-with open(all_done_filename, "w") as f:
-    f.write(str(error))
+model_result = train_random_forest(df, column_name)
+model_result.to_csv(output_csv)

@@ -23,8 +23,7 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        "create_plots.done",
-        "random_forest_regression.done"
+        "create_plots.done"
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -140,6 +139,7 @@ rule extract_reattachment_statistics:
 rule create_plots:
     input:
         csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv",
+        random_forest_csv="random_forest_regression.csv",
         full_tree=data_folder+input_alignment+".treefile",
         reduced_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
         reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_trees.nwk", seq_id=get_seq_ids(input_alignment)),
@@ -158,9 +158,9 @@ rule random_forest_regression:
         csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv",
         epa_results=expand(data_folder+"reduced_alignments/{seq_id}/epa_result.jplace", seq_id = get_seq_ids(input_alignment))
     output:
-        output_file_name=temp("random_forest_regression.done")
+        output_file_name=temp("random_forest_regression.csv")
     params:
         column_to_predict = "tii",
-        output_file_name="random_forest_regression.done"
+        output_file_name="random_forest_regression.csv"
     script:
         "scripts/random_forest_regression.py"
