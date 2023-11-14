@@ -186,6 +186,17 @@ def df_column_swarmplot(csv, col_name, plot_filepath):
     plt.clf()
 
 
+def plot_random_forest_results(results_csv, plot_filepath):
+    df = pd.read_csv(results_csv)
+    df_sorted = df.sort_values(by="actual")
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(data=df_sorted, x="actual", y="predicted")
+    plt.title("results of random forest regression")
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
 csv = snakemake.input.csv
 full_tree_file = snakemake.input.full_tree
 reattached_tree_files = snakemake.input.reattached_trees
@@ -311,3 +322,9 @@ df_column_swarmplot(csv, "dist_diff_reattachment_sibling", plot_filepath)
 print(
     "Done plotting ratio of distances of sibling cluster of reattachment to its nearest clade to seq_id distance to nearest clade."
 )
+
+results_csv = snakemake.input.random_forest_csv
+print("Start plotting random forest results.")
+random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_results.pdf")
+plot_random_forest_results(results_csv, random_forest_plot_filepath)
+print("Done plotting random forest results.")
