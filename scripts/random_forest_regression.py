@@ -6,6 +6,7 @@ from sklearn.metrics import mean_squared_error
 column_name = snakemake.params.column_to_predict
 csv = snakemake.input.csv
 output_csv = snakemake.params.output_file_name
+model_features_csv = snakemake.params.model_features_csv
 epa_results = snakemake.input.epa_results
 taxon_name_col="seq_id"
 cols_to_drop = ["seq_id", # we'll probably subset these columns in create_tii_df and create single values. dropped for now.
@@ -18,11 +19,7 @@ cols_to_drop = ["seq_id", # we'll probably subset these columns in create_tii_df
                  column_name]
 
 def train_random_forest(df, column_name):
-    print(df.columns)
-    print(df.head())
     X = df.drop(cols_to_drop, axis=1)
-    print(X.columns)
-    print(X.head())
     y = df[column_name]
 
     # Split the data into training and testing sets
@@ -38,6 +35,11 @@ def train_random_forest(df, column_name):
     # Evaluate the model
     model_result = pd.DataFrame({"predicted":predictions, "actual":y_test})
     mse = mean_squared_error(y_test, predictions)
+
+    # print out the feature importances to file
+    importances = model.feature_importances_
+    pd.Series(importances, index=X.columns).to_csv(model_features_csv)
+
     print(f"Mean Squared Error: {mse}")
     return model_result
 

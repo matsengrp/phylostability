@@ -548,6 +548,16 @@ def plot_random_forest_results(results_csv, plot_filepath):
     plt.clf()
 
 
+def plot_random_forest_model_features(model_features_csv, plot_filepath):
+    df = pd.read_csv(model_features_csv, names=["feature_name", "importance"])
+    plt.figure(figsize=(10, 6))
+    sns.barplot(df, x="feature_name", y="importance")
+    plt.title("feature importance for random forest regression")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
 csv = snakemake.input.csv
 full_tree_file = snakemake.input.full_tree
 reattached_tree_files = snakemake.input.reattached_trees
@@ -687,9 +697,14 @@ df_column_swarmplot(
 print("Done plotting reattachment branch length.")
 
 results_csv = snakemake.input.random_forest_csv
+model_features_csv = snakemake.input.model_features_csv
 print("Start plotting random forest results.")
 random_forest_plot_filepath = os.path.join(
     plots_folder, "random_forest_results.pdf"
 )
 plot_random_forest_results(results_csv, random_forest_plot_filepath)
+model_features_plot_filepath = os.path.join(
+    plots_folder, "random_forest_model_features.pdf"
+)
+plot_random_forest_model_features(model_features_csv, model_features_plot_filepath)
 print("Done plotting random forest results.")
