@@ -88,7 +88,8 @@ rule run_iqtree_restricted_alignments:
     output:
         done=temp(touch(data_folder+"reduced_alignments/{seq_id}/run_iqtree_restricted_alignments.done")),
         tree=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
-        mlfile=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.iqtree"
+        mlfile=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.iqtree",
+        mldist=data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist"
     shell:
         """
         iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa} -bb 1000 -redo
