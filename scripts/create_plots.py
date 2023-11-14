@@ -293,3 +293,21 @@ df_column_swarmplot(
     pendant_branch_length_plot_filepath,
 )
 print("Done plotting reattachment branch length.")
+
+print(
+    "Start plotting difference in distances of seq_id and its closest sequence to all other sequences."
+)
+plot_filepath = os.path.join(plots_folder, "seq_distance_ratios_closest_seq.pdf")
+df_column_swarmplot(csv, "seq_distance_ratios_closest_seq", plot_filepath)
+print(
+    "Start plotting difference in distances of seq_id and its closest sequence to all other sequences."
+)
+
+print(
+    "Start plotting ratio of distances of sibling cluster of reattachment to its nearest clade to seq_id distance to nearest clade."
+)
+plot_filepath = os.path.join(plots_folder, "dist_diff_reattachment_sibling.pdf")
+df_column_swarmplot(csv, "dist_diff_reattachment_sibling", plot_filepath)
+print(
+    "Done plotting ratio of distances of sibling cluster of reattachment to its nearest clade to seq_id distance to nearest clade."
+)
