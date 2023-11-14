@@ -120,8 +120,8 @@ def get_order_of_distances_to_seq_id(
     Get difference in tree and sequence distance for sequences of taxon1 and taxon2
     where distance of taxon1 to seq_id is smaller than taxon2 to seq_id in best reattached
     tree, but greater in terms of sequence distance, for each possible seq_id.
-    We filter and currently only look at pairs of taxa with this property whose mrca
-    has bootstrap support in the lowest 10% of bootstap values throughout the tree.
+    # We filter and currently only look at pairs of taxa with this property whose mrca
+    # has bootstrap support in the lowest 10% of bootstap values throughout the tree.
     """
     mldist = get_ml_dist(mldist_file)
     max_mldist = mldist.max().max()
@@ -143,7 +143,7 @@ def get_order_of_distances_to_seq_id(
     # only consider 5 nodes with lowest bootstrap support (or alternatively all nodes
     # with bootstrap support less than 100)
     all_bootstraps.sort()
-    q = np.quantile(bootstrap_list, 0.1)
+    q = np.quantile(bootstrap_list, 1)
     for leaf1, leaf2 in itertools.combinations(leaves, 2):
         mrca = reattached_tree.get_common_ancestor([leaf1, leaf2])
         if mrca.support >= q or mrca.support == 1.0:
@@ -352,6 +352,10 @@ for seq_id in seq_ids:
     reattachment_distances = get_reattachment_distances(
         restricted_tree, reattached_trees, seq_id
     )
+    # to avoid having an empty list, we set distance between reattachments to be 0.
+    # Note that this is correct if three is only one best reattachment.
+    if len(reattachment_distances) == 0:
+        reattachment_distances = [0]
 
     best_placement = placements[0]
     edge_num = best_placement[0]
