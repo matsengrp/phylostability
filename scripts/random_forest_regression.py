@@ -8,9 +8,21 @@ csv = snakemake.input.csv
 output_csv = snakemake.params.output_file_name
 epa_results = snakemake.input.epa_results
 taxon_name_col="seq_id"
+cols_to_drop = ["seq_id", # we'll probably subset these columns in create_tii_df and create single values. dropped for now.
+                "bootstrap",
+                "order_diff",
+                "reattachment_distances",
+                "dist_reattachment_low_bootstrap_node",
+                "seq_and_tree_dist_ratio",
+                "seq_distance_ratios_closest_seq",
+                 column_name]
 
 def train_random_forest(df, column_name):
-    X = df.drop([taxon_name_col, column_name], axis=1)
+    print(df.columns)
+    print(df.head())
+    X = df.drop(cols_to_drop, axis=1)
+    print(X.columns)
+    print(X.head())
     y = df[column_name]
 
     # Split the data into training and testing sets
