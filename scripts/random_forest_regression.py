@@ -11,6 +11,7 @@ epa_results = snakemake.input.epa_results
 # taxon_name_col = "seq_id"
 cols_to_drop = [
     "seq_id",  # we'll probably subset these columns in create_tii_df and create single values. dropped for now.
+    "likelihood",
     #     "bootstrap",
     #     "order_diff",
     #     "reattachment_distances",

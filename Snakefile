@@ -145,10 +145,10 @@ rule random_forest_regression:
         csv=data_folder+"reduced_alignments/random_forest_input.csv",
         epa_results=expand(data_folder+"reduced_alignments/{seq_id}/epa_result.jplace", seq_id = get_seq_ids(input_alignment))
     output:
-        model_features_file=temp("model_feature_importances.csv"),
-        output_file_name=temp("random_forest_regression.csv")
+        model_features_file="model_feature_importances.csv",
+        output_file_name="random_forest_regression.csv"
     params:
-        column_to_predict = "tii",
+        column_to_predict = "normalised_tii",
         model_features_csv="model_feature_importances.csv",
         output_file_name="random_forest_regression.csv"
     script:

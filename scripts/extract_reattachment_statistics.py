@@ -103,13 +103,16 @@ def get_nj_tiis(full_mldist_file, restricted_mldist_files):
     full_mldist = get_ml_dist(full_mldist_file)
     full_nj_tree = compute_nj_tree(full_mldist)
     tiis = {}
+    # maximum possible RF distance:
+    normalising_constant = 2 * len(full_nj_tree) - 3
     for file in restricted_mldist_files:
         seq_id = file.split("/")[-2]
         restricted_mldist = get_ml_dist(file)
         restricted_nj_tree = compute_nj_tree(restricted_mldist)
-        tiis[seq_id] = full_nj_tree.robinson_foulds(
-            restricted_nj_tree, unrooted_trees=True
-        )[0]
+        tiis[seq_id] = (
+            full_nj_tree.robinson_foulds(restricted_nj_tree, unrooted_trees=True)[0]
+            / normalising_constant
+        )
     return tiis
 
 
@@ -186,6 +189,15 @@ def get_reattachment_distances(reduced_tree, reattachment_trees, seq_id):
     if len(reattachment_trees) == 1:
         return [0]
     reattachment_node_list = []
+
+    # maximum reattachment distance could reach is max dist between any two leaves in the
+    # smaller tree
+    max_reattachment_dist = max(
+        [
+            leaf1.get_distance(leaf2, topology_only=True)
+            for leaf1, leaf2 in itertools.combinations(reduced_tree.get_leaves(), 2)
+        ]
+    )
     for tree in reattachment_trees:
         # cluster is set of leaves below lower node of reattachment edge
         cluster = tree.search_nodes(name=seq_id)[0].up.get_leaf_names()
@@ -198,7 +210,9 @@ def get_reattachment_distances(reduced_tree, reattachment_trees, seq_id):
             reattachment_node_list.append(reattachment_node)
     reattachment_distances = []
     for node1, node2 in itertools.combinations(reattachment_node_list, 2):
-        reattachment_distances.append(ete_dist(node1, node2, topology_only=True))
+        reattachment_distances.append(
+            ete_dist(node1, node2, topology_only=True) / max_reattachment_dist
+        )
     return reattachment_distances
 
 
@@ -218,6 +232,7 @@ def reattachment_distance_to_low_support_node(
     q = np.quantile(all_bootstraps, bootstrap_threshold)
     # parent of seq_id is reattachment_node
     min_dist_found = float("inf")
+    max_dist_found = 0  # for normalising
     for node in [
         node
         for node in reattached_tree.traverse()
@@ -233,9 +248,11 @@ def reattachment_distance_to_low_support_node(
             )
         else:
             dist = ete_dist(node, reattachment_node, topology_only=True)
+        if dist > max_dist_found:
+            max_dist_found = dist
         if node.support < q and dist < min_dist_found:
             min_dist_found = dist
-    return min_dist_found
+    return min_dist_found / max_dist_found
 
 
 def seq_and_tree_dist_diff(
@@ -264,7 +281,6 @@ def get_distance_reattachment_sibling(seq_id, mldist_file, reattached_tree):
     tree to average distance of reattached sequences and sequences in S'.
     """
     ml_distances = get_ml_dist(mldist_file)
-    distances = []
     reattachment_node = reattached_tree.search_nodes(name=seq_id)[0].up
     if reattachment_node.is_root():
         # for now we ignore reattachments just under the root
@@ -328,7 +344,9 @@ for seq_id in seq_ids:
     # Compute RF TII
     restricted_tree_file = [f for f in restricted_trees if "/" + seq_id + "/" in f][0]
     restricted_tree = Tree(restricted_tree_file)
+    normalising_constant = 2 * len(full_tree) - 3
     rf_distance = full_tree.robinson_foulds(restricted_tree, unrooted_trees=True)[0]
+    normalised_rf_distance = rf_distance / normalising_constant
 
     # get bootstrap support values in restricted tree
     bootstrap_list = [
@@ -354,6 +372,13 @@ for seq_id in seq_ids:
     reattachment_distances = get_reattachment_distances(
         restricted_tree, reattached_trees, seq_id
     )
+    best_reattached_tree = get_reattached_tree(
+        dict["tree"], placements[0][0], seq_id, placements[0][3], placements[0][4]
+    )[0]
+    # normalising constant for branch lenghts
+    sum_branch_lengths = sum(
+        [node.dist for node in best_reattached_tree.iter_descendants()]
+    )
     # to avoid having an empty list, we set distance between reattachments to be 0.
     # Note that this is correct if three is only one best reattachment.
     if len(reattachment_distances) == 0:
@@ -363,12 +388,12 @@ for seq_id in seq_ids:
     edge_num = best_placement[0]
     likelihood = best_placement[1]
     like_weight_ratio = best_placement[2]
-    distal_length = best_placement[3]
-    pendant_length = best_placement[4]
+    distal_length = best_placement[3] / sum_branch_lengths
+    pendant_length = best_placement[4] / sum_branch_lengths
     reattached_tree, reattachment_branch_length = get_reattached_tree(
         dict["tree"], best_placement[0], seq_id, distal_length, pendant_length
     )
-    taxon_height = calculate_taxon_height(reattached_tree, seq_id)
+    taxon_height = calculate_taxon_height(reattached_tree, seq_id) / sum_branch_lengths
     order_diff = get_order_of_distances_to_seq_id(
         seq_id, full_mldist_file, reattached_tree
     )
@@ -397,6 +422,7 @@ for seq_id in seq_ids:
             reattachment_branch_length,
             pendant_length,
             rf_distance,
+            normalised_rf_distance,
             taxon_height,
             num_likely_reattachments,
             bootstrap_list,
@@ -423,6 +449,7 @@ df = pd.DataFrame(
         "reattachment_branch_length",
         "pendant_branch_length",
         "tii",
+        "normalised_tii",
         "taxon_height",
         "num_likely_reattachments",
         "bootstrap",
