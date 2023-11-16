@@ -6,6 +6,7 @@ from sklearn.metrics import mean_squared_error
 csvs = snakemake.input.csvs
 output_csv = snakemake.output.output_file_name
 model_features_csv = snakemake.output.model_features_file
+combined_csv_path = snakemake.output.combined_csv_path
 column_name = snakemake.params.column_to_predict
 subdirs = snakemake.params.subdirs
 
@@ -14,6 +15,7 @@ cols_to_drop = [
     "seq_id",  # we'll probably subset these columns in create_tii_df and create single values. dropped for now.
     "likelihood",
     "tii",
+    "dataset",
     #     "bootstrap",
     #     "order_diff",
     #     "reattachment_distances",
@@ -57,11 +59,13 @@ def combine_dfs(csvs, subdirs):
     for subdir in subdirs:
         csv = [f for f in csvs if subdir in f][0]
         temp_df = pd.read_csv(csv, index_col=0)
+        temp_df["dataset"] = subdir.split("/")[-1]
         df_list.append(temp_df)
     combined_df = pd.concat(df_list, ignore_index=True)
     return combined_df
 
 
 df = combine_dfs(csvs, subdirs)
+df.to_csv(combined_csv_path)
 model_result = train_random_forest(df, column_name)
 model_result.to_csv(output_csv)

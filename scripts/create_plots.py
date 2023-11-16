@@ -78,41 +78,13 @@ def df_column_swarmplot(csv, col_name, plot_filepath):
     plt.clf()
 
 
-def plot_random_forest_results(results_csv, plot_filepath):
-    df = pd.read_csv(results_csv)
-    df_sorted = df.sort_values(by="actual")
-    plt.figure(figsize=(10, 6))
-    sns.scatterplot(data=df_sorted, x="actual", y="predicted")
-    plt.title("results of random forest regression")
-    plt.tight_layout()
-    plt.savefig(plot_filepath)
-    plt.clf()
-
-
-def plot_random_forest_model_features(model_features_csv, plot_filepath):
-    df = pd.read_csv(
-        model_features_csv, names=["feature_name", "importance"], skiprows=1
-    )
-    plt.figure(figsize=(10, 6))
-    sns.barplot(data=df, x="feature_name", y="importance")
-    plt.title("feature importance for random forest regression")
-    plt.xticks(rotation=90)
-    plt.tight_layout()
-    plt.savefig(plot_filepath)
-    plt.clf()
-
-
 csv = snakemake.input.csv
 bootstrap_csv = snakemake.input.bootstrap_csv
 
 plots_folder = snakemake.params.plots_folder
-forest_plot_folder = snakemake.params.forest_plot_folder
 
 if not os.path.exists(plots_folder):
     os.makedirs(plots_folder)
-
-if not os.path.exists(forest_plot_folder):
-    os.makedirs(forest_plot_folder)
 
 print("Start reading, aggregating, and filtering data.")
 taxon_df = pd.read_csv(csv, index_col=0)
@@ -225,16 +197,3 @@ df_column_swarmplot(csv, "dist_diff_reattachment_sibling", plot_filepath)
 print(
     "Done plotting ratio of distances of sibling cluster of reattachment to its nearest clade to seq_id distance to nearest clade."
 )
-
-results_csv = snakemake.input.random_forest_csv
-model_features_csv = snakemake.input.model_features_csv
-print("Start plotting random forest results.")
-random_forest_plot_filepath = os.path.join(
-    forest_plot_folder, "random_forest_results.pdf"
-)
-plot_random_forest_results(results_csv, random_forest_plot_filepath)
-model_features_plot_filepath = os.path.join(
-    forest_plot_folder, "random_forest_model_features.pdf"
-)
-plot_random_forest_model_features(model_features_csv, model_features_plot_filepath)
-print("Done plotting random forest results.")

@@ -8,7 +8,7 @@ data_folder="data"
 plots_folder="/plots/epa/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
-subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir()]
+subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path]
 
 # Retrieve all sequence IDs from the input multiple sequence alignment
 def get_seq_ids(input_file):
@@ -28,9 +28,9 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
-        # data_folder+"/random_forest_regression.csv"
-        expand("{subdir}/create_plots.done", subdir=subdirs),
-        expand("{subdir}/create_other_plots.done", subdir=subdirs)
+        "random_forest_plots.done",
+        # expand("{subdir}/create_plots.done", subdir=subdirs),
+        # expand("{subdir}/create_other_plots.done", subdir=subdirs)
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -176,6 +176,7 @@ rule random_forest_regression:
     output:
         model_features_file=data_folder+"/model_feature_importances.csv",
         output_file_name=data_folder+"/random_forest_regression.csv",
+        combined_csv_path=data_folder+"/combined_statistics.csv",
     params:
         column_to_predict = "normalised_tii",
         subdirs=subdirs,
@@ -183,17 +184,27 @@ rule random_forest_regression:
         "scripts/random_forest_regression.py"
 
 
+rule random_forest_plots:
+    input:
+        random_forest_csv=rules.random_forest_regression.output.output_file_name,
+        model_features_csv=rules.random_forest_regression.output.model_features_file,
+        combined_csv_path=data_folder+"/combined_statistics.csv",
+    params:
+        forest_plot_folder=data_folder+"/plots/",
+    output:
+        temp(touch("random_forest_plots.done"))
+    script:
+        "scripts/random_forest_plots.py"
+
+
 rule create_plots:
     input:
         csv="{subdir}/reduced_alignments/reattachment_data_per_taxon_epa.csv",
         bootstrap_csv="{subdir}/reduced_alignments/bts_bootstrap.csv",
-        random_forest_csv=rules.random_forest_regression.output.output_file_name,
-        model_features_csv=rules.random_forest_regression.output.model_features_file,
     output:
         temp(touch("{subdir}/create_plots.done")),
     params:
         plots_folder="{subdir}/plots/epa",
-        forest_plot_folder=data_folder+"/plots/",
     script:
         "scripts/create_plots.py"
 
