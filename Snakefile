@@ -155,11 +155,28 @@ rule random_forest_regression:
         "scripts/random_forest_regression.py"
 
 
+rule random_forest_classifier:
+    input:
+        csv=data_folder+"reduced_alignments/random_forest_input.csv",
+        epa_results=expand(data_folder+"reduced_alignments/{seq_id}/epa_result.jplace", seq_id = get_seq_ids(input_alignment))
+    output:
+        model_features_file=temp("discrete_model_feature_importances.csv"),
+        output_file_name=temp("random_forest_classification.csv")
+    params:
+        column_to_predict = "tii",
+        model_features_csv="discrete_model_feature_importances.csv",
+        output_file_name="random_forest_classification.csv"
+    script:
+        "scripts/random_forest_classifier.py"
+
+
 rule create_plots:
     input:
         csv=data_folder+"reduced_alignments/reattachment_data_per_taxon_epa.csv",
-        random_forest_csv=rules.random_forest_regression.output.output_file_name,
+        random_forest_regression_csv=rules.random_forest_regression.output.output_file_name,
         model_features_csv=rules.random_forest_regression.output.model_features_file,
+        random_forest_classifier_csv=rules.random_forest_classifier.output.output_file_name,
+        discrete_model_features_csv=rules.random_forest_classifier.output.model_features_file,
         full_tree=data_folder+input_alignment+".treefile",
         reduced_trees=expand(data_folder+"reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile", seq_id=get_seq_ids(input_alignment)),
         reattached_trees=expand(data_folder+"reduced_alignments/{seq_id}/reattached_tree.nwk", seq_id=get_seq_ids(input_alignment)),
