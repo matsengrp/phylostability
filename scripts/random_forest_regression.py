@@ -12,6 +12,7 @@ model_features_csv = snakemake.params.model_features_csv
 cols_to_drop = [
     "seq_id",  # we'll probably subset these columns in create_tii_df and create single values. dropped for now.
     "likelihood",
+    "tii",
     #     "bootstrap",
     #     "order_diff",
     #     "reattachment_distances",

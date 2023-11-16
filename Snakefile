@@ -28,6 +28,7 @@ def get_attachment_edge_indices(input_file):
 rule all:
     input:
         expand("{subdir}/create_plots.done", subdir=subdirs)
+        expand("{subdir}/create_other_plots.done", subdir=subdirs)
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
