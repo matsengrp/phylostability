@@ -7,7 +7,7 @@ column_name = snakemake.params.column_to_predict
 csv = snakemake.input.csv
 output_csv = snakemake.params.output_file_name
 model_features_csv = snakemake.params.model_features_csv
-epa_results = snakemake.input.epa_results
+
 # taxon_name_col = "seq_id"
 cols_to_drop = [
     "seq_id",  # we'll probably subset these columns in create_tii_df and create single values. dropped for now.

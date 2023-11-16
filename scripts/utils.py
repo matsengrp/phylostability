@@ -3,6 +3,7 @@ from ete3 import Tree
 from Bio import Phylo
 from Bio.Phylo.TreeConstruction import DistanceMatrix, DistanceTreeConstructor
 from io import StringIO
+import re
 
 
 def get_seq_id_file(seq_id, files):
@@ -131,3 +132,61 @@ def compute_nj_tree(d):
     tree_newick = tree_newick.getvalue()
     tree = Tree(tree_newick, format=1)
     return tree
+
+
+def get_reattached_tree(newick_str, edge_num, seq_id, distal_length, pendant_length):
+    """
+    From output information of epa-ng, compute reattached tree.
+    Returns reattached tree and branch length of branch on which we reattach
+    """
+    # replace labels of internal nodes by names and keep support values for each internal node in node_support_dict
+    newick_str_split = newick_str.split(")")
+    new_newick_str = ""
+    current_number = 1
+    int_node_dict = {}
+    for s in newick_str_split:
+        # Check if the string starts with an integer followed by ":"
+        match = re.match(r"(^\d+):", s)
+        if match:
+            int_node_dict[str(current_number)] = match.group(1)
+            # Replace the integer with the current_number and increment it
+            s = re.sub(r"^\d+", str(current_number), s)
+            current_number += 1
+        s += (
+            ")"  # add bracket back in that we deleted when splitting the string earlier
+        )
+        new_newick_str += s
+    new_newick_str = new_newick_str[:-1]  # delete extra ) at end of string
+
+    # find label of node above which we reattach edge
+    pattern = re.compile(r"([\w.]+):[0-9.]+\{" + str(edge_num) + "\}")
+    match = pattern.search(new_newick_str)
+    sibling_node_id = match.group(1)
+    if sibling_node_id.isdigit():
+        sibling_node_id = str(int(sibling_node_id))
+
+    # delete edge numbers in curly brackets
+    ete_newick_str = re.sub(r"\{\d+\}", "", new_newick_str)
+
+    # add new node to tree
+    tree = Tree(ete_newick_str, format=2)
+    for node in [node for node in tree.iter_descendants() if not node.is_leaf()]:
+        # label at internal nodes are interpreted as support, we need to set names to be that value
+        node.name = str(int(node.support))
+    sibling = tree.search_nodes(name=sibling_node_id)[0]
+    reattachment_branch_length = sibling.dist
+
+    dist_from_parent = reattachment_branch_length - distal_length
+    # support of new internal node shall be 0
+    new_internal_node = sibling.up.add_child(name=0, dist=dist_from_parent)
+    sibling.detach()
+    new_internal_node.add_child(sibling, dist=distal_length)
+    new_internal_node.add_child(name=seq_id, dist=pendant_length)
+
+    # add support values back to tree and save reattached tree (new internal node gets support 1.0)
+    for node in [node for node in tree.iter_descendants() if not node.is_leaf()]:
+        if str(int(node.name)) in int_node_dict:
+            n = str(int(node.name))
+            node.name = int_node_dict[n]
+            node.support = int_node_dict[n]
+    return tree, reattachment_branch_length
