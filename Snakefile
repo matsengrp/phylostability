@@ -4,10 +4,11 @@ import os
 
 # input/output file names
 input_alignment="input_alignment.fasta"
+data_folder="data"
 plots_folder="/plots/epa/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
-subdirs = [f.path for f in os.scandir('test_data') if f.is_dir()]
+subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir()]
 
 # Retrieve all sequence IDs from the input multiple sequence alignment
 def get_seq_ids(input_file):
@@ -27,6 +28,7 @@ def get_attachment_edge_indices(input_file):
 # Define the workflow
 rule all:
     input:
+        # data_folder+"/random_forest_regression.csv"
         expand("{subdir}/create_plots.done", subdir=subdirs),
         expand("{subdir}/create_other_plots.done", subdir=subdirs)
 
@@ -170,14 +172,13 @@ rule extract_reattachment_statistics:
 
 rule random_forest_regression:
     input:
-        csv="{subdir}/reduced_alignments/random_forest_input.csv",
+        csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=subdirs),
     output:
-        model_features_file="{subdir}/model_feature_importances.csv",
-        output_file_name="{subdir}/random_forest_regression.csv"
+        model_features_file=data_folder+"/model_feature_importances.csv",
+        output_file_name=data_folder+"/random_forest_regression.csv",
     params:
         column_to_predict = "normalised_tii",
-        model_features_csv="{subdir}/model_feature_importances.csv",
-        output_file_name="{subdir}/random_forest_regression.csv"
+        subdirs=subdirs,
     script:
         "scripts/random_forest_regression.py"
 
@@ -191,7 +192,8 @@ rule create_plots:
     output:
         temp(touch("{subdir}/create_plots.done")),
     params:
-        plots_folder="{subdir}/plots/epa"
+        plots_folder="{subdir}/plots/epa",
+        forest_plot_folder=data_folder+"/plots/",
     script:
         "scripts/create_plots.py"
 
@@ -214,6 +216,6 @@ rule create_other_plots:
     output:
         temp(touch("{subdir}/create_other_plots.done")),
     params:
-        plots_folder="{subdir}/plots/epa"
+        plots_folder="{subdir}/plots/epa/",
     script:
         "scripts/create_other_plots.py"
