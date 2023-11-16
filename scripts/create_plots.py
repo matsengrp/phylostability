@@ -187,10 +187,10 @@ def df_column_swarmplot(csv, col_name, plot_filepath):
 
 
 def plot_random_forest_results(results_csv, plot_filepath):
-    df = pd.read_csv(results_csv)
-    df_sorted = df.sort_values(by="actual")
+    df = pd.read_csv(results_csv, index_col=0)
+    df_sorted = df.sort_values(by="actual").melt("actual", var_name="model", value_name="predicted_value")
     plt.figure(figsize=(10, 6))
-    sns.scatterplot(data=df_sorted, x="actual", y="predicted")
+    sns.scatterplot(data=df_sorted, x="actual", y="predicted_value", hue="model")
     plt.title("results of random forest regression")
     plt.tight_layout()
     plt.savefig(plot_filepath)
@@ -199,10 +199,10 @@ def plot_random_forest_results(results_csv, plot_filepath):
 
 def plot_random_forest_model_features(model_features_csv, plot_filepath):
     df = pd.read_csv(
-        model_features_csv, names=["feature_name", "importance"], skiprows=1
-    )
+        model_features_csv, names=["feature_name", "untuned", "tuned"], skiprows=1,header=0
+    ).melt("feature_name", var_name="model_type", value_name="importance")
     plt.figure(figsize=(10, 6))
-    sns.barplot(data=df, x="feature_name", y="importance")
+    sns.barplot(data=df, x="feature_name", y="importance", hue="model_type")
     plt.title("feature importance for random forest regression")
     plt.xticks(rotation=90)
     plt.tight_layout()
