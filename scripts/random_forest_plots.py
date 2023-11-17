@@ -9,6 +9,12 @@ def plot_random_forest_results(results_csv, plot_filepath):
     df_sorted = df.sort_values(by="actual")
     plt.figure(figsize=(10, 6))
     sns.scatterplot(data=df_sorted, x="actual", y="predicted")
+    # add x = y line
+    plt.plot(
+        [df["actual"].min(), df["actual"].max()],
+        [df["predicted"].min(), df["predicted"].max()],
+        color="black",
+    )  # Adjust color as needed
     plt.title("results of random forest regression")
     plt.tight_layout()
     plt.savefig(plot_filepath)
@@ -66,21 +72,23 @@ def plot_tiis(csv, plot_filepath):
 results_csv = snakemake.input.random_forest_csv
 model_features_csv = snakemake.input.model_features_csv
 combined_csv = snakemake.input.combined_csv_path
-forest_plot_folder = snakemake.params.forest_plot_folder
+plots_folder = snakemake.params.forest_plot_folder
+
+
+if not os.path.exists(plots_folder):
+    os.makedirs(plots_folder)
 
 
 print("Start plotting TIIs.")
-plot_filepath = os.path.join(forest_plot_folder, "tii.pdf")
+plot_filepath = os.path.join(plots_folder, "tii.pdf")
 plot_tiis(combined_csv, plot_filepath)
 print("Done plotting TIIs.")
 
 print("Start plotting random forest results.")
-random_forest_plot_filepath = os.path.join(
-    forest_plot_folder, "random_forest_results.pdf"
-)
+random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_results.pdf")
 plot_random_forest_results(results_csv, random_forest_plot_filepath)
 model_features_plot_filepath = os.path.join(
-    forest_plot_folder, "random_forest_model_features.pdf"
+    plots_folder, "random_forest_model_features.pdf"
 )
 plot_random_forest_model_features(model_features_csv, model_features_plot_filepath)
 print("Done plotting random forest results.")
