@@ -2,6 +2,13 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
+import math
+
+plt.rcParams.update({"font.size": 12})  # Adjust this value as needed
+plt.rcParams["axes.labelsize"] = 14
+plt.rcParams["axes.titlesize"] = 16
+plt.rcParams["xtick.labelsize"] = 12
+plt.rcParams["ytick.labelsize"] = 12
 
 
 def plot_random_forest_results(results_csv, plot_filepath):
@@ -37,6 +44,7 @@ def plot_random_forest_model_features(model_features_csv, plot_filepath):
 def plot_tiis(csv, plot_filepath):
     df = pd.read_csv(csv)
     datasets = df["dataset"].unique()
+    datasets.sort()
     num_datasets = len(datasets)
     num_rows = int(num_datasets**0.5)
     num_cols = int(num_datasets / num_rows) + (num_datasets % num_rows > 0)
@@ -50,10 +58,8 @@ def plot_tiis(csv, plot_filepath):
         ax = axes[index // num_cols, index % num_cols]
         current_df = df.loc[df["dataset"] == dataset]
         # Calculate the appropriate bin range
-        max_tii = current_df["tii"].max()
-        min_tii = current_df["tii"].min()
-        bin_start = min_tii - (min_tii % 1) + 0.5
-        bin_end = max_tii - (max_tii % 1) + 1.5
+        bin_start = math.floor(current_df["tii"].min()) - 0.5
+        bin_end = math.ceil(current_df["tii"].max()) + 1 + 1.5
 
         # Plot histogram with binwidth=1 and adjusted binrange
         sns.histplot(
@@ -61,8 +67,18 @@ def plot_tiis(csv, plot_filepath):
         )
 
         axes[row, col].set_title(dataset + " (n = " + str(len(current_df)) + ")")
-        # axes[row, col].set_xlabel("")
-        # axes[row, col].set_ylabel("")
+
+        # Set x-axis label only for bottom row plots
+        if index // num_cols == num_rows - 1:
+            ax.set_xlabel("TII", fontsize=14)
+        else:
+            ax.set_xlabel("")
+
+        # Set y-axis label only for leftmost column plots
+        if index % num_cols == 0:
+            ax.set_ylabel("Frequency", fontsize=14)
+        else:
+            ax.set_ylabel("")
 
     # plt.tight_layout()
     plt.savefig(plot_filepath)
