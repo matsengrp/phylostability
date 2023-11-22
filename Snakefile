@@ -1,9 +1,9 @@
 from Bio import SeqIO
 import os
-
+import glob
 
 # input/output file names
-input_alignment="input_alignment.fasta"
+input_alignment="full_alignment.fasta"
 data_folder="data"
 plots_folder="/plots/epa/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
@@ -11,12 +11,17 @@ IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path]
 
 # Retrieve all sequence IDs from the input multiple sequence alignment
-def get_seq_ids(input_file):
-    return [record.id for record in SeqIO.parse(input_file, "fasta")]
+def get_seq_ids(input_file, filetype):
+    return [record.id for record in SeqIO.parse(input_file, filetype)]
 
 seq_ids = {}
 for subdir in subdirs:
-    seq_ids[subdir] = get_seq_ids(subdir+"/input_alignment.fasta")
+    nexus_files = glob.glob(os.path.join(subdir, "*.nex"))
+    fasta_files = glob.glob(os.path.join(subdir, "*.fasta"))
+    if len(fasta_files) > 0:
+        seq_ids[subdir] = get_seq_ids(fasta_files[0], "fasta")
+    else:
+        seq_ids[subdir] = get_seq_ids(nexus_files[0], "nexus")
 
 def get_attachment_edge_indices(input_file):
     num_sequences = 0
@@ -29,17 +34,32 @@ def get_attachment_edge_indices(input_file):
 rule all:
     input:
         "random_forest_plots.done",
+        # "convert_input_to_fasta.done"
         # expand("{subdir}/create_plots.done", subdir=subdirs),
         # expand("{subdir}/create_other_plots.done", subdir=subdirs)
+
+
+# convert input alignments from nexus to fasta, if necessary
+rule convert_input_to_fasta:
+    input:
+        data_folder=data_folder,
+    output:
+        temp(touch("convert_input_to_fasta.done")),
+        input_alignment=expand("{subdir}/"+input_alignment, subdir=subdirs)
+    params:
+        subdirs=subdirs
+    script:
+        "scripts/convert_input_to_fasta.py"
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
 rule model_test_iqtree:
     input:
-        msa="{subdir}/input_alignment.fasta"
+        "convert_input_to_fasta.done",
+        msa="{subdir}/"+input_alignment
     output:
         temp(touch("{subdir}/model-test-iqtree.done")),
-        modeltest="{subdir}/input_alignment.fasta_model.iqtree"
+        modeltest="{subdir}/"+input_alignment+"_model.iqtree"
     shell:
         """
         iqtree -s {input.msa} --prefix {input.msa}_model -m MF -redo
@@ -60,9 +80,10 @@ rule extract_model_for_full_iqtree_run:
 # Define the rule to remove a sequence from the MSA and write the reduced MSA to a file
 rule remove_sequence:
     input:
-        msa="{subdir}/input_alignment.fasta"
+        "convert_input_to_fasta.done",
+        msa="{subdir}/"+input_alignment
     output:
-        reduced_msa=temp("{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta")
+        reduced_msa=temp("{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta"),
     params:
         seq_id=lambda wildcards: wildcards.seq_id
     script:
@@ -72,12 +93,13 @@ rule remove_sequence:
 # Define the rule to run IQ-TREE on the full MSA and get model parameters
 rule run_iqtree_on_full_dataset:
     input:
-        msa="{subdir}/input_alignment.fasta",
+        "convert_input_to_fasta.done",
+        msa="{subdir}/"+input_alignment,
         full_model="{subdir}/iqtree-model.txt"
     output:
         temp(touch("{subdir}/run_iqtree_on_full_dataset.done")),
-        tree="{subdir}/input_alignment.fasta.treefile",
-        mldist="{subdir}/input_alignment.fasta.mldist"
+        tree="{subdir}/"+input_alignment+".treefile",
+        mldist="{subdir}/"+input_alignment+".mldist"
     shell:
         """
         iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {input.msa} -bb 1000 -redo
@@ -89,7 +111,7 @@ rule run_iqtree_on_full_dataset:
 rule run_iqtree_restricted_alignments:
     input:
         reduced_msa=rules.remove_sequence.output.reduced_msa,
-        full_model=rules.extract_model_for_full_iqtree_run.output.model
+        full_model=rules.extract_model_for_full_iqtree_run.output.model,
     output:
         done=temp(touch("{subdir}/reduced_alignments/{seq_id}/run_iqtree_restricted_alignments.done")),
         tree="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
@@ -103,7 +125,8 @@ rule run_iqtree_restricted_alignments:
 
 rule extract_single_fastas:
     input:
-        msa="{subdir}/input_alignment.fasta"
+        "convert_input_to_fasta.done",
+        msa="{subdir}/"+input_alignment
     output:
         taxon_msa="{subdir}/reduced_alignments/{seq_id}/single_taxon.fasta",
         without_taxon_msa="{subdir}/reduced_alignments/{seq_id}/without_taxon.fasta"
@@ -157,8 +180,8 @@ rule extract_reattachment_statistics:
     input:
         epa_results=epa_paths,
         restricted_trees=restricted_trees,
-        full_tree=expand("{subdir}/input_alignment.fasta.treefile", subdir=subdirs),
-        full_mldist_file=expand("{subdir}/input_alignment.fasta.mldist", subdir=subdirs),
+        full_tree=expand("{subdir}/"+input_alignment+".treefile", subdir=subdirs),
+        full_mldist_file=expand("{subdir}/"+input_alignment+".mldist", subdir=subdirs),
         restricted_mldist_files=reduced_mldists,
     output:
         plot_csv=expand("{subdir}/reduced_alignments/reattachment_data_per_taxon_epa.csv", subdir=subdirs),
@@ -219,10 +242,10 @@ for subdir in subdirs:
 rule create_other_plots:
     input:
         csv="{subdir}/reduced_alignments/reattachment_data_per_taxon_epa.csv",
-        full_tree="{subdir}/input_alignment.fasta.treefile",
+        full_tree="{subdir}/"+input_alignment+".treefile",
         reduced_trees=restricted_trees,
         reattached_trees=reattached_trees,
-        mldist="{subdir}/input_alignment.fasta.mldist",
+        mldist="{subdir}/"+input_alignment+".mldist",
         reduced_mldist=reduced_mldists,
     output:
         temp(touch("{subdir}/create_other_plots.done")),

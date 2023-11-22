@@ -375,12 +375,12 @@ for subdir in subdirs:
 
     output = []
     taxon_tii_list = []
+    nj_tiis = get_nj_tiis(subdir_full_mldist_file, subdir_restricted_mldist_files)
 
     for seq_id in seq_ids:
-        epa_file = [f for f in epa_result_files if "/" + seq_id + "/" in f][0]
+        epa_file = [f for f in subdir_epa_result_files if "/" + seq_id + "/" in f][0]
         with open(epa_file, "r") as f:
             dict = json.load(f)
-
         # Compute RF TII
         restricted_tree_file = [
             f for f in subdir_restricted_tree_files if "/" + seq_id + "/" in f
@@ -401,8 +401,6 @@ for subdir in subdirs:
             "p"
         ]  # this is a list of lists, each containing information for one reattachment
         num_likely_reattachments = len(placements)
-        nj_tiis = get_nj_tiis(subdir_full_mldist_file, subdir_restricted_mldist_files)
-
         # get values for which we need to iterate through all best reattachments
         reattached_trees = []
         for placement in placements:

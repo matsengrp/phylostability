@@ -47,6 +47,7 @@ def get_ml_dist(mldist_file):
         delim_whitespace=True,
         index_col=0,
     )
+    ml_distances.index = [str(idx) for idx in ml_distances.index]
     ml_distances.columns = ml_distances.index
     return ml_distances
 

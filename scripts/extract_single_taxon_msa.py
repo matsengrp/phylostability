@@ -13,7 +13,6 @@ with open(input_msa_file, "r") as infile:
 record = [record for record in records if seq_id == record.id][0]
 
 seq_id_dir = ds + "/" + seq_id + "/"
-print(seq_id_dir)
 if not os.path.exists(seq_id_dir):
     os.makedirs(seq_id_dir)
 
