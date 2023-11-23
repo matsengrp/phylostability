@@ -124,7 +124,7 @@ def get_order_of_distances_to_seq_id(
 
 def get_reattachment_distances(reduced_tree, reattachment_trees, seq_id):
     """
-    Return list of distances between best reattachment locations given by
+    Return list of distances between best reattachment locations given in reattachment_trees
     """
     if len(reattachment_trees) == 1:
         return [0]

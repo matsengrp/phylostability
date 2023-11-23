@@ -64,7 +64,7 @@ def df_column_swarmplot(csv, col_name, plot_filepath):
     df_sorted = df.sort_values(by="tii")
 
     plt.figure(figsize=(10, 6))
-    sns.stripplot(data=df_sorted, x="seq_id", y=col_name)
+    ax = sns.stripplot(data=df_sorted, x="seq_id", y=col_name)
 
     # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
@@ -72,6 +72,20 @@ def df_column_swarmplot(csv, col_name, plot_filepath):
     plt.title(col_name + " vs. taxa sorted by TII")
 
     plt.xticks(rotation=90)
+
+    # Shading every second TII value
+    unique_tii = sorted(df_sorted["tii"].unique())
+    for i in range(1, len(unique_tii), 2):
+        tii_vals = df_sorted["seq_id"][df_sorted["tii"] == unique_tii[i]].unique()
+        for val in tii_vals:
+            idx = list(df_sorted["seq_id"].unique()).index(val)
+            ax.axvspan(
+                idx - 0.5,
+                idx + 0.5,
+                facecolor="lightgrey",
+                edgecolor=None,
+                alpha=0.5,
+            )
 
     plt.tight_layout()
     plt.savefig(plot_filepath)
@@ -100,7 +114,6 @@ print("Done reading data.")
 
 print("Start plotting reattachment distances.")
 plot_filepath = os.path.join(plots_folder, "dist_of_likely_reattachments.pdf")
-print(csv, plot_filepath)
 df_column_swarmplot(csv, "reattachment_distances", plot_filepath)
 print("Done plotting reattachment distances.")
 
