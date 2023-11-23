@@ -7,6 +7,13 @@ import ast
 from utils import *
 
 
+plt.rcParams.update({"font.size": 12})  # Adjust this value as needed
+plt.rcParams["axes.labelsize"] = 14
+plt.rcParams["axes.titlesize"] = 16
+plt.rcParams["xtick.labelsize"] = 12
+plt.rcParams["ytick.labelsize"] = 12
+
+
 def bootstrap_and_bts_plot(
     bootstrap_csv,
     plot_filepath,

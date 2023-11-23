@@ -8,6 +8,13 @@ import itertools
 
 from utils import *
 
+plt.rcParams.update({"font.size": 12})  # Adjust this value as needed
+plt.rcParams["axes.labelsize"] = 14
+plt.rcParams["axes.titlesize"] = 16
+plt.rcParams["xtick.labelsize"] = 12
+plt.rcParams["ytick.labelsize"] = 12
+
+
 
 def NJ_vs_best_reattached_tree_sequence_fit(
     sorted_taxon_tii_list, reattached_tree_files, mldist_file, plot_filepath
