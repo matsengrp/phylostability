@@ -34,9 +34,8 @@ def get_attachment_edge_indices(input_file):
 rule all:
     input:
         "random_forest_plots.done",
-        # "convert_input_to_fasta.done"
-        # expand("{subdir}/create_plots.done", subdir=subdirs),
-        # expand("{subdir}/create_other_plots.done", subdir=subdirs)
+        expand("{subdir}/create_plots.done", subdir=subdirs),
+        expand("{subdir}/create_other_plots.done", subdir=subdirs)
 
 
 # convert input alignments from nexus to fasta, if necessary
@@ -251,5 +250,6 @@ rule create_other_plots:
         temp(touch("{subdir}/create_other_plots.done")),
     params:
         plots_folder="{subdir}/plots/epa/",
+        subdir=lambda wildcards: wildcards.subdir,
     script:
         "scripts/create_other_plots.py"
