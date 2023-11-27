@@ -4,8 +4,8 @@ import glob
 
 # input/output file names
 input_alignment="full_alignment.fasta"
-data_folder="data"
-plots_folder="/plots/epa/"
+data_folder="data/"
+plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
 subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path]
@@ -18,16 +18,14 @@ seq_ids = {}
 for subdir in subdirs:
     nexus_files = glob.glob(os.path.join(subdir, "*.nex"))
     fasta_files = glob.glob(os.path.join(subdir, "*.fasta"))
+    nexus_files = [os.readlink(file) if os.path.islink(file) else file for file in nexus_files]
+    fasta_files = [os.readlink(file) if os.path.islink(file) else file for file in fasta_files]
+
     if len(fasta_files) > 0:
         seq_ids[subdir] = get_seq_ids(fasta_files[0], "fasta")
     else:
         seq_ids[subdir] = get_seq_ids(nexus_files[0], "nexus")
 
-def get_attachment_edge_indices(input_file):
-    num_sequences = 0
-    for record in SeqIO.parse(input_file, "fasta"):
-        num_sequences += 1
-    return range(1, 2*(num_sequences-1)-2)
 
 
 # Define the workflow
@@ -196,9 +194,9 @@ rule random_forest_regression:
     input:
         csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=subdirs),
     output:
-        model_features_file=data_folder+"/model_feature_importances.csv",
-        output_file_name=data_folder+"/random_forest_regression.csv",
-        combined_csv_path=data_folder+"/combined_statistics.csv",
+        model_features_file=data_folder+"model_feature_importances.csv",
+        output_file_name=data_folder+"random_forest_regression.csv",
+        combined_csv_path=data_folder+"combined_statistics.csv",
     params:
         column_to_predict = "normalised_tii",
         subdirs=subdirs,
@@ -210,9 +208,9 @@ rule random_forest_plots:
     input:
         random_forest_csv=rules.random_forest_regression.output.output_file_name,
         model_features_csv=rules.random_forest_regression.output.model_features_file,
-        combined_csv_path=data_folder+"/combined_statistics.csv",
+        combined_csv_path=data_folder+"combined_statistics.csv",
     params:
-        forest_plot_folder=data_folder+"/plots/",
+        forest_plot_folder=data_folder+"plots/",
     output:
         temp(touch("random_forest_plots.done"))
     script:
@@ -226,7 +224,7 @@ rule create_plots:
     output:
         temp(touch("{subdir}/create_plots.done")),
     params:
-        plots_folder="{subdir}/plots/epa",
+        plots_folder="{subdir}/"+plots_folder,
     script:
         "scripts/create_plots.py"
 
@@ -249,7 +247,7 @@ rule create_other_plots:
     output:
         temp(touch("{subdir}/create_other_plots.done")),
     params:
-        plots_folder="{subdir}/plots/epa/",
+        plots_folder="{subdir}/"+plots_folder,
         subdir=lambda wildcards: wildcards.subdir,
     script:
         "scripts/create_other_plots.py"

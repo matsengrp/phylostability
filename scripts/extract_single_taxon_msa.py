@@ -19,9 +19,6 @@ if not os.path.exists(seq_id_dir):
 without_taxon_msa_file = seq_id_dir + "without_taxon.fasta"
 taxon_msa_file = seq_id_dir + "single_taxon.fasta"
 
-print(without_taxon_msa_file)
-print(taxon_msa_file)
-
 # Save the specific taxon to a separate file
 with open(without_taxon_msa_file, "w") as outfile_taxon:
     for other_record in records:

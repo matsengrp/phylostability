@@ -16,6 +16,13 @@ for subdir in subdirs:
         f for f in glob.glob(os.path.join(subdir, "*.nex")) if ".splits." not in f
     ]
     fasta_files = glob.glob(os.path.join(subdir, "*.fasta"))
+    # resolve symlinks
+    nexus_files = [
+        os.readlink(file) if os.path.islink(file) else file for file in nexus_files
+    ]
+    fasta_files = [
+        os.readlink(file) if os.path.islink(file) else file for file in fasta_files
+    ]
 
     if len(fasta_files) > 0:
         fasta_file = fasta_files[0]
