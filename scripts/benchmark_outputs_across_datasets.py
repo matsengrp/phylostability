@@ -46,7 +46,7 @@ df["normalized MSA size"] = [20*2**((x-mn)/mx) for x in df["MSA length"]]
 
 def plot_total_value_breakdown(df, colname, plot_path):
     plt.figure(figsize=(10, 6))
-    sns.scatterplot(data=df.sort_values(colname), x="dataset", y=colname, hue="sequence length", size="normalized MSA size")
+    sns.scatterplot(data=df.sort_values(colname), x="dataset", y=colname, hue="sequence length", size="MSA length")
     plt.xticks(
         rotation=90,
     )
