@@ -21,7 +21,7 @@ values_to_plot = {"dataset": [],
                   "CPU time": [],
                   "time in seconds" : []}
 for dfn in df_names:
-    df = pd.read_csv(dfn)
+    df = pd.read_csv(dfn).fillna(0)
     dset = dfn.split("/")[1]
     fastan = [f for f in fasta_names if dset in f][0]
     with open(fastan, "r") as f:
