@@ -119,6 +119,12 @@ sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 print("Done reading data.")
 
 
+print("Start plotting bootstrap supports.")
+plot_filepath = os.path.join(plots_folder, "bootstrap_vs_tii.pdf")
+df_column_swarmplot(csv, "bootstrap", plot_filepath)
+print("Done plotting bootstrap supports.")
+
+
 print("Start plotting reattachment distances.")
 plot_filepath = os.path.join(plots_folder, "dist_of_likely_reattachments.pdf")
 df_column_swarmplot(csv, "reattachment_distances", plot_filepath)
