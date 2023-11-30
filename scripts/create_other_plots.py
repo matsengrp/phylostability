@@ -15,7 +15,6 @@ plt.rcParams["xtick.labelsize"] = 12
 plt.rcParams["ytick.labelsize"] = 12
 
 
-
 def NJ_vs_best_reattached_tree_sequence_fit(
     sorted_taxon_tii_list, reattached_tree_files, mldist_file, plot_filepath
 ):
@@ -432,6 +431,50 @@ def topological_tree_dist_closest_msa_sequence(
     plt.figure(figsize=(10, 6))
     sns.scatterplot(data=df, x="seq_id", y="tree_dist")
     plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
+def topological_tree_dist_between_closest_msa_sequences(
+    sorted_taxon_tii_list, mldist_file, reattached_tree_files, num_seqs, plot_filepath
+):
+    """'
+    Plot topological distance between num_seqs closest taxa to seq_id in msa.
+    """
+    df = []
+    for seq_id, tii in sorted_taxon_tii_list:
+        reattached_treefile = get_seq_id_file(seq_id, reattached_tree_files)
+        tree = get_reattached_trees(reattached_treefile)
+        closest_sequences = get_closest_msa_sequences(seq_id, mldist_file, num_seqs)
+        for t1, t2 in itertools.combinations(closest_sequences, 2):
+            df.append(
+                [
+                    seq_id + " " + str(tii),
+                    t1,
+                    t2,
+                    tree.get_distance(t1, t2, topology_only=True),
+                    tii,
+                ]
+            )
+    df = pd.DataFrame(df, columns=["seq_id", "taxon_1", "taxon_2", "tree_dist", "tii"])
+    plt.figure(figsize=(10, 6))
+    ax = sns.scatterplot(data=df, x="seq_id", y="tree_dist")
+    plt.xticks(rotation=90)
+    # Shading every second TII value
+    df_sorted = df.sort_values(by="tii")
+    unique_tii = sorted(df_sorted["tii"].unique())
+    for i in range(1, len(unique_tii), 2):
+        tii_vals = df_sorted["seq_id"][df_sorted["tii"] == unique_tii[i]].unique()
+        for val in tii_vals:
+            idx = list(df_sorted["seq_id"].unique()).index(val)
+            ax.axvspan(
+                idx - 0.5,
+                idx + 0.5,
+                facecolor="lightgrey",
+                edgecolor=None,
+                alpha=0.5,
+            )
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
@@ -943,6 +986,19 @@ reduced_tree_files = [f for f in reduced_tree_files if subdir in f]
 reduced_mldist_files = [f for f in reduced_mldist_files if subdir in f]
 print("Done reading data.")
 
+
+print(
+    "Start plotting topological distances between sequences closest to added sequence."
+)
+plot_filepath = os.path.join(
+    plots_folder, "topological_tree_dist_between_closest_msa_sequences.pdf"
+)
+topological_tree_dist_between_closest_msa_sequences(
+    sorted_taxon_tii_list, mldist_file, reattached_tree_files, 3, plot_filepath
+)
+print(
+    "Done plotting topological distances between sequences closest to added sequence."
+)
 
 print(
     "Start plotting per unit branch distance difference within low bootstrap cluster."
