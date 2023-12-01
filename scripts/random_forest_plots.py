@@ -14,15 +14,20 @@ plt.rcParams["ytick.labelsize"] = 12
 def plot_random_forest_results(results_csv, plot_filepath):
     df = pd.read_csv(results_csv)
     df_sorted = df.sort_values(by="actual")
+
     plt.figure(figsize=(10, 6))
     sns.scatterplot(data=df_sorted, x="actual", y="predicted")
-    # add x = y line
-    plt.plot(
-        [df["actual"].min(), df["actual"].max()],
-        [df["predicted"].min(), df["predicted"].max()],
-        color="black",
-    )  # Adjust color as needed
-    plt.title("results of random forest regression")
+
+    # Determine the common maximum limit for both axes
+    common_limit = max(df["actual"].max(), df["predicted"].max()) + 0.01
+
+    # Set the same limits for both the x-axis and y-axis
+    plt.xlim(-0.01, common_limit)
+    plt.ylim(-0.01, common_limit)
+
+    plt.title("Results of Random Forest Regression")
+    plt.xlabel("Actual")
+    plt.ylabel("Predicted")
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
