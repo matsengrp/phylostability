@@ -8,7 +8,7 @@ data_folder="data/"
 plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
-subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path]
+subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "selected_data" not in f.path]
 
 # Retrieve all sequence IDs from the input multiple sequence alignment
 def get_seq_ids(input_file, filetype):
@@ -31,9 +31,9 @@ for subdir in subdirs:
 # Define the workflow
 rule all:
     input:
-        "random_forest_plots.done",
+        # "random_forest_plots.done",
         expand("{subdir}/create_plots.done", subdir=subdirs),
-        expand("{subdir}/create_other_plots.done", subdir=subdirs)
+        # expand("{subdir}/create_other_plots.done", subdir=subdirs)
 
 
 # convert input alignments from nexus to fasta, if necessary

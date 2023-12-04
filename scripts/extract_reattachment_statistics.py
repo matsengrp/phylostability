@@ -51,7 +51,7 @@ def get_nj_tiis(full_mldist_file, restricted_mldist_files):
         restricted_nj_tree = compute_nj_tree(restricted_mldist)
         tiis[seq_id] = (
             full_nj_tree.robinson_foulds(restricted_nj_tree, unrooted_trees=True)[0]
-            / normalising_constant
+            # / normalising_constant
         )
     return tiis
 
@@ -88,7 +88,7 @@ def get_order_of_distances_to_seq_id(
     # only consider 5 nodes with lowest bootstrap support (or alternatively all nodes
     # with bootstrap support less than 100)
     all_bootstraps.sort()
-    q = np.quantile(bootstrap_list, 1)
+    q = np.quantile(all_bootstraps, 1)
     for leaf1, leaf2 in itertools.combinations(leaves, 2):
         mrca = reattached_tree.get_common_ancestor([leaf1, leaf2])
         if mrca.support >= q or mrca.support == 1.0:

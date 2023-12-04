@@ -994,7 +994,7 @@ plot_filepath = os.path.join(
     plots_folder, "topological_tree_dist_between_closest_msa_sequences.pdf"
 )
 topological_tree_dist_between_closest_msa_sequences(
-    sorted_taxon_tii_list, mldist_file, reattached_tree_files, 3, plot_filepath
+    sorted_taxon_tii_list, mldist_file, reattached_tree_files, 2, plot_filepath
 )
 print(
     "Done plotting topological distances between sequences closest to added sequence."
