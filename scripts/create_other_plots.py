@@ -8,6 +8,13 @@ import itertools
 
 from utils import *
 
+plt.rcParams.update({"font.size": 12})  # Adjust this value as needed
+plt.rcParams["axes.labelsize"] = 14
+plt.rcParams["axes.titlesize"] = 16
+plt.rcParams["xtick.labelsize"] = 12
+plt.rcParams["ytick.labelsize"] = 12
+
+
 
 def NJ_vs_best_reattached_tree_sequence_fit(
     sorted_taxon_tii_list, reattached_tree_files, mldist_file, plot_filepath
@@ -914,6 +921,7 @@ reattached_tree_files = snakemake.input.reattached_trees
 reduced_tree_files = snakemake.input.reduced_trees
 mldist_file = snakemake.input.mldist
 reduced_mldist_files = snakemake.input.reduced_mldist
+subdir = snakemake.params.subdir
 
 plots_folder = snakemake.params.plots_folder + "other_plots/"
 
@@ -929,6 +937,10 @@ taxon_tii_list = [
     for seq_id in taxon_df["seq_id"].unique()
 ]
 sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
+# filter files to only contain treefiles for current subdir
+reattached_tree_files = [f for f in reattached_tree_files if subdir in f]
+reduced_tree_files = [f for f in reduced_tree_files if subdir in f]
+reduced_mldist_files = [f for f in reduced_mldist_files if subdir in f]
 print("Done reading data.")
 
 

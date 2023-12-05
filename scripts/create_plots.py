@@ -2,128 +2,27 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import os
 import numpy as np
-import pickle
 import ast
 
 from utils import *
 
 
-def get_bootstrap_and_bts_scores(
-    reduced_tree_files,
-    full_tree_file,
-    sorted_taxon_tii_list,
-    csv,
-    test=False,
-):
-    """
-    Returns DataFrame branch_scores_df containing bts values for all edges in tree in full_tree_file
-    """
-    csv = pd.read_csv(csv)
-
-    full_tree = Tree(full_tree_file)
-    num_leaves = len(full_tree)
-
-    # extract bootstrap support from full tree
-    bootstrap_dict = {
-        ",".join(sorted(node.get_leaf_names())): node.support
-        for node in full_tree.iter_descendants()
-        if not node.is_leaf()
-    }
-    bootstrap_df = pd.DataFrame(bootstrap_dict, index=["bootstrap_support"]).transpose()
-
-    # initialise branch score dict with sets of leaves representing edges of
-    # full_tree
-    branch_scores = {}
-    all_taxa = full_tree.get_leaf_names()
-    branch_scores = {
-        ",".join(sorted(node.get_leaf_names())): 0
-        for node in full_tree.iter_descendants()
-        if not node.is_leaf()
-    }
-
-    for treefile in reduced_tree_files:
-        tree = Tree(treefile)
-        seq_id = treefile.split("/")[-2]
-        tii = [p[1] for p in sorted_taxon_tii_list if p[0] == seq_id][0]
-
-        # collect bootstrap support and bts for all nodes in tree
-        for node in tree.traverse("postorder"):
-            if not node.is_leaf() and not node.is_root():
-                # add bootstrap support values for seq_id
-                # one edge in the full tree could correspond to two edges in the
-                # reduced tree (leaf_str and leaf_str_extended below), if the pruned
-                # taxon is attached on that edge. We hence need to add one for each of
-                # those, if they are in branch_scores.
-                edge_found = False
-                leaf_list = node.get_leaf_names()
-                leaf_str = ",".join(sorted(leaf_list))
-                if leaf_str in branch_scores:
-                    branch_scores[leaf_str] += 1
-                    continue
-                leaf_str_extended = ",".join(sorted(leaf_list + [seq_id]))
-                if not edge_found and leaf_str_extended in branch_scores:
-                    branch_scores[leaf_str_extended] += 1
-                    continue
-                # edge ID might be complement of leaf set
-                # this could happen if rooting of tree is different to that of full_tree
-                complement_leaves = list(
-                    set(all_taxa) - set(node.get_leaf_names()) - set(seq_id)
-                )
-                # ignore node if it represents leaf
-                if len(complement_leaves) == 1:
-                    continue
-                leaf_str = ",".join(complement_leaves)
-                if leaf_str in branch_scores:
-                    branch_scores[leaf_str] += 1
-                    continue
-                leaf_str_extended = ",".join(complement_leaves + [seq_id])
-                if leaf_str_extended in branch_scores:
-                    branch_scores[leaf_str_extended] += 1
-    # normalise BTS
-    # Divide by num_leaves - 2 if edge is incident to cherry, as it cannot be present in
-    # either of the two trees where one of those cherry leaves is pruned
-    for branch_score in branch_scores:
-        if branch_score.count(",") == 1 or branch_score.count(",") == num_leaves - 3:
-            branch_scores[branch_score] *= 100 / (num_leaves - 2)  # normalise bts
-        else:
-            branch_scores[branch_score] *= 100 / num_leaves
-        branch_scores[branch_score] = int(branch_scores[branch_score])
-    branch_scores_df = pd.DataFrame(branch_scores, index=["bts"]).transpose()
-
-    # sort both dataframes so we plot corresponding values correctly
-    branch_scores_df = branch_scores_df.sort_values(
-        by=list(branch_scores_df.columns)
-    ).reset_index(drop=True)
-    bootstrap_df = bootstrap_df.sort_values(by=list(bootstrap_df.columns)).reset_index(
-        drop=True
-    )
-    merged_df = pd.concat([branch_scores_df, bootstrap_df], axis=1)
-
-    if test == True:
-        with open("test_data/bts_df.p", "wb") as f:
-            pickle.dump(branch_scores_df, file=f)
-
-    return merged_df
+plt.rcParams.update({"font.size": 12})  # Adjust this value as needed
+plt.rcParams["axes.labelsize"] = 14
+plt.rcParams["axes.titlesize"] = 16
+plt.rcParams["xtick.labelsize"] = 12
+plt.rcParams["ytick.labelsize"] = 12
 
 
 def bootstrap_and_bts_plot(
-    reduced_tree_files,
-    full_tree_file,
-    sorted_taxon_tii_list,
+    bootstrap_csv,
     plot_filepath,
-    csv,
 ):
     """
     Plot BTS vs bootstrap support values of full tree
     """
     # plot BTS vs bootstrap values
-    merged_df = get_bootstrap_and_bts_scores(
-        reduced_tree_files,
-        full_tree_file,
-        sorted_taxon_tii_list,
-        csv,
-        test=False,
-    )
+    merged_df = pd.read_csv(bootstrap_csv)
 
     # Compute the 2D histogram
     hist, xedges, yedges = np.histogram2d(
@@ -172,7 +71,7 @@ def df_column_swarmplot(csv, col_name, plot_filepath):
     df_sorted = df.sort_values(by="tii")
 
     plt.figure(figsize=(10, 6))
-    sns.stripplot(data=df_sorted, x="seq_id", y=col_name)
+    ax = sns.stripplot(data=df_sorted, x="seq_id", y=col_name)
 
     # Set labels and title
     plt.xlabel("taxa (sorted by TII)")
@@ -181,10 +80,19 @@ def df_column_swarmplot(csv, col_name, plot_filepath):
 
     plt.xticks(rotation=90)
 
-    plt.tight_layout()
-    plt.savefig(plot_filepath)
-    plt.clf()
-
+    # Shading every second TII value
+    unique_tii = sorted(df_sorted["tii"].unique())
+    for i in range(1, len(unique_tii), 2):
+        tii_vals = df_sorted["seq_id"][df_sorted["tii"] == unique_tii[i]].unique()
+        for val in tii_vals:
+            idx = list(df_sorted["seq_id"].unique()).index(val)
+            ax.axvspan(
+                idx - 0.5,
+                idx + 0.5,
+                facecolor="lightgrey",
+                edgecolor=None,
+                alpha=0.5,
+            )
 
 def plot_random_forest_results(results_csv, plot_filepath):
     df = pd.read_csv(results_csv, index_col=0)
@@ -213,7 +121,7 @@ def plot_random_forest_model_features(model_features_csv, plot_filepath):
 def plot_random_forest_classifier_results(results_csv, plot_filepath):
     df = pd.read_csv(results_csv, index_col=0)
     df_sorted = df.sort_values(by="tii value")
-    for col in ["actual value", "rf", "tuned rf"]:
+    for col in ["actual", "untuned_model_predicted", "predicted"]:
         df_sorted[col] = ["unstable" if x else "stable" for x in df_sorted[col]]
     df_sorted = df_sorted.melt("tii value", var_name="classifier", value_name="predicted_unstable")
     df_sorted = df_sorted[df_sorted["predicted_unstable"] != "stable"]
@@ -226,11 +134,7 @@ def plot_random_forest_classifier_results(results_csv, plot_filepath):
 
 
 csv = snakemake.input.csv
-full_tree_file = snakemake.input.full_tree
-reattached_tree_files = snakemake.input.reattached_trees
-reduced_tree_files = snakemake.input.reduced_trees
-mldist_file = snakemake.input.mldist
-reduced_mldist_files = snakemake.input.reduced_mldist
+bootstrap_csv = snakemake.input.bootstrap_csv
 
 plots_folder = snakemake.params.plots_folder
 
@@ -285,11 +189,8 @@ print("Done plotting sequence and tree distance differences.")
 print("Start plotting bootstrap and bts.")
 plot_filepath = os.path.join(plots_folder, "bts_vs_bootstrap.pdf")
 bootstrap_and_bts_plot(
-    reduced_tree_files,
-    full_tree_file,
-    sorted_taxon_tii_list,
+    bootstrap_csv,
     plot_filepath,
-    csv,
 )
 print("Done plotting bootstrap and bts.")
 
