@@ -168,9 +168,9 @@ restricted_trees = []
 reduced_mldists = []
 for subdir in subdirs:
     for seq_id in seq_ids.get(subdir, []):
-        epa_paths.append(f"{subdir}/reduced_alignments/{seq_id}/epa_result.jplace")
-        restricted_trees.append(f"{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile")
-        reduced_mldists.append(f"{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist")
+        epa_paths.append(subdir+"/reduced_alignments/" + seq_id + "/epa_result.jplace")
+        restricted_trees.append(subdir + "/reduced_alignments/" + seq_id + "/reduced_alignment.fasta.treefile")
+        reduced_mldists.append(subdir + "/reduced_alignments/" + seq_id + "/reduced_alignment.fasta.mldist")
 
 
 rule extract_reattachment_statistics:
