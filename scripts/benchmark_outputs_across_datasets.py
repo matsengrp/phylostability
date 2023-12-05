@@ -42,7 +42,7 @@ for dfn in df_names:
 df = pd.DataFrame(values_to_plot)
 mx = df["# sequncees"].max() if df["# sequences"].max() != 0 else 1
 mn = df["# sequncees"].min()
-df["normalized MSA size"] = [20*2**((x-mn)/mx) for x in df["# sequences"]]
+df["normalized # sequences"] = [20*2**((x-mn)/mx) for x in df["# sequences"]]
 
 def plot_total_value_breakdown(df, colname, plot_path):
     plt.figure(figsize=(10, 6))
