@@ -5,12 +5,13 @@ import glob
 
 # Path to the data directory
 data_dir = snakemake.input.data_folder
-msa_files = snakemake.output.input_alignment
 subdirs = snakemake.params.subdirs
+msa_files = [subdir+"/"+snakemake.params.fn for subdir in subdirs]
 
 for subdir in subdirs:
     msa_file = [f for f in msa_files if subdir in f][0]
 
+    fasta_file = nexus_file = None
     # Search for Nexus and FASTA files
     nexus_files = [
         f for f in glob.glob(os.path.join(subdir, "*.nex")) if ".splits." not in f
@@ -58,7 +59,7 @@ for subdir in subdirs:
         records = list(SeqIO.parse(nexus_file, "nexus"))
     else:
         # This is if we already had fasta file beforehand
-        record = list(SeqIO.parse(fasta_file, "fasta"))
+        records = list(SeqIO.parse(fasta_file, "fasta"))
 
     # Modify the labels if they are integers
     for i, record in enumerate(records):
