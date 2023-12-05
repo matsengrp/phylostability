@@ -28,7 +28,7 @@ def calculate_taxon_height(input_tree, taxon_name):
     taxon_parent = taxon.up
     return min(
         [
-            taxon_parent.get_distance(leaf)
+            ete_dist(taxon_parent, leaf, topology_only=False)
             for leaf in input_tree.get_leaves()
             if leaf != taxon
         ]
@@ -430,11 +430,14 @@ for subdir in subdirs:
         distal_length = best_placement[3] / sum_branch_lengths
         pendant_length = best_placement[4] / sum_branch_lengths
         reattached_tree, reattachment_branch_length = get_reattached_tree(
-            dict["tree"], best_placement[0], seq_id, distal_length, pendant_length
+            dict["tree"],
+            best_placement[0],
+            seq_id,
+            best_placement[3],
+            best_placement[4],
         )
-        taxon_height = (
-            calculate_taxon_height(reattached_tree, seq_id) / sum_branch_lengths
-        )
+        taxon_height = calculate_taxon_height(reattached_tree, seq_id)
+        norm_taxon_height = taxon_height / sum_branch_lengths
         order_diff = get_order_of_distances_to_seq_id(
             seq_id, subdir_full_mldist_file, reattached_tree
         )
@@ -467,6 +470,7 @@ for subdir in subdirs:
                 rf_distance,
                 normalised_rf_distance,
                 taxon_height,
+                norm_taxon_height,
                 num_likely_reattachments,
                 bootstrap_list,
                 nj_tiis[seq_id],
@@ -490,6 +494,7 @@ for subdir in subdirs:
             "tii",
             "normalised_tii",
             "taxon_height",
+            "norm_taxon_height",
             "num_likely_reattachments",
             "bootstrap",
             "nj_tii",
@@ -502,6 +507,12 @@ for subdir in subdirs:
         ],
     )
     df.to_csv(subdir_plot_csv)
+
+    # update df to save for random forest
+    # drop non-normalised taxon height -- we only wanted it for plotting
+    df = df.drop(columns=["taxon_height"])
+    # rename normalised taxon height column
+    df = df.rename(columns={"norm_taxon_height": "taxon_height"})
 
     # replace lists by mean and standard deviation for training random forest
     def calculate_mean_std(cell):
