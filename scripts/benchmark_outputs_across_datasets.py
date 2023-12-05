@@ -16,7 +16,7 @@ rule_names = extract_rule_names_from_df(df_names[0])
 
 
 values_to_plot = {"dataset": [],
-                  "MSA length": [],
+                  "# sequences": [],
                   "sequence length": [],
                   "CPU time": [],
                   "time in seconds" : []}
@@ -35,18 +35,18 @@ for dfn in df_names:
         num_seqs = ctr
 
     values_to_plot["dataset"].append(dset)
-    values_to_plot["MSA length"].append(num_seqs)
+    values_to_plot["# sequences"].append(num_seqs)
     values_to_plot["sequence length"].append(seq_len)
     values_to_plot["CPU time"].append(sum(df["cpu_time"]))
     values_to_plot["time in seconds"].append(sum(df["s"]))
 df = pd.DataFrame(values_to_plot)
-mx = df["MSA length"].max() if df["MSA length"].max() != 0 else 1
-mn = df["MSA length"].min()
-df["normalized MSA size"] = [20*2**((x-mn)/mx) for x in df["MSA length"]]
+mx = df["# sequncees"].max() if df["# sequences"].max() != 0 else 1
+mn = df["# sequncees"].min()
+df["normalized MSA size"] = [20*2**((x-mn)/mx) for x in df["# sequences"]]
 
 def plot_total_value_breakdown(df, colname, plot_path):
     plt.figure(figsize=(10, 6))
-    sns.scatterplot(data=df.sort_values(colname), x="dataset", y=colname, hue="sequence length", size="MSA length")
+    sns.scatterplot(data=df.sort_values(colname), x="dataset", y=colname, hue="sequence length", size="# sequences")
     plt.xticks(
         rotation=90,
     )
