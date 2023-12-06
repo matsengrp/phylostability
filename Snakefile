@@ -4,11 +4,11 @@ import glob
 
 # input/output file names
 input_alignment="full_alignment.fasta"
-data_folder="data/"
+data_folder="harrington_data/selected_data/"
 plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
-subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "selected_data" not in f.path and "benchmarking" not in f.path]
+subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path]
 
 # Retrieve all sequence IDs from the input multiple sequence alignment
 def get_seq_ids(input_file, filetype):
@@ -27,12 +27,11 @@ for subdir in subdirs:
         seq_ids[subdir] = get_seq_ids(nexus_files[0], "nexus")
 
 
-
 # Define the workflow
 rule all:
     input:
-        # "random_forest_plots.done",
-        expand("{subdir}/create_plots.done", subdir=subdirs),
+        "random_forest_plots.done",
+        # expand("{subdir}/create_plots.done", subdir=subdirs),
         # expand("{subdir}/create_other_plots.done", subdir=subdirs)
 
 
