@@ -15,7 +15,7 @@ def plot_random_forest_results(results_csv,  plot_filepath, rf_type="regression"
     df = pd.read_csv(results_csv)
     df_sorted = df.sort_values(by="actual")
     plt.figure(figsize=(10, 6))
-    sns.scatterplot(data=df_sorted, x="actual", y="value")
+    sns.scatterplot(data=df_sorted, x="actual", y="predicted")
     # add x = y line
     plt.plot(
         [df["actual"].min(), df["actual"].max()],
