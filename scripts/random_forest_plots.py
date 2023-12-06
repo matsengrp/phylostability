@@ -50,18 +50,31 @@ def plot_tiis(csv, plot_filepath):
     df = pd.read_csv(csv)
     datasets = df["dataset"].unique()
     datasets.sort()
+    if len(datasets) > 20:
+        print("Too many datasets to create plot of all TIIs")
+        return 1
     num_datasets = len(datasets)
     num_rows = int(num_datasets**0.5)
     num_cols = int(num_datasets / num_rows) + (num_datasets % num_rows > 0)
 
-    fig, axes = plt.subplots(
-        num_rows, num_cols, figsize=(15, 15)  # , sharex=True, sharey=True
-    )
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(10, 6))
+
+    # Ensure that `axes` is always a 2D array
+    if num_datasets == 1:
+        axes = [[axes]]
+    elif num_datasets in [2, 3]:
+        axes = [axes]
+
     for index, dataset in enumerate(datasets):
+        current_df = df.loc[df["dataset"] == dataset]
         row = index // num_cols
         col = index % num_cols
-        ax = axes[index // num_cols, index % num_cols]
-        current_df = df.loc[df["dataset"] == dataset]
+        ax = axes[row][col]
+        # Your plotting code here using ax
+        # Hide unused subplots
+        if index == num_datasets - 1:
+            for i in range(index + 1, num_rows * num_cols):
+                fig.delaxes(axes[i // num_cols][i % num_cols]) + 1 + 1.5 + 1 + 1.5
         # Calculate the appropriate bin range
         bin_start = math.floor(current_df["tii"].min()) - 0.5
         bin_end = math.ceil(current_df["tii"].max()) + 1 + 1.5
@@ -70,17 +83,15 @@ def plot_tiis(csv, plot_filepath):
         sns.histplot(
             data=current_df, x="tii", ax=ax, binwidth=1, binrange=(bin_start, bin_end)
         )
-
-        axes[row, col].set_title(dataset + " (n = " + str(len(current_df)) + ")")
-
+        ax.set_title(dataset + " (n = " + str(len(current_df)) + ")")
         # Set x-axis label only for bottom row plots
-        if index // num_cols == num_rows - 1:
+        if row == num_rows - 1:
             ax.set_xlabel("TII", fontsize=14)
         else:
             ax.set_xlabel("")
 
         # Set y-axis label only for leftmost column plots
-        if index % num_cols == 0:
+        if col == 0:
             ax.set_ylabel("Frequency", fontsize=14)
         else:
             ax.set_ylabel("")
@@ -98,7 +109,6 @@ plots_folder = snakemake.params.forest_plot_folder
 
 if not os.path.exists(plots_folder):
     os.makedirs(plots_folder)
-
 
 print("Start plotting TIIs.")
 plot_filepath = os.path.join(plots_folder, "tii.pdf")
