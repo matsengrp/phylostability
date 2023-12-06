@@ -1,6 +1,9 @@
 import pandas as pd
+import numpy as np
+
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_squared_error
 
 csvs = snakemake.input.csvs
@@ -35,12 +38,16 @@ def train_random_forest(df, column_name):
         X, y, test_size=0.2, random_state=42
     )
 
+    imputer = SimpleImputer(missing_values=np.nan, strategy="mean")
+    X_train_imputed = imputer.fit_transform(X_train)
+    X_test_imputed = imputer.transform(X_test)
+
     # Train a random forest regressor
     model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train)
+    model.fit(X_train_imputed, y_train)
 
     # Make predictions on the test set
-    predictions = model.predict(X_test)
+    predictions = model.predict(X_test_imputed)
 
     # Evaluate the model
     model_result = pd.DataFrame({"predicted": predictions, "actual": y_test})
