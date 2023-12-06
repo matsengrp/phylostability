@@ -15,13 +15,14 @@ def plot_random_forest_results(results_csv,  plot_filepath, rf_type="regression"
     df = pd.read_csv(results_csv)
     df_sorted = df.sort_values(by="actual")
     plt.figure(figsize=(10, 6))
-    sns.scatterplot(data=df_sorted, x="actual", y=rf_type + "value")
+    sns.scatterplot(data=df_sorted, x="actual", y="value")
     # add x = y line
     plt.plot(
         [df["actual"].min(), df["actual"].max()],
         [df["predicted"].min(), df["predicted"].max()],
         color="black",
     )  # Adjust color as needed
+    plt.xticks(rotation=90)
     plt.title("results of random forest " + rf_type)
     plt.tight_layout()
     plt.savefig(plot_filepath)
@@ -66,8 +67,7 @@ def plot_tiis(csv, plot_filepath):
             data=current_df, x="tii", ax=ax, binwidth=1, binrange=(bin_start, bin_end)
         )
 
-        axes[row, col].set_title(dataset + " (n = " + str(len(current_df)) + ")")
-
+        axes[row, col].set_title(dataset + " (n = " + str(len(current_df)) + ")") 
         # Set x-axis label only for bottom row plots
         if index // num_cols == num_rows - 1:
             ax.set_xlabel("TII", fontsize=14)

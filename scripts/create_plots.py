@@ -240,7 +240,7 @@ print(
 plot_filepath = os.path.join(plots_folder, "seq_distance_ratios_closest_seq.pdf")
 df_column_swarmplot(csv, "seq_distance_ratios_closest_seq", plot_filepath)
 print(
-    "Start plotting difference in distances of seq_id and its closest sequence to all other sequences."
+    "Done plotting difference in distances of seq_id and its closest sequence to all other sequences."
 )
 
 print(

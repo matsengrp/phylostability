@@ -6,7 +6,8 @@ column_name = snakemake.params.column_to_predict
 csvs = snakemake.input.csvs
 output_csv = snakemake.output.output_file_name
 model_features_csv = snakemake.output.model_features_file
-combined_csv_path = snakemake.input.combined_csv_path
+input_combined_csv_path = snakemake.input.combined_csv_path
+combined_csv_path = snakemake.output.combined_csv_path
 
 
 # taxon_name_col = "seq_id"
@@ -48,7 +49,7 @@ def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
     if cross_validate:
         hyperparameter_grid={
           "n_estimators": [100,200,500,1000],
-          "criterion": ["gini", "log-loss", None],
+          "criterion": ["gini", "log_loss", "entropy"],
           "max_depth": [10*x for x in range(1, 10)],
           "min_samples_split": [0,1,2],
           "max_features": ["sqrt", "log2", None],
@@ -74,7 +75,7 @@ def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
 
 
 
-df = pd.read_csv(combined_csv_path)
+df = pd.read_csv(input_combined_csv_path)
 df[column_name + "_binary"] = [True if x > 0 else False for x in df[column_name]]
 df.to_csv(combined_csv_path)
 model_result = train_random_forest_classifier(df, column_name, cross_validate=True)

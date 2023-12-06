@@ -40,8 +40,8 @@ for dfn in df_names:
     values_to_plot["CPU time"].append(sum(df["cpu_time"]))
     values_to_plot["time in seconds"].append(sum(df["s"]))
 df = pd.DataFrame(values_to_plot)
-mx = df["# sequncees"].max() if df["# sequences"].max() != 0 else 1
-mn = df["# sequncees"].min()
+mx = df["# sequences"].max() if df["# sequences"].max() != 0 else 1
+mn = df["# sequences"].min()
 df["normalized # sequences"] = [20*2**((x-mn)/mx) for x in df["# sequences"]]
 
 def plot_total_value_breakdown(df, colname, plot_path):

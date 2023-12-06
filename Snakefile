@@ -209,7 +209,7 @@ rule random_forest_regression:
     output:
         model_features_file="model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_regression.csv",
-        combined_csv_path=data_folder+"combined_statistics.csv",
+        combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_regression.txt")
     params:
@@ -222,10 +222,11 @@ rule random_forest_regression:
 rule random_forest_classifier:
     input:
         csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=subdirs),
-        combined_csv_path=data_folder+"combined_statistics.csv",
+        combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
     output:
         model_features_file="discrete_model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_classification.csv",
+        combined_csv_path=data_folder+"combined_statistics.csv",
     params:
         column_to_predict = "normalised_tii",
         model_features_csv=data_folder+"discrete_model_feature_importances.csv",
@@ -239,8 +240,8 @@ rule random_forest_plots:
         random_forest_csv=rules.random_forest_regression.output.output_file_name,
         model_features_csv=rules.random_forest_regression.output.model_features_file,
         random_forest_classifier_csv=rules.random_forest_classifier.output.output_file_name,
-        discretemodel_features_csv=rules.random_forest_classifier.output.model_features_file,
-        combined_csv_path=data_folder+"combined_statistics.csv",
+        discrete_model_features_csv=rules.random_forest_classifier.output.model_features_file,
+        combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
     params:
         forest_plot_folder=data_folder+"plots/",
     output:

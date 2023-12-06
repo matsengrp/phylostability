@@ -48,7 +48,7 @@ def bar_plot_breakdown(dataframe, colname, filename):
     these_bars = ax.bar(rulenames, thecol, width=0.8)
     ax.set(title=thetitle)
     ax.bar_label(these_bars, labels=["{:d}calls\n{:.3f} per run".format(x, float(list(thecol)[i])/float(x if x != 0 else 1)) for i, x in enumerate(counts)])
-    plt.xticks(rotation=30, ha="right")
+    plt.xticks(rotation=90, ha="right")
     plt.ylabel(colname)
     plt.ylim(min(thecol) - 0.5, max(thecol)*1.2)
     fig.tight_layout()
