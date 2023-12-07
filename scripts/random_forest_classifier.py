@@ -1,6 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import roc_curve
 
 column_name = snakemake.params.column_to_predict
 csvs = snakemake.input.csvs
@@ -8,6 +9,7 @@ output_csv = snakemake.output.output_file_name
 model_features_csv = snakemake.output.model_features_file
 input_combined_csv_path = snakemake.input.combined_csv_path
 combined_csv_path = snakemake.output.combined_csv_path
+classifier_metrics_csv = snakemake.output.classifier_metrics_csv
 
 
 # taxon_name_col = "seq_id"
@@ -46,6 +48,9 @@ def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
     importances = model.feature_importances_
     pd.Series(importances, index=X_train.columns).to_csv(model_features_csv)
 
+    y_scores = model.predict_proba(X_test)[:, 1]
+    fpr, tpr, thresholds = roc_curve(y_test, y_scores)
+    pd.DataFrame({"fpr": fpr, "tpr": tpr}).to_csv(classifier_metrics_csv)
     if cross_validate:
         hyperparameter_grid={
           "n_estimators": [100,200,500,1000],
@@ -69,6 +74,9 @@ def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
         fit_model_predictions = fit_model.predict(X_test)
         model_result["predicted"] = fit_model_predictions
         fit_model_importances = fit_model.feature_importances_
+        y_scores = fit_model.predict_proba(X_test)[:, 1]
+        fpr, tpr, thresholds = roc_curve(y_test, y_scores)
+        pd.DataFrame({"fpr": fpr, "tpr": tpr}).to_csv(classifier_metrics_csv)
         pd.DataFrame({"untuned_model_importance": importances, "model_importance": fit_model_importances}, index=X_train.columns).to_csv(model_features_csv)
 
     return model_result

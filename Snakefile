@@ -226,7 +226,8 @@ rule random_forest_classifier:
     output:
         model_features_file="discrete_model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_classification.csv",
-        combined_csv_path=data_folder+"combined_statistics.csv",
+        combined_csv_path=data_folder+"rf_classifier_combined_statistics.csv",
+        classifier_metrics_csv=data_folder+"classifier_results.csv",
     params:
         column_to_predict = "normalised_tii",
         model_features_csv=data_folder+"discrete_model_feature_importances.csv",
@@ -241,6 +242,7 @@ rule random_forest_plots:
         model_features_csv=rules.random_forest_regression.output.model_features_file,
         random_forest_classifier_csv=rules.random_forest_classifier.output.output_file_name,
         discrete_model_features_csv=rules.random_forest_classifier.output.model_features_file,
+        classifier_metrics_csv=rules.random_forest_classifier.output.classifier_metrics_csv,
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
     params:
         forest_plot_folder=data_folder+"plots/",
