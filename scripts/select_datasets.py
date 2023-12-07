@@ -4,11 +4,12 @@ import sys
 import math
 
 
-data_folder = sys.argv[1]
-N = int(sys.argv[2])
+data_folder = snakemake.params.data
+N = snakemake.params.num_samples
+data_csv = snakemake.input.data_csv
 
 # Load data if not already in memory
-df = pd.read_csv(data_folder + "nexus_data.csv")
+df = pd.read_csv(data_csv)
 
 # Define the number of bins
 num_bins = math.floor(math.sqrt(N))
@@ -18,7 +19,9 @@ df["taxa_bin"] = pd.qcut(df["taxa"], num_bins, duplicates="drop")
 df["seq_bin"] = pd.qcut(df["sequences"], num_bins, duplicates="drop")
 
 # Sample datasets
-selected_datasets = df.groupby(["taxa_bin", "seq_bin"]).sample(n=1, random_state=1)
+selected_datasets = df.groupby(["taxa_bin", "seq_bin"], observed=False).sample(
+    n=1, random_state=1
+)
 
 # If the total selected datasets are less than 100, randomly select the remaining
 num_selected = len(selected_datasets)
@@ -29,8 +32,7 @@ if num_selected < N:
     selected_datasets = pd.concat([selected_datasets, additional_samples])
 
 # Save or process the selected datasets
-selected_datasets.to_csv(data_folder + "selected_datasets.csv", index=False)
-
+selected_datasets.to_csv(data_folder + "/selected_datasets.csv", index=False)
 
 # Create the selected_data directory if it doesn't exist
 selected_data_dir = "selected_data"
@@ -38,11 +40,11 @@ os.makedirs(selected_data_dir, exist_ok=True)
 
 # Iterate through the DataFrame and create symlinks
 for index, row in selected_datasets.iterrows():
-    original_file_path = os.path.join(data_folder, row["file"])
+    original_file_path = os.path.join(data_folder + "/", row["file"])
     filename = "_".join(row["file"].split("/"))
     this_row_dir = filename[:-4]
-    this_row_dir = data_folder + selected_data_dir + "/" + this_row_dir
-    os.makedirs(this_row_dir)
+    this_row_dir = data_folder + "/" + selected_data_dir + "/" + this_row_dir
+    os.makedirs(this_row_dir, exist_ok=True)
     symlink_path = os.path.join(this_row_dir, os.path.basename(row["file"]))
 
     # Create a symbolic link if the original file exists
