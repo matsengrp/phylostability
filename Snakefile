@@ -209,7 +209,7 @@ rule random_forest_regression:
     output:
         model_features_file="model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_regression.csv",
-        combined_csv_path=data_folder+"combined_statistics.csv",
+        combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_regression.txt")
     params:
@@ -219,11 +219,31 @@ rule random_forest_regression:
         "scripts/random_forest_regression.py"
 
 
+rule random_forest_classifier:
+    input:
+        csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=subdirs),
+        combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
+    output:
+        model_features_file="discrete_model_feature_importances.csv",
+        output_file_name=data_folder+"random_forest_classification.csv",
+        combined_csv_path=data_folder+"rf_classifier_combined_statistics.csv",
+        classifier_metrics_csv=data_folder+"classifier_results.csv",
+    params:
+        column_to_predict = "normalised_tii",
+        model_features_csv=data_folder+"discrete_model_feature_importances.csv",
+        output_file_name=data_folder+"random_forest_classification.csv"
+    script:
+        "scripts/random_forest_classifier.py"
+
+
 rule random_forest_plots:
     input:
         random_forest_csv=rules.random_forest_regression.output.output_file_name,
         model_features_csv=rules.random_forest_regression.output.model_features_file,
-        combined_csv_path=data_folder+"combined_statistics.csv",
+        random_forest_classifier_csv=rules.random_forest_classifier.output.output_file_name,
+        discrete_model_features_csv=rules.random_forest_classifier.output.model_features_file,
+        classifier_metrics_csv=rules.random_forest_classifier.output.classifier_metrics_csv,
+        combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
     params:
         forest_plot_folder=data_folder+"plots/",
     output:
@@ -235,6 +255,10 @@ rule random_forest_plots:
 rule create_plots:
     input:
         csv="{subdir}/reduced_alignments/reattachment_data_per_taxon_epa.csv",
+        random_forest_regression_csv=rules.random_forest_regression.output.output_file_name,
+        model_features_csv=rules.random_forest_regression.output.model_features_file,
+        random_forest_classifier_csv=rules.random_forest_classifier.output.output_file_name,
+        discrete_model_features_csv=rules.random_forest_classifier.output.model_features_file,
         bootstrap_csv="{subdir}/reduced_alignments/bts_bootstrap.csv",
     output:
         temp(touch("{subdir}/create_plots.done")),

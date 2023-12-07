@@ -1,14 +1,16 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import roc_curve
 
+column_name = snakemake.params.column_to_predict
 csvs = snakemake.input.csvs
 output_csv = snakemake.output.output_file_name
 model_features_csv = snakemake.output.model_features_file
+input_combined_csv_path = snakemake.input.combined_csv_path
 combined_csv_path = snakemake.output.combined_csv_path
-column_name = snakemake.params.column_to_predict
-subdirs = snakemake.params.subdirs
+classifier_metrics_csv = snakemake.output.classifier_metrics_csv
+
 
 # taxon_name_col = "seq_id"
 cols_to_drop = [
@@ -16,40 +18,43 @@ cols_to_drop = [
     "likelihood",
     "tii",
     "dataset",
-    column_name,
+    column_name + "_binary",
 ]
 
 
-def train_random_forest(df, column_name="tii", cross_validate=False):
+def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
     X = df.drop(cols_to_drop, axis=1)
-    y = df[column_name]
+    y = df[column_name+"_binary"]
 
     # Split the data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
     )
+    y_val = X_test[column_name]
+    X_train = X_train.drop(column_name, axis=1)
+    X_test = X_test.drop(column_name, axis=1)
 
-    # Train a random forest regressor
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    # Train a random forest Classifier
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
 
     # Make predictions on the test set
     untrained_predictions = model.predict(X_test)
 
     # Evaluate the model
-    model_result = pd.DataFrame({"untuned_model_predicted": untrained_predictions, "actual": y_test})
-    mse = mean_squared_error(y_test, untrained_predictions)
+    model_result = pd.DataFrame({"untuned_model_predicted": untrained_predictions, "actual": y_test, "tii value": y_val})
 
     # print out the feature importances to file
     importances = model.feature_importances_
-    pd.Series(importances, index=X.columns).to_csv(model_features_csv)
+    pd.Series(importances, index=X_train.columns).to_csv(model_features_csv)
 
-    print(f"Naive RF Mean Squared Error: {mse}")
-
+    y_scores = model.predict_proba(X_test)[:, 1]
+    fpr, tpr, thresholds = roc_curve(y_test, y_scores)
+    pd.DataFrame({"fpr": fpr, "tpr": tpr}).to_csv(classifier_metrics_csv)
     if cross_validate:
         hyperparameter_grid={
           "n_estimators": [100,200,500,1000],
-          "criterion": ["absolute_error", "poisson", "friedman_mse", "squared_error"],
+          "criterion": ["gini", "log_loss", "entropy"],
           "max_depth": [10*x for x in range(1, 10)],
           "min_samples_split": [0,1,2],
           "max_features": ["sqrt", "log2", None],
@@ -69,23 +74,17 @@ def train_random_forest(df, column_name="tii", cross_validate=False):
         fit_model_predictions = fit_model.predict(X_test)
         model_result["predicted"] = fit_model_predictions
         fit_model_importances = fit_model.feature_importances_
-        pd.DataFrame({"untuned_model_importance": importances, "model_importance": fit_model_importances}, index=X.columns).to_csv(model_features_csv)
+        y_scores = fit_model.predict_proba(X_test)[:, 1]
+        fpr, tpr, thresholds = roc_curve(y_test, y_scores)
+        pd.DataFrame({"fpr": fpr, "tpr": tpr}).to_csv(classifier_metrics_csv)
+        pd.DataFrame({"untuned_model_importance": importances, "model_importance": fit_model_importances}, index=X_train.columns).to_csv(model_features_csv)
 
     return model_result
 
 
-def combine_dfs(csvs, subdirs):
-    df_list = []
-    for subdir in subdirs:
-        csv = [f for f in csvs if subdir in f][0]
-        temp_df = pd.read_csv(csv, index_col=0)
-        temp_df["dataset"] = subdir.split("/")[-1]
-        df_list.append(temp_df)
-    combined_df = pd.concat(df_list, ignore_index=True)
-    return combined_df
 
-
-df = combine_dfs(csvs, subdirs)
+df = pd.read_csv(input_combined_csv_path)
+df[column_name + "_binary"] = [True if x > 0 else False for x in df[column_name]]
 df.to_csv(combined_csv_path)
-model_result = train_random_forest(df, column_name, cross_validate=True)
+model_result = train_random_forest_classifier(df, column_name, cross_validate=True)
 model_result.to_csv(output_csv)
