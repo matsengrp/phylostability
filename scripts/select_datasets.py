@@ -1,15 +1,35 @@
 import pandas as pd
 import os
-import sys
 import math
+from Bio.Nexus import Nexus
 
-
+data_csv = snakemake.params.data_csv
 data_folder = snakemake.params.data
+selected_file = snakemake.params.selected_datasets_csv
 N = snakemake.params.num_samples
-data_csv = snakemake.input.data_csv
 
-# Load data if not already in memory
+
+# Function to check if Nexus file has alignment
+def has_alignment(nexus_file):
+    try:
+        nexus = Nexus.Nexus(nexus_file)
+        return bool(nexus.matrix)
+    except Exception as e:
+        print(f"Error reading Nexus file: {e}")
+        return False
+
+
+# Load existing selected datasets if the file exists
+if os.path.isfile(selected_file):
+    selected_datasets = pd.read_csv(selected_file)
+else:
+    selected_datasets = pd.DataFrame(columns=["taxa", "sequences", "file"])
+
+# Load data
 df = pd.read_csv(data_csv)
+
+# Filter out already selected datasets
+df = df[~df["file"].isin(selected_datasets["file"])]
 
 # Define the number of bins
 num_bins = math.floor(math.sqrt(N))
@@ -18,38 +38,37 @@ num_bins = math.floor(math.sqrt(N))
 df["taxa_bin"] = pd.qcut(df["taxa"], num_bins, duplicates="drop")
 df["seq_bin"] = pd.qcut(df["sequences"], num_bins, duplicates="drop")
 
-# Sample datasets
-selected_datasets = df.groupby(["taxa_bin", "seq_bin"], observed=False).sample(
-    n=1, random_state=1
-)
-
-# If the total selected datasets are less than 100, randomly select the remaining
-num_selected = len(selected_datasets)
-if num_selected < N:
-    additional_samples = df.drop(selected_datasets.index).sample(
-        n=N - num_selected, random_state=1
-    )
+# Sample additional datasets
+num_to_select = N
+if num_to_select > 0:
+    additional_samples = df.groupby(["taxa_bin", "seq_bin"]).sample(n=1)
+    # Verify Nexus files have alignments
+    additional_samples = additional_samples[
+        additional_samples["file"].apply(
+            lambda x: has_alignment(os.path.join(data_folder, x))
+        )
+    ]
     selected_datasets = pd.concat([selected_datasets, additional_samples])
 
-# Save or process the selected datasets
-selected_datasets.to_csv(data_folder + "/selected_datasets.csv", index=False)
+# Save the updated selected datasets
+selected_datasets.to_csv(selected_file, index=False)
 
 # Create the selected_data directory if it doesn't exist
 selected_data_dir = "selected_data"
-os.makedirs(selected_data_dir, exist_ok=True)
+os.makedirs(os.path.join(data_folder, selected_data_dir), exist_ok=True)
 
 # Iterate through the DataFrame and create symlinks
 for index, row in selected_datasets.iterrows():
-    original_file_path = os.path.join(data_folder + "/", row["file"])
+    original_file_path = os.path.join(data_folder, row["file"])
     filename = "_".join(row["file"].split("/"))
-    this_row_dir = filename[:-4]
-    this_row_dir = data_folder + "/" + selected_data_dir + "/" + this_row_dir
+    this_row_dir = os.path.join(data_folder, selected_data_dir, filename[:-4])
     os.makedirs(this_row_dir, exist_ok=True)
     symlink_path = os.path.join(this_row_dir, os.path.basename(row["file"]))
 
     # Create a symbolic link if the original file exists
     if os.path.exists(original_file_path):
-        os.symlink(original_file_path, symlink_path)
+        if not os.path.islink(symlink_path):
+            os.symlink(original_file_path, symlink_path)
     else:
         print(f"File not found: {original_file_path}")
 
