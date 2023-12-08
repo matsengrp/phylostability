@@ -51,8 +51,6 @@ for subdir in subdirs:
         except ValueError:
             return False
 
-    # Define the path to your FASTA file
-
     # Read the FASTA file
     if nexus_file != None:
         records = list(SeqIO.parse(nexus_file, "nexus"))
@@ -60,11 +58,20 @@ for subdir in subdirs:
         # This is if we already had fasta file beforehand
         record = list(SeqIO.parse(fasta_file, "fasta"))
 
-    # Modify the labels if they are integers
+    # Store unique sequences
+    seen_sequences = set()
+    unique_records = []
+
+    # Modify the labels if they are integers and remove duplicates
     for i, record in enumerate(records):
         if is_integer(record.id):
             record.id = f"s_{i + 1}"
             record.description = f"s_{i + 1}"
 
+        # Add unique sequences to new list
+        if str(record.seq) not in seen_sequences:
+            seen_sequences.add(str(record.seq))
+            unique_records.append(record)
+
     # Write the modified records to a new FASTA file
-    SeqIO.write(records, msa_file, "fasta")
+    SeqIO.write(unique_records, msa_file, "fasta")

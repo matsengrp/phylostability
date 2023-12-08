@@ -14,17 +14,24 @@ subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not 
 def get_seq_ids(input_file, filetype):
     return [record.id for record in SeqIO.parse(input_file, filetype)]
 
-seq_ids = {}
-for subdir in subdirs:
+def dynamic_input(wildcards):
+    subdir = wildcards.subdir
     nexus_files = glob.glob(os.path.join(subdir, "*.nex"))
     fasta_files = glob.glob(os.path.join(subdir, "*.fasta"))
     nexus_files = [os.readlink(file) if os.path.islink(file) else file for file in nexus_files]
     fasta_files = [os.readlink(file) if os.path.islink(file) else file for file in fasta_files]
 
     if len(fasta_files) > 0:
-        seq_ids[subdir] = get_seq_ids(fasta_files[0], "fasta")
+        seq_ids = get_seq_ids(fasta_files[0], "fasta")
     else:
-        seq_ids[subdir] = get_seq_ids(nexus_files[0], "nexus")
+        seq_ids = get_seq_ids(nexus_files[0], "nexus")
+
+    epa_results = [f"{subdir}/reduced_alignments/{seq_id}/epa_result.jplace" for seq_id in seq_ids]
+    restricted_trees = [f"{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile" for seq_id in seq_ids]
+    restricted_mldist_files = [f"{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist" for seq_id in seq_ids]
+    reattached_trees = [f"{subdir}/reduced_alignments/{seq_id}/reattached_tree.nwk" for seq_id in seq_ids]
+    print(epa_results + restricted_trees + restricted_mldist_files + reattached_trees)
+    return epa_results + restricted_trees + restricted_mldist_files + reattached_trees
 
 
 # Define the workflow
@@ -160,31 +167,15 @@ rule write_reattached_trees:
         "scripts/write_reattached_trees.py"
 
 
-# paths containing subdirs and seq_ids for rule
-# extract_reattachment_statistics
-epa_paths = []
-restricted_trees = []
-reduced_mldists = []
-for subdir in subdirs:
-    for seq_id in seq_ids.get(subdir, []):
-        epa_paths.append(subdir+"/reduced_alignments/" + seq_id + "/epa_result.jplace")
-        restricted_trees.append(subdir + "/reduced_alignments/" + seq_id + "/reduced_alignment.fasta.treefile")
-        reduced_mldists.append(subdir + "/reduced_alignments/" + seq_id + "/reduced_alignment.fasta.mldist")
-
-
 rule extract_reattachment_statistics:
     input:
-        epa_results=epa_paths,
-        restricted_trees=restricted_trees,
-        full_tree=expand("{subdir}/"+input_alignment+".treefile", subdir=subdirs),
-        full_mldist_file=expand("{subdir}/"+input_alignment+".mldist", subdir=subdirs),
-        restricted_mldist_files=reduced_mldists,
+        dynamic_input=dynamic_input,
+        full_tree="{subdir}/"+input_alignment+".treefile",
+        full_mldist_file="{subdir}/"+input_alignment+".mldist",
     output:
-        plot_csv=expand("{subdir}/reduced_alignments/reattachment_data_per_taxon_epa.csv", subdir=subdirs),
-        random_forest_csv=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=subdirs),
-        bootstrap_csv=expand("{subdir}/reduced_alignments/bts_bootstrap.csv", subdir=subdirs)
-    params:
-        subdirs=subdirs
+        plot_csv="{subdir}/reduced_alignments/reattachment_data_per_taxon_epa.csv",
+        random_forest_csv="{subdir}/reduced_alignments/random_forest_input.csv",
+        bootstrap_csv="{subdir}/reduced_alignments/bts_bootstrap.csv",
     script:
         "scripts/extract_reattachment_statistics.py"
 
@@ -228,21 +219,12 @@ rule create_plots:
         "scripts/create_plots.py"
 
 
-reattached_trees = []
-for subdir in subdirs:
-    for seq_id in seq_ids.get(subdir, []):
-        restricted_trees.append(f"{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile")
-        reattached_trees.append(f"{subdir}/reduced_alignments/{seq_id}/reattached_tree.nwk")
-
-
 rule create_other_plots:
     input:
+        dynamic_input=dynamic_input,
         csv="{subdir}/reduced_alignments/reattachment_data_per_taxon_epa.csv",
         full_tree="{subdir}/"+input_alignment+".treefile",
-        reduced_trees=restricted_trees,
-        reattached_trees=reattached_trees,
         mldist="{subdir}/"+input_alignment+".mldist",
-        reduced_mldist=reduced_mldists,
     output:
         temp(touch("{subdir}/create_other_plots.done")),
     params:
