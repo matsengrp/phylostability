@@ -10,8 +10,7 @@ rule get_nexus_data:
     input:
         data=data_folder
     output:
-        touch(data_folder+"/get_nexus_data.done")
-    params:
+        touch(data_folder+"/get_nexus_data.done"),
         data_folder+"/nexus_data.csv"
     shell:
         "./scripts/get_nexus_data.sh  {input.data}"
@@ -19,13 +18,13 @@ rule get_nexus_data:
 rule select_datasets:
     input:
         data_folder+"/get_nexus_data.done",
+        data_folder+"/nexus_data.csv"
     params:
         selected_datasets_csv=data_folder+"/selected_datasets.csv",
         num_samples=num_samples,
         data=data_folder,
-        data_csv=data_folder+"/nexus_data.csv",
     output:
-        temp(touch(data_folder+"/select_datasets.done")),
+        touch(data_folder+"/select_datasets.done"),
     script:
         "scripts/select_datasets.py"
 

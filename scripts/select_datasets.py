@@ -3,7 +3,7 @@ import os
 import math
 from Bio.Nexus import Nexus
 
-data_csv = snakemake.params.data_csv
+data_csv = snakemake.input.data_csv
 data_folder = snakemake.params.data
 selected_file = snakemake.params.selected_datasets_csv
 N = snakemake.params.num_samples
