@@ -28,6 +28,7 @@ for subdir in subdirs:
         fasta_file = fasta_files[0]
         os.rename(fasta_file, msa_file)
         print(f"Renamed {fasta_file} to {msa_file}")
+        continue
 
     elif len(nexus_files) == 1:
         # If there is only the .n.nex file, we convert that one
