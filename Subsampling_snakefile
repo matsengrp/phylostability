@@ -1,32 +1,36 @@
 data_folder="harrington_data"
-num_samples=4
+num_samples=3
+
 
 rule all:
     input:
         data_folder+"/selected_data/plots/random_forest_results.pdf"
 
+
 # save num_taxa and num_sequences for every nexus or fasta file in a subdirectory of data_folder
 rule get_nexus_data:
-    input:
-        data=data_folder
     output:
         touch(data_folder+"/get_nexus_data.done"),
         data_folder+"/nexus_data.csv"
+    params:
+        data=data_folder
     shell:
-        "./scripts/get_nexus_data.sh  {input.data}"
+        "./scripts/get_nexus_data.sh  {params.data}"
+
 
 rule select_datasets:
     input:
         data_folder+"/get_nexus_data.done",
-        data_folder+"/nexus_data.csv"
+        data_csv=data_folder+"/nexus_data.csv"
     params:
         selected_datasets_csv=data_folder+"/selected_datasets.csv",
         num_samples=num_samples,
         data=data_folder,
     output:
-        touch(data_folder+"/select_datasets.done"),
+        temp(touch(data_folder+"/select_datasets.done")),
     script:
         "scripts/select_datasets.py"
+
 
 rule run_stability_analysis:
     input:

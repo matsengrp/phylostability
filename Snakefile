@@ -26,11 +26,10 @@ def dynamic_input(wildcards):
     else:
         seq_ids = get_seq_ids(nexus_files[0], "nexus")
 
-    epa_results = [f"{subdir}/reduced_alignments/{seq_id}/epa_result.jplace" for seq_id in seq_ids]
-    restricted_trees = [f"{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile" for seq_id in seq_ids]
-    restricted_mldist_files = [f"{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist" for seq_id in seq_ids]
-    reattached_trees = [f"{subdir}/reduced_alignments/{seq_id}/reattached_tree.nwk" for seq_id in seq_ids]
-    print(epa_results + restricted_trees + restricted_mldist_files + reattached_trees)
+    epa_results = [subdir+"/reduced_alignments/"+seq_id+"/epa_result.jplace" for seq_id in seq_ids]
+    restricted_trees = [subdir+"/reduced_alignments/"+seq_id+"/reduced_alignment.fasta.treefile" for seq_id in seq_ids]
+    restricted_mldist_files = [subdir+"/reduced_alignments/"+seq_id+"/reduced_alignment.fasta.mldist" for seq_id in seq_ids]
+    reattached_trees = [subdir+"/reduced_alignments/"+seq_id+"/reattached_tree.nwk" for seq_id in seq_ids]
     return epa_results + restricted_trees + restricted_mldist_files + reattached_trees
 
 
