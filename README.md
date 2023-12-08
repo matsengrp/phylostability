@@ -2,19 +2,9 @@
 
 ## Subsample datasets
 
-To extract the number of taxa and alignments length from a directory, execute:
+To run the workflow on a subsample of the Harrington et al. datasets, execute:
 
-`./scripts/get_nexus_data.sh DIRECTORY`
+`snakemake --snakefile Subsampling_snakefile -c8`
 
- where `DIRECTORY` is the name of a directory that contains sub-directories containing alignments as fasta or nexus files.
-
- To then create a folder `DIRECTORY/selected_data` that contains `N` datasets, run
-
- `python scripts/select_datasets.py DIRECTORY N`
-
- where `DIRECTORY` is the same directory name as above and `N` is the number of subsampled datasets we want.
-
- ## Run Snakemake
-
- Note that to run snakemake on the subsampled dataset, the `data_folder` parameter in the beginning of the Snakefile needs to be set to
- `data_folder = DIRECTORY/selected_data/`
+Note that this willl use 8 cores, you can adjust accordingly.
+Also, if you add `-R select_datasets`, it will add `num_samples` datasets to the selected samples that already are in `harrington_data/selected_data/`, where `num_samples` is set in the beginning of `Subsampling_snakefile`.
