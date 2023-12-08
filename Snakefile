@@ -30,7 +30,6 @@ def dynamic_input(wildcards):
     restricted_trees = [f"{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile" for seq_id in seq_ids]
     restricted_mldist_files = [f"{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist" for seq_id in seq_ids]
     reattached_trees = [f"{subdir}/reduced_alignments/{seq_id}/reattached_tree.nwk" for seq_id in seq_ids]
-    print(epa_results + restricted_trees + restricted_mldist_files + reattached_trees)
     return epa_results + restricted_trees + restricted_mldist_files + reattached_trees
 
 
@@ -40,6 +39,7 @@ rule all:
         "random_forest_plots.done",
         # expand("{subdir}/create_plots.done", subdir=subdirs),
         # expand("{subdir}/create_other_plots.done", subdir=subdirs)
+        data_folder+"analyse_sh_test.done"
 
 
 # convert input alignments from nexus to fasta, if necessary
@@ -48,9 +48,9 @@ rule convert_input_to_fasta:
         data_folder=data_folder,
     output:
         temp(touch("convert_input_to_fasta.done")),
-        input_alignment=expand("{subdir}/"+input_alignment, subdir=subdirs)
     params:
-        subdirs=subdirs
+        input_alignment=expand("{subdir}/"+input_alignment, subdir=subdirs),
+        subdirs=subdirs,
     script:
         "scripts/convert_input_to_fasta.py"
 
@@ -232,3 +232,41 @@ rule create_other_plots:
         subdir=lambda wildcards: wildcards.subdir,
     script:
         "scripts/create_other_plots.py"
+
+
+rule write_all_reattached_trees:
+    input:
+        dynamic_input=dynamic_input
+    output:
+        temp(touch("{subdir}/write_all_reattached_trees.done")),
+        reattached_trees="{subdir}/reattached_trees.trees",
+    script:
+        "scripts/write_all_reattached_trees.py"
+
+
+# SH-test to test model fit of full tree to reattached trees
+rule sh_test_model_fit:
+    input:
+        "{subdir}/write_all_reattached_trees.done",
+        msa="{subdir}/"+input_alignment,
+        reattached_trees="{subdir}/reattached_trees.trees",
+        full_tree = "{subdir}/"+input_alignment+".treefile"
+    output:
+        temp(touch("{subdir}/sh_test_model_fit.done")),
+        "{subdir}/"+input_alignment+".sh-test.iqtree"
+    shell:
+        """
+        iqtree -s {input.msa} -z {input.reattached_trees} --prefix {wildcards.subdir}/{input_alignment}.sh-test -n 0 -zb 1000 --redo
+        """
+
+
+rule analyse_sh_test:
+    input:
+        expand("{subdir}/sh_test_model_fit.done", subdir=subdirs),
+        iqtree_file=expand("{subdir}/"+input_alignment+".sh-test.iqtree", subdir=subdirs)
+    output:
+        temp(touch(data_folder+"analyse_sh_test.done"))
+    params:
+        plots_folder=data_folder+plots_folder
+    script:
+        "scripts/analyse_sh_test.py"
