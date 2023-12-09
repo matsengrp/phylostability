@@ -4,11 +4,11 @@ import glob
 
 # input/output file names
 input_alignment="full_alignment.fasta"
-data_folder="harrington_data/selected_data/"
+data_folder="data/"
 plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
-subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path]
+subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path and "selected_data" not in f.path]
 
 # Retrieve all sequence IDs from the input multiple sequence alignment
 def get_seq_ids(input_file, filetype):
@@ -44,13 +44,12 @@ rule all:
 
 # convert input alignments from nexus to fasta, if necessary
 rule convert_input_to_fasta:
-    input:
-        data_folder=data_folder,
     output:
         temp(touch("convert_input_to_fasta.done")),
     params:
         input_alignment=expand("{subdir}/"+input_alignment, subdir=subdirs),
         subdirs=subdirs,
+        data_folder=data_folder,
     script:
         "scripts/convert_input_to_fasta.py"
 
@@ -256,7 +255,7 @@ rule sh_test_model_fit:
         "{subdir}/"+input_alignment+".sh-test.iqtree"
     shell:
         """
-        iqtree -s {input.msa} -z {input.reattached_trees} --prefix {wildcards.subdir}/{input_alignment}.sh-test -n 0 -zb 1000 --redo
+        iqtree -s {input.msa} -z {input.reattached_trees} --prefix {wildcards.subdir}/{input_alignment}.sh-test -n 0 -zb 10000 -zw -au --redo
         """
 
 
