@@ -235,7 +235,8 @@ rule create_other_plots:
 
 rule write_all_reattached_trees:
     input:
-        dynamic_input=dynamic_input
+        dynamic_input=dynamic_input,
+        full_tree="{subdir}/"+input_alignment+".treefile",
     output:
         temp(touch("{subdir}/write_all_reattached_trees.done")),
         reattached_trees="{subdir}/reattached_trees.trees",
