@@ -371,7 +371,7 @@ output = []
 taxon_tii_list = []
 nj_tiis = get_nj_tiis(full_mldist_file, restricted_mldist_files)
 tii_normalising_constant = 2 * len(full_tree) - 3
-nj_tiis = [tii / tii_normalising_constant for tii in nj_tiis]
+nj_tiis = {s: nj_tiis[s] / tii_normalising_constant for s in nj_tiis}
 
 for seq_id in seq_ids:
     epa_file = [f for f in epa_result_files if "/" + seq_id + "/" in f][0]
@@ -465,6 +465,7 @@ for seq_id in seq_ids:
             likelihood,
             like_weight_ratio,
             reattachment_branch_length,
+            distal_length,
             pendant_length,
             rf_distance,
             normalised_rf_distance,
