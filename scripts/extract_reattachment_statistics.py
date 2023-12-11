@@ -17,17 +17,24 @@ bootstrap_csv = snakemake.output.bootstrap_csv
 
 def calculate_taxon_height(input_tree, taxon_name):
     """
-    Return distance of reattachment position to nearest leaf (that is not the reattached leaf)
+    Return distance of reattachment position to nearest leaf (that is not the reattached leaf), normalised by maximum distance between any two leaves divided by two
     """
     taxon = input_tree & taxon_name
     taxon_parent = taxon.up
-    return min(
+    taxon_height = min(
         [
             ete_dist(taxon_parent, leaf, topology_only=False)
             for leaf in input_tree.get_leaves()
             if leaf != taxon
         ]
     )
+    normalising_constant = max(
+        [
+            ete_dist(leaf1, leaf2, topology_only=False)
+            for leaf1, leaf2 in itertools.combinations(input_tree.get_leaves(), 2)
+        ]
+    )
+    return taxon_height / normalising_constant
 
 
 def get_nj_tiis(full_mldist_file, restricted_mldist_files):
@@ -234,7 +241,7 @@ def get_distance_reattachment_sibling(seq_id, mldist_file, reattached_tree):
             avg_sibling_distance += ml_distances[leaf1][leaf2]
     avg_sibling_distance /= len(sibling_cluster) * len(siblings_sibling_cluster)
     avg_new_node_distance /= len(siblings_sibling_cluster)
-    return abs(avg_new_node_distance - avg_sibling_distance)
+    return avg_new_node_distance / avg_sibling_distance
 
 
 def seq_distance_distribution_closest_seq(
@@ -357,12 +364,14 @@ full_tree = Tree(full_tree_file)
 seq_ids = full_tree.get_leaf_names()
 n = len(seq_ids)
 epa_result_files = dynamic_input[0:n]
-restricted_tree_files = dynamic_input[n:2*n]
-restricted_mldist_files = dynamic_input[2*n:3*n]
+restricted_tree_files = dynamic_input[n : 2 * n]
+restricted_mldist_files = dynamic_input[2 * n : 3 * n]
 
 output = []
 taxon_tii_list = []
 nj_tiis = get_nj_tiis(full_mldist_file, restricted_mldist_files)
+tii_normalising_constant = 2 * len(full_tree) - 3
+nj_tiis = [tii / tii_normalising_constant for tii in nj_tiis]
 
 for seq_id in seq_ids:
     epa_file = [f for f in epa_result_files if "/" + seq_id + "/" in f][0]
@@ -373,9 +382,8 @@ for seq_id in seq_ids:
         f for f in restricted_tree_files if "/" + seq_id + "/" in f
     ][0]
     restricted_tree = Tree(restricted_tree_file)
-    normalising_constant = 2 * len(full_tree) - 3
     rf_distance = full_tree.robinson_foulds(restricted_tree, unrooted_trees=True)[0]
-    normalised_rf_distance = rf_distance / normalising_constant
+    normalised_rf_distance = rf_distance / tii_normalising_constant
 
     # get bootstrap support values in restricted tree
     bootstrap_list = [
@@ -405,6 +413,7 @@ for seq_id in seq_ids:
     sum_branch_lengths = sum(
         [node.dist for node in best_reattached_tree.iter_descendants()]
     )
+    branch_length_normalisation = sum_branch_lengths * n
     # to avoid having an empty list, we set distance between reattachments to be 0.
     # Note that this is correct if three is only one best reattachment.
     if len(reattachment_distances) == 0:
@@ -414,8 +423,8 @@ for seq_id in seq_ids:
     edge_num = best_placement[0]
     likelihood = best_placement[1]
     like_weight_ratio = best_placement[2]
-    distal_length = best_placement[3] / sum_branch_lengths
-    pendant_length = best_placement[4] / sum_branch_lengths
+    distal_length = best_placement[3] / branch_length_normalisation
+    pendant_length = best_placement[4] / branch_length_normalisation
     reattached_tree, reattachment_branch_length = get_reattached_tree(
         dict["tree"],
         best_placement[0],
@@ -423,15 +432,17 @@ for seq_id in seq_ids:
         best_placement[3],
         best_placement[4],
     )
+    distal_length = distal_length / reattachment_branch_length
+    reattachment_branch_length = (
+        reattachment_branch_length / branch_length_normalisation
+    )
     taxon_height = calculate_taxon_height(reattached_tree, seq_id)
     norm_taxon_height = taxon_height / sum_branch_lengths
     order_diff = get_order_of_distances_to_seq_id(
         seq_id, full_mldist_file, reattached_tree
     )
-    dist_reattachment_low_bootstrap_node = (
-        reattachment_distance_to_low_support_node(
-            seq_id, reattached_tree, bootstrap_threshold=0.1
-        )
+    dist_reattachment_low_bootstrap_node = reattachment_distance_to_low_support_node(
+        seq_id, reattached_tree, bootstrap_threshold=0.1
     )
     seq_and_tree_dist_ratio = seq_and_tree_dist_diff(
         seq_id,
@@ -450,6 +461,7 @@ for seq_id in seq_ids:
     output.append(
         [
             seq_id + " " + str(rf_distance),
+            n,
             likelihood,
             like_weight_ratio,
             reattachment_branch_length,
@@ -474,9 +486,11 @@ df = pd.DataFrame(
     output,
     columns=[
         "seq_id",
+        "num_leaves",
         "likelihood",
         "like_weight_ratio",
         "reattachment_branch_length",
+        "distal_length",
         "pendant_branch_length",
         "tii",
         "normalised_tii",
@@ -501,6 +515,7 @@ df = df.drop(columns=["taxon_height"])
 # rename normalised taxon height column
 df = df.rename(columns={"norm_taxon_height": "taxon_height"})
 
+
 # replace lists by mean and standard deviation for training random forest
 def calculate_mean_std(cell):
     if isinstance(cell, list) or isinstance(cell, np.ndarray):
@@ -512,6 +527,7 @@ def calculate_mean_std(cell):
     else:
         # Return NaN if the cell is not a list or array
         return np.nan, np.nan
+
 
 # Loop through each column in the DataFrame
 for col in df.columns:
