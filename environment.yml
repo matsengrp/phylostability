@@ -11,3 +11,4 @@ dependencies:
   - python
   - epa-ng
   - scikit-learn
+  - optuna

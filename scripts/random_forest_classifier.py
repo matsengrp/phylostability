@@ -1,7 +1,8 @@
+import optuna
 import pandas as pd
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, accuracy_score
 
 column_name = snakemake.params.column_to_predict
 csvs = snakemake.input.csvs
@@ -20,7 +21,6 @@ cols_to_drop = [
     "dataset",
     column_name + "_binary",
 ]
-
 
 def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
     X = df.drop(cols_to_drop, axis=1)
@@ -52,25 +52,42 @@ def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
     fpr, tpr, thresholds = roc_curve(y_test, y_scores)
     pd.DataFrame({"fpr": fpr, "tpr": tpr}).to_csv(classifier_metrics_csv)
     if cross_validate:
-        hyperparameter_grid={
-          "n_estimators": [100,200,500,1000],
-          "criterion": ["gini", "log_loss", "entropy"],
-          "max_depth": [10*x for x in range(1, 10)],
-          "min_samples_split": [0,1,2],
-          "max_features": ["sqrt", "log2", None],
-          "bootstrap" : [True, False],
-          "min_samples_leaf": [1, 2, 4],
-          "min_samples_split": [2, 5, 10],
-        }
-        rf_random = RandomizedSearchCV(estimator=model,
-                                       param_distributions=hyperparameter_grid,
-                                       n_iter=100,
-                                       cv=4,
-                                       verbose=2,
-                                       random_state=42,
-                                       n_jobs=-1)
-        rf_random.fit(X_train, y_train)
-        fit_model = rf_random.best_estimator_
+        # create an optimization function for optuna
+        def objective(trial):
+            n_estimators = trial.suggest_int('n_estimators', 10, 1000)
+            max_depth = trial.suggest_int('max_depth', 10, 1000, log=True)
+            min_samples_split = trial.suggest_float('min_samples_split', 0.1, 1.0)
+            min_samples_leaf = trial.suggest_float('min_samples_leaf', 0.1, 1.0)
+            max_features = trial.suggest_categorical('max_features', ['sqrt', 'log2'])
+            criterion = trial.suggest_categorical('criterion', ["gini", "log_loss", "entropy"])
+            model = RandomForestClassifier(
+                n_estimators=n_estimators,
+                max_depth=max_depth,
+                min_samples_split=min_samples_split,
+                min_samples_leaf=min_samples_leaf,
+                max_features=max_features,
+                criterion=criterion,
+                random_state=42
+            )
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
+            accuracy = accuracy_score(y_test, y_pred)
+            return accuracy
+
+        study = optuna.create_study(direction='maximize')
+        study.optimize(objective, n_trials=200)
+        best_params = study.best_params
+        fit_model = RandomForestClassifier(
+            n_estimators=best_params['n_estimators'],
+            max_depth=best_params['max_depth'],
+            min_samples_split=best_params['min_samples_split'],
+            min_samples_leaf=best_params['min_samples_leaf'],
+            max_features=best_params['max_features'],
+            criterion=best_params['criterion'],
+            random_state=42
+        )
+        fit_model.fit(X_train, y_train)
+
         fit_model_predictions = fit_model.predict(X_test)
         model_result["predicted"] = fit_model_predictions
         fit_model_importances = fit_model.feature_importances_
