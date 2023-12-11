@@ -38,17 +38,23 @@ num_bins = math.floor(math.sqrt(N))
 df["taxa_bin"] = pd.qcut(df["taxa"], num_bins, duplicates="drop")
 df["seq_bin"] = pd.qcut(df["sequences"], num_bins, duplicates="drop")
 
+new_samples = df.groupby(["taxa_bin", "seq_bin"]).sample(n=1, random_state=1)
+
 # Sample additional datasets
-num_to_select = N
-if num_to_select > 0:
-    additional_samples = df.groupby(["taxa_bin", "seq_bin"]).sample(n=1)
+num_selected = len(new_samples)
+if num_selected < N:
+    additional_samples = df.drop(new_samples.index).sample(
+        n=N - num_selected, random_state=1
+    )
     # Verify Nexus files have alignments
     additional_samples = additional_samples[
         additional_samples["file"].apply(
             lambda x: has_alignment(os.path.join(data_folder, x))
         )
     ]
-    selected_datasets = pd.concat([selected_datasets, additional_samples])
+    new_samples = pd.concat([new_samples, additional_samples])
+
+selected_datasets = pd.concat([selected_datasets, new_samples])
 
 # Save the updated selected datasets
 selected_datasets.to_csv(selected_file, index=False)

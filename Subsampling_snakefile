@@ -1,5 +1,5 @@
 data_folder="harrington_data"
-num_samples=3
+num_samples=4
 
 
 rule all:
@@ -27,7 +27,7 @@ rule select_datasets:
         num_samples=num_samples,
         data=data_folder,
     output:
-        temp(touch(data_folder+"/select_datasets.done")),
+        touch(data_folder+"/select_datasets.done"),
     script:
         "scripts/select_datasets.py"
 
@@ -39,5 +39,6 @@ rule run_stability_analysis:
         data_folder+"/selected_data/plots/random_forest_results.pdf"
     shell:
         '''
+        # snakemake -c12 --touch
         snakemake -c12
         '''
