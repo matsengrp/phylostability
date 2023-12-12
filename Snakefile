@@ -46,10 +46,10 @@ rule convert_input_to_fasta:
     input:
         data_folder=data_folder,
     output:
-        temp(touch("convert_input_to_fasta.done")),
-        input_alignment=expand("{subdir}/"+input_alignment, subdir=subdirs)
+        temp(touch("{subdir}/convert_input_to_fasta.done")),
+        input_alignment="{subdir}/"+input_alignment,
     params:
-        subdirs=subdirs
+        subdir=lambda wildcards: wildcards.subdir
     script:
         "scripts/convert_input_to_fasta.py"
 
@@ -57,7 +57,7 @@ rule convert_input_to_fasta:
 # Define the rule to extract the best model for iqtree on the full MSA
 rule model_test_iqtree:
     input:
-        "convert_input_to_fasta.done",
+        "{subdir}/convert_input_to_fasta.done",
         msa="{subdir}/"+input_alignment
     output:
         temp(touch("{subdir}/model-test-iqtree.done")),
@@ -82,7 +82,7 @@ rule extract_model_for_full_iqtree_run:
 # Define the rule to remove a sequence from the MSA and write the reduced MSA to a file
 rule remove_sequence:
     input:
-        "convert_input_to_fasta.done",
+        "{subdir}/convert_input_to_fasta.done",
         msa="{subdir}/"+input_alignment
     output:
         reduced_msa=temp("{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta"),
@@ -95,7 +95,7 @@ rule remove_sequence:
 # Define the rule to run IQ-TREE on the full MSA and get model parameters
 rule run_iqtree_on_full_dataset:
     input:
-        "convert_input_to_fasta.done",
+        "{subdir}/convert_input_to_fasta.done",
         msa="{subdir}/"+input_alignment,
         full_model="{subdir}/iqtree-model.txt"
     output:
@@ -127,7 +127,7 @@ rule run_iqtree_restricted_alignments:
 
 rule extract_single_fastas:
     input:
-        "convert_input_to_fasta.done",
+        "{subdir}/convert_input_to_fasta.done",
         msa="{subdir}/"+input_alignment
     output:
         taxon_msa="{subdir}/reduced_alignments/{seq_id}/single_taxon.fasta",
