@@ -22,10 +22,11 @@ fasta_files = [
     os.readlink(file) if os.path.islink(file) else file for file in fasta_files
 ]
 
-if len(fasta_files) > 0:
-    fasta_file = fasta_files[0]
-    os.rename(fasta_file, msa_file)
-    print(f"Renamed {fasta_file} to {msa_file}")
+    if len(fasta_files) > 0:
+        fasta_file = fasta_files[0]
+        os.rename(fasta_file, msa_file)
+        print(f"Renamed {fasta_file} to {msa_file}")
+        continue
 
 elif len(nexus_files) == 1:
     # If there is only the .n.nex file, we convert that one
