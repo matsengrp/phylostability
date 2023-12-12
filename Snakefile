@@ -8,7 +8,8 @@ data_folder="harrington_data/selected_data/"
 plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
-subdirs = [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path]
+def get_subdirs(data_folder):
+    return [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path]
 
 # Retrieve all sequence IDs from the input multiple sequence alignment
 def get_seq_ids(input_file, filetype):
@@ -181,14 +182,14 @@ rule extract_reattachment_statistics:
 
 rule random_forest_regression:
     input:
-        csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=subdirs),
+        csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=get_subdirs(data_folder)),
     output:
         model_features_file=data_folder+"model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_regression.csv",
         combined_csv_path=data_folder+"combined_statistics.csv",
     params:
         column_to_predict = "normalised_tii",
-        subdirs=subdirs,
+        subdirs=get_subdirs(data_folder),
     script:
         "scripts/random_forest_regression.py"
 
