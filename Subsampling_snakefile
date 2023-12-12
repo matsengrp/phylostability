@@ -1,5 +1,5 @@
 data_folder="harrington_data"
-num_samples=4
+num_samples=1
 
 
 rule all:
@@ -39,6 +39,6 @@ rule run_stability_analysis:
         data_folder+"/selected_data/plots/random_forest_results.pdf"
     shell:
         '''
-        # snakemake -c12 --touch
-        snakemake -c12
+        snakemake -c16 --touch
+        snakemake -c16 -R random_forest_regression
         '''
