@@ -7,6 +7,10 @@ rule all:
         data_folder+"/selected_data/plots/random_forest_results.pdf"
 
 
+def get_subdirs(data_folder):
+    return [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path]
+
+
 # save num_taxa and num_sequences for every nexus or fasta file in a subdirectory of data_folder
 rule get_nexus_data:
     output:
@@ -32,13 +36,26 @@ rule select_datasets:
         "scripts/select_datasets.py"
 
 
+# convert input alignments from nexus to fasta, if necessary
+rule convert_input_to_fasta:
+    input:
+        data_folder+"/select_datasets.done"
+    output:
+        temp(touch(data_folder+"/convert_input_to_fasta.done")),
+    params:
+        data_folder = data_folder+"/selected_data/",
+    script:
+        "scripts/convert_input_to_fasta.py"
+
+
+
 rule run_stability_analysis:
     input:
-        data_folder+"/select_datasets.done",
+        data_folder+"/convert_input_to_fasta.done",
     output:
         data_folder+"/selected_data/plots/random_forest_results.pdf"
     shell:
         '''
-        snakemake -c16 --touch
-        snakemake -c16 -R random_forest_regression
+        snakemake -c36 --touch
+        snakemake -c36 -R random_forest_regression
         '''
