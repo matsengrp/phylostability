@@ -12,7 +12,8 @@ for subdir in [
     if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path
 ]:
     msa_file = subdir + "/full_alignment.fasta"
-    print(msa_file)
+    if os.path.exists(msa_file):
+        continue
     # Search for Nexus and FASTA files
     nexus_files = [
         f for f in glob.glob(os.path.join(subdir, "*.nex")) if ".splits." not in f
@@ -25,11 +26,12 @@ for subdir in [
     fasta_files = [
         os.readlink(file) if os.path.islink(file) else file for file in fasta_files
     ]
-
+    nexus_file = None
     if len(fasta_files) > 0:
         fasta_file = fasta_files[0]
         os.rename(fasta_file, msa_file)
         print(f"Renamed {fasta_file} to {msa_file}")
+        continue
 
     elif len(nexus_files) == 1:
         # If there is only the .n.nex file, we convert that one

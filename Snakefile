@@ -34,7 +34,7 @@ rule all:
         "random_forest_plots.done",
         # expand("{subdir}/create_plots.done", subdir=subdirs),
         # expand("{subdir}/create_other_plots.done", subdir=subdirs)
-        data_folder+"analyse_sh_test.done"
+        data_folder+plots_folder+plots_folder+"p_au_proportion_plot.pdf"
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -217,7 +217,6 @@ rule write_all_reattached_trees:
         dynamic_input=dynamic_input,
         full_tree="{subdir}/"+input_alignment+".treefile",
     output:
-        temp(touch("{subdir}/write_all_reattached_trees.done")),
         reattached_trees="{subdir}/reattached_trees.trees",
     script:
         "scripts/write_all_reattached_trees.py"
@@ -226,12 +225,11 @@ rule write_all_reattached_trees:
 # SH-test to test model fit of full tree to reattached trees
 rule sh_test_model_fit:
     input:
-        "{subdir}/write_all_reattached_trees.done",
         msa="{subdir}/"+input_alignment,
         reattached_trees="{subdir}/reattached_trees.trees",
         full_tree = "{subdir}/"+input_alignment+".treefile"
     output:
-        temp(touch("{subdir}/sh_test_model_fit.done")),
+        touch("{subdir}/sh_test_model_fit.done"),
         "{subdir}/"+input_alignment+".sh-test.iqtree"
     shell:
         """
@@ -242,9 +240,9 @@ rule sh_test_model_fit:
 rule analyse_sh_test:
     input:
         expand("{subdir}/sh_test_model_fit.done", subdir=get_subdirs(data_folder)),
-        iqtree_file=expand("{subdir}/"+input_alignment+".sh-test.iqtree", subdir=get_subdirs(data_folder))
+        iqtree_file=expand("{subdir}/"+input_alignment+".sh-test.iqtree", subdir=get_subdirs(data_folder)),
     output:
-        temp(touch(data_folder+"analyse_sh_test.done"))
+        plot=data_folder+plots_folder+plots_folder+"p_au_proportion_plot.pdf"
     params:
         plots_folder=data_folder+plots_folder
     script:

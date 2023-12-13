@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 
 iqtree_files = snakemake.input.iqtree_file
-plots_folder = snakemake.params.plots_folder
+plot_filepath = snakemake.output.plot
 
 
 def extract_table_from_file(filename):
@@ -64,7 +64,7 @@ def extract_table_from_file(filename):
 df_list = []
 for iqtree_file in iqtree_files:
     df = extract_table_from_file(iqtree_file)
-    df["filename"] = iqtree_file.split("/")[-1]
+    df["filename"] = iqtree_file.split("/")[-2]
     df_list.append(df)
 
 big_df = pd.concat(df_list, ignore_index=True)
@@ -84,4 +84,4 @@ plt.ylabel("Proportion of p-AU < 0.05")
 plt.xticks(rotation=45, ha="right")  # Rotate the x-axis labels for better readability
 plt.title("Proportion of p-AU < 0.05 for each file")
 plt.tight_layout()  # Adjust layout for better fit
-plt.savefig(plots_folder + "p_au_proportion_plot.pdf")
+plt.savefig(plot_filepath)

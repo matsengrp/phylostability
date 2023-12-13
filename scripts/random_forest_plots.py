@@ -51,7 +51,15 @@ def plot_tiis(csv, plot_filepath):
     datasets = df["dataset"].unique()
     datasets.sort()
     if len(datasets) > 20:
-        print("Too many datasets to create plot of all TIIs")
+        # Instead of individual TII plots, boxplot representing TIIs for all data sets
+        plt.figure(figsize=(10, 6))
+        ax = sns.boxplot(data=df, x="normalised_tii")
+        # Set labels and title
+        plt.xlabel("TII")
+        plt.title("TII values over all datasets")
+        plt.tight_layout()
+        plt.savefig(plot_filepath)
+        plt.clf()
         return 1
     num_datasets = len(datasets)
     num_rows = int(num_datasets**0.5)
