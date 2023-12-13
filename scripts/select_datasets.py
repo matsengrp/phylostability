@@ -38,7 +38,9 @@ num_bins = math.floor(math.sqrt(N))
 df["taxa_bin"] = pd.qcut(df["taxa"], num_bins, duplicates="drop")
 df["seq_bin"] = pd.qcut(df["sequences"], num_bins, duplicates="drop")
 
-new_samples = df.groupby(["taxa_bin", "seq_bin"]).sample(n=1, random_state=1)
+new_samples = df.groupby(["taxa_bin", "seq_bin"], observed=True).sample(
+    n=1, random_state=1
+)
 
 # Sample additional datasets
 num_selected = len(new_samples)

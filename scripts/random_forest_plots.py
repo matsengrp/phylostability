@@ -74,7 +74,7 @@ def plot_tiis(csv, plot_filepath):
         # Hide unused subplots
         if index == num_datasets - 1:
             for i in range(index + 1, num_rows * num_cols):
-                fig.delaxes(axes[i // num_cols][i % num_cols]) + 1 + 1.5 + 1 + 1.5
+                fig.delaxes(axes[i // num_cols][i % num_cols])
         # Calculate the appropriate bin range
         bin_start = math.floor(current_df["tii"].min()) - 0.5
         bin_end = math.ceil(current_df["tii"].max()) + 1 + 1.5
