@@ -178,6 +178,7 @@ cython_debug/
 *.mldist
 **.done
 *.phy
+*.trees
 
 # epa-ng
 *.jplace
