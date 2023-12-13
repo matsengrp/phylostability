@@ -64,7 +64,7 @@ def extract_table_from_file(filename):
 df_list = []
 for iqtree_file in iqtree_files:
     df = extract_table_from_file(iqtree_file)
-    df["filename"] = iqtree_file.split("/")[1]
+    df["filename"] = iqtree_file.split("/")[-1]
     df_list.append(df)
 
 big_df = pd.concat(df_list, ignore_index=True)

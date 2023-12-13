@@ -4,7 +4,7 @@ import os
 import glob
 
 # Path to the data directory
-data_dir = snakemake.input.data_folder
+data_dir = snakemake.params.data_folder
 msa_file = snakemake.output.input_alignment
 subdir = snakemake.params.subdir
 
@@ -26,7 +26,6 @@ if len(fasta_files) > 0:
     fasta_file = fasta_files[0]
     os.rename(fasta_file, msa_file)
     print(f"Renamed {fasta_file} to {msa_file}")
-    continue
 
 elif len(nexus_files) == 1:
     # If there is only the .n.nex file, we convert that one
@@ -37,7 +36,7 @@ else:
     nexus_file = [f for f in nexus_files if ".n." not in f and ".splits." not in f][0]
     SeqIO.convert(nexus_file, "nexus", msa_file, "fasta")
 
-# If sequences are labelles by integers, we update those labels to s_1, s_2, ...
+# If sequences are labelled by integers, we update those labels to s_1, s_2, ...
 # to make sure that we don't get problems with reading trees with bootstrap support
 # or internal node names later.
 

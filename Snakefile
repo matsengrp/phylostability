@@ -17,15 +17,9 @@ def get_seq_ids(input_file, filetype):
 
 def dynamic_input(wildcards):
     subdir = wildcards.subdir
-    nexus_files = glob.glob(os.path.join(subdir, "*.nex"))
     fasta_files = glob.glob(os.path.join(subdir, "*.fasta"))
-    nexus_files = [os.readlink(file) if os.path.islink(file) else file for file in nexus_files]
     fasta_files = [os.readlink(file) if os.path.islink(file) else file for file in fasta_files]
-
-    if len(fasta_files) > 0:
-        seq_ids = get_seq_ids(fasta_files[0], "fasta")
-    else:
-        seq_ids = get_seq_ids(nexus_files[0], "nexus")
+    seq_ids = get_seq_ids(fasta_files[0], "fasta")
 
     epa_results = [subdir+"/reduced_alignments/"+seq_id+"/epa_result.jplace" for seq_id in seq_ids]
     restricted_trees = [subdir+"/reduced_alignments/"+seq_id+"/reduced_alignment.fasta.treefile" for seq_id in seq_ids]
@@ -49,7 +43,8 @@ rule convert_input_to_fasta:
         temp(touch("{subdir}/convert_input_to_fasta.done")),
         input_alignment="{subdir}/"+input_alignment,
     params:
-        subdir=lambda wildcards: wildcards.subdir
+        data_folder = data_folder,
+        subdir=lambda wildcards: wildcards.subdir,
     script:
         "scripts/convert_input_to_fasta.py"
 

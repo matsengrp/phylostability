@@ -1,5 +1,5 @@
 data_folder="harrington_data"
-num_samples=1
+num_samples=4
 
 
 rule all:
