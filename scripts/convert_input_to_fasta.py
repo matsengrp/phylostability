@@ -1,4 +1,4 @@
-from Bio import SeqIO, AlignIO
+from Bio import SeqIO
 from Bio.Nexus import Nexus
 import os
 import glob
@@ -9,21 +9,15 @@ data_dir = snakemake.params.data_folder
 
 
 def is_alignment(input_file):
-    try:
-        with open(input_file, "r") as handle:
-            # Attempt to parse the file as a FASTA
-            fasta_sequences = list(SeqIO.parse(handle, "fasta"))
-            if len(fasta_sequences) > 0:
-                return True  # Successfully parsed as FASTA with sequences
-    except ValueError:
-        try:
-            with open(input_file, "r") as handle:
-                # Attempt to parse the file as a Nexus alignment
-                nexus_alignment = AlignIO.read(handle, "nexus")
-                if nexus_alignment.get_alignment_length() > 0:
-                    return True  # Successfully parsed as Nexus with sequences
-        except ValueError:
-            pass  # Neither FASTA nor Nexus format
+    with open(input_file, "r") as handle:
+        # Attempt to parse the file as a FASTA
+        alignment = []
+        if "fasta" in input_file:
+            alignment = list(SeqIO.parse(handle, "fasta"))
+        elif "nex" in input_file:
+            alignment = list(SeqIO.parse(handle, "nexus"))
+        if len(alignment) > 0:
+            return True  # Successfully parsed as FASTA with sequences
     return False  # No sequences found
 
 
@@ -35,6 +29,7 @@ for subdir in [
     msa_file = subdir + "/full_alignment.fasta"
     if os.path.exists(msa_file):
         if not is_alignment(msa_file):
+            print(f"full_alignment.fasta doesn't contain msa. Delete {subdir}")
             shutil.rmtree(subdir)
             continue
         continue
@@ -52,12 +47,13 @@ for subdir in [
     ]
     nexus_file = None
     if len(fasta_files) == 0 and len(nexus_files) == 0:
-        print(f"No alignment files in {subdir}. Delete {subdir}")
+        print(f"No alignment files in {subdir}. Delete {subdir}.")
         shutil.rmtree(subdir)
         continue
     if len(fasta_files) > 0:
         fasta_file = fasta_files[0]
         if not is_alignment(fasta_file):
+            print(f"{fasta_file} doesn't contain alignment. Delete {subdir}.")
             shutil.rmtree(subdir)
             continue
         os.rename(fasta_file, msa_file)
@@ -69,6 +65,7 @@ for subdir in [
         # Otherwise, we go to 'else' and convert the other nexus file
         nexus_file = nexus_files[0]
         if not is_alignment(nexus_file):
+            print(f"{nexus_file} doesn't contain alignment. Delete {subdir}.")
             shutil.rmtree(subdir)
             continue
         SeqIO.convert(nexus_file, "nexus", msa_file, "fasta")

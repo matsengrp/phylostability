@@ -31,6 +31,11 @@ df = pd.read_csv(data_csv)
 # Filter out already selected datasets
 df = df[~df["file"].isin(selected_datasets["file"])]
 
+if len(df) == 0:
+    exit(0)
+elif len(df) < N:
+    N = len(df)
+
 # Define the number of bins
 num_bins = math.floor(math.sqrt(N))
 

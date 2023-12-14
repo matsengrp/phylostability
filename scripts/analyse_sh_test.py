@@ -94,7 +94,7 @@ for subdir in subdirs:
 
 big_df = pd.concat(df_list, ignore_index=True)
 
-filtered_df = df[df["p-AU"] < 0.05]
+filtered_df = big_df[big_df["p-AU"] < 0.05]
 plt.figure(figsize=(10,6))
 sns.scatterplot(filtered_df, x = "ID", y = "normalised_tii")
 plt.savefig(plot_filepath)
