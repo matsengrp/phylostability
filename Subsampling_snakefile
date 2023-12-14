@@ -57,7 +57,8 @@ rule run_stability_analysis:
     input:
         data_folder+"/convert_input_to_fasta.done"
     output:
-        data_folder+"/selected_data/plots/random_forest_results.pdf"
+        data_folder+"/selected_data/plots/random_forest_results.pdf",
+        data_folder+"/selected_data/plots/p_au_proportion_plot.pdf"
     shell:
         '''
         # snakemake -c8 --touch
