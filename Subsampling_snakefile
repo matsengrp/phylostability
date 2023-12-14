@@ -1,7 +1,7 @@
 import os
 
 data_folder="harrington_data"
-num_samples=1
+num_samples=100
 
 if not os.path.exists(data_folder+"/selected_data"):
     os.makedirs(data_folder+"/selected_data")
@@ -60,6 +60,6 @@ rule run_stability_analysis:
         data_folder+"/selected_data/plots/random_forest_results.pdf"
     shell:
         '''
-        # snakemake -c8 --touch
-        snakemake -c8 -R random_forest_regression
+        # snakemake -c36 --touch --rerun-incomplete
+        snakemake -c36 -R random_forest_regression
         '''
