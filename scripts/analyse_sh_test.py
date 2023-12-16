@@ -72,12 +72,14 @@ for subdir in subdirs:
     ss_df = pd.read_csv([f for f in summary_statistics if subdir + "/" in f][0])
     ss_df = ss_df[["seq_id", "normalised_tii", "tii"]]
     # make sure ss_df rows match those in other dfs (need to add one row for full tree)
-    new_row = pd.DataFrame({'seq_id': ["full"], 'normalised_tii': [0], 'tii': [0]})
+    new_row = pd.DataFrame({"seq_id": ["full"], "normalised_tii": [0], "tii": [0]})
     ss_df = pd.concat([ss_df, new_row], ignore_index=True)
+
     # seq_id in ss_df is actually seq_id + " " + tii. We need to fix that.
     def extract_seq_id(s):
         return s.split(" ")[0]
-    ss_df['seq_id'] = ss_df['seq_id'].apply(extract_seq_id)
+
+    ss_df["seq_id"] = ss_df["seq_id"].apply(extract_seq_id)
 
     # extract iqtree output and corresponding seq_id order
     iqtree_file = [f for f in iqtree_files if subdir + "/" in f][0]
@@ -88,15 +90,17 @@ for subdir in subdirs:
     df = extract_table_from_file(iqtree_file)
     df["dataset"] = iqtree_file.split("/")[-2]
     df["seq_id"] = order
-    df = df.merge(ss_df, on='seq_id', how='left')
-    df["ID"] = df["dataset"] + " " + df["seq_id"] + " " +   df["tii"].astype(str)
+    df = df.merge(ss_df, on="seq_id", how="left")
+    df["ID"] = df["dataset"] + " " + df["seq_id"] + " " + df["tii"].astype(str)
     df_list.append(df)
 
 big_df = pd.concat(df_list, ignore_index=True)
 
 filtered_df = big_df[big_df["p-AU"] < 0.05]
-plt.figure(figsize=(10,6))
-sns.scatterplot(filtered_df, x = "ID", y = "normalised_tii")
+plt.figure(figsize=(10, 6))
+sns.scatterplot(filtered_df, x="ID", y="normalised_tii")
+plt.xticks(rotation=90)
+plt.tight_layout()
 plt.savefig(plot_filepath)
 
 # # Group by 'dataset' and calculate the proportion

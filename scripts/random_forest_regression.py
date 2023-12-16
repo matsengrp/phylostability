@@ -19,6 +19,7 @@ cols_to_drop = [
     "likelihood",
     "tii",
     "dataset",
+    "rf_radius",
     #     "bootstrap",
     #     "order_diff",
     #     "reattachment_distances",

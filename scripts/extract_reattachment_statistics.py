@@ -10,6 +10,9 @@ dynamic_input = snakemake.input.dynamic_input
 full_tree_file = snakemake.input.full_tree
 full_mldist_file = snakemake.input.full_mldist_file
 
+with open("output.txt", "a") as f:
+    f.write(full_tree_file + "\n")
+
 plot_csv = snakemake.output.plot_csv
 random_forest_csv = snakemake.output.random_forest_csv
 bootstrap_csv = snakemake.output.bootstrap_csv
@@ -64,11 +67,11 @@ def get_order_of_distances_to_seq_id(
     reattached_tree,
 ):
     """
-    Get difference in tree and sequence distance for sequences of taxon1 and taxon2
+    Get difference in full_tree and sequence distance for sequences of taxon1 and taxon2
     where distance of taxon1 to seq_id is smaller than taxon2 to seq_id in best reattached
-    tree, but greater in terms of sequence distance, for each possible seq_id.
+    full_tree, but greater in terms of sequence distance, for each possible seq_id.
     # We filter and currently only look at pairs of taxa with this property whose mrca
-    # has bootstrap support in the lowest 10% of bootstap values throughout the tree.
+    # has bootstrap support in the lowest 10% of bootstap values throughout the full_tree.
     """
     mldist = get_ml_dist(mldist_file)
     max_mldist = mldist.max().max()
@@ -133,19 +136,19 @@ def get_reattachment_distances(reduced_tree, reattachment_trees, seq_id):
     reattachment_node_list = []
 
     # maximum reattachment distance could reach is max dist between any two leaves in the
-    # smaller tree
+    # smaller full_tree
     max_reattachment_dist = max(
         [
             leaf1.get_distance(leaf2, topology_only=True)
             for leaf1, leaf2 in itertools.combinations(reduced_tree.get_leaves(), 2)
         ]
     )
-    for tree in reattachment_trees:
+    for full_tree in reattachment_trees:
         # cluster is set of leaves below lower node of reattachment edge
-        cluster = tree.search_nodes(name=seq_id)[0].up.get_leaf_names()
+        cluster = full_tree.search_nodes(name=seq_id)[0].up.get_leaf_names()
         cluster.remove(seq_id)
         if len(cluster) == 1:  # reattachment above leaf
-            reattachment_node = tree.search_nodes(name=cluster[0])[0]
+            reattachment_node = full_tree.search_nodes(name=cluster[0])[0]
         else:
             mrca = reduced_tree.get_common_ancestor(cluster)
             reattachment_node = mrca
@@ -204,7 +207,7 @@ def seq_and_tree_dist_diff(
 ):
     """
     Get difference and ratio of distance between seq_id and other sequences in alignment
-    to corresponding distance in best reattached tree.
+    to corresponding distance in best reattached full_tree.
     """
     ml_distances = get_ml_dist(mldist_file)
     distance_ratios = []
@@ -220,7 +223,7 @@ def get_distance_reattachment_sibling(seq_id, mldist_file, reattached_tree):
     """
     If S is the subtree that is sibling of reattached sequence, we compute ratio of
     average distance of sequences in S and sequences in S's sibling S' in reduced
-    tree to average distance of reattached sequences and sequences in S'.
+    full_tree to average distance of reattached sequences and sequences in S'.
     """
     ml_distances = get_ml_dist(mldist_file)
     reattachment_node = reattached_tree.search_nodes(name=seq_id)[0].up
@@ -275,13 +278,13 @@ def get_bootstrap_and_bts_scores(
     full_tree_file,
 ):
     """
-    Returns DataFrame branch_scores_df containing bts values for all edges in tree in full_tree_file
+    Returns DataFrame branch_scores_df containing bts values for all edges in full_tree in full_tree_file
     """
 
     full_tree = Tree(full_tree_file)
     num_leaves = len(full_tree)
 
-    # extract bootstrap support from full tree
+    # extract bootstrap support from full full_tree
     bootstrap_dict = {
         ",".join(sorted(node.get_leaf_names())): node.support
         for node in full_tree.iter_descendants()
@@ -300,15 +303,15 @@ def get_bootstrap_and_bts_scores(
     }
 
     for treefile in reduced_tree_files:
-        tree = Tree(treefile)
+        full_tree = Tree(treefile)
         seq_id = treefile.split("/")[-2]
 
-        # collect bootstrap support and bts for all nodes in tree
-        for node in tree.traverse("postorder"):
+        # collect bootstrap support and bts for all nodes in full_tree
+        for node in full_tree.traverse("postorder"):
             if not node.is_leaf() and not node.is_root():
                 # add bootstrap support values for seq_id
-                # one edge in the full tree could correspond to two edges in the
-                # reduced tree (leaf_str and leaf_str_extended below), if the pruned
+                # one edge in the full full_tree could correspond to two edges in the
+                # reduced full_tree (leaf_str and leaf_str_extended below), if the pruned
                 # taxon is attached on that edge. We hence need to add one for each of
                 # those, if they are in branch_scores.
                 edge_found = False
@@ -322,7 +325,7 @@ def get_bootstrap_and_bts_scores(
                     branch_scores[leaf_str_extended] += 1
                     continue
                 # edge ID might be complement of leaf set
-                # this could happen if rooting of tree is different to that of full_tree
+                # this could happen if rooting of full_tree is different to that of full_tree
                 complement_leaves = list(
                     set(all_taxa) - set(node.get_leaf_names()) - set(seq_id)
                 )
@@ -359,6 +362,28 @@ def get_bootstrap_and_bts_scores(
     return merged_df
 
 
+def get_rf_radius(full_tree, reduced_tree, seq_id):
+    """ "
+    Return maximum distance of split that's present in full_tree but not
+    reduced_tree to reattachment position.
+    """
+    rf_output = full_tree.robinson_foulds(reduced_tree, unrooted_trees=True)
+    changed_edges = rf_output[3] - rf_output[4]
+    rf_radius = 0
+    for set in changed_edges:
+        cluster1 = set[0]
+        node = full_tree.get_common_ancestor(cluster1)
+        if node.is_root():
+            cluster2 = set[1]
+            node = full_tree.get_common_ancestor(cluster2)
+        seq_id_leaf = full_tree.search_nodes(name=seq_id)[0]
+        reattachment_position = seq_id_leaf.up
+        dist = ete_dist(node, reattachment_position, topology_only=True)
+        if dist > rf_radius:
+            rf_radius = dist
+    return rf_radius
+
+
 # get all the data files we need
 full_tree = Tree(full_tree_file)
 seq_ids = full_tree.get_leaf_names()
@@ -385,7 +410,7 @@ for seq_id in seq_ids:
     rf_distance = full_tree.robinson_foulds(restricted_tree, unrooted_trees=True)[0]
     normalised_rf_distance = rf_distance / tii_normalising_constant
 
-    # get bootstrap support values in restricted tree
+    # get bootstrap support values in restricted full_tree
     bootstrap_list = [
         node.support
         for node in restricted_tree.traverse()
@@ -457,6 +482,7 @@ for seq_id in seq_ids:
         full_mldist_file,
         reattached_tree,
     )
+    rf_radius = get_rf_radius(full_tree, restricted_tree, seq_id)
     # save all those summary statistics
     output.append(
         [
@@ -480,6 +506,7 @@ for seq_id in seq_ids:
             seq_and_tree_dist_ratio,
             dist_diff_reattachment_sibling,
             seq_distance_ratios_closest_seq,
+            rf_radius,
         ]
     )
 
@@ -506,6 +533,7 @@ df = pd.DataFrame(
         "seq_and_tree_dist_ratio",
         "dist_diff_reattachment_sibling",
         "seq_distance_ratios_closest_seq",
+        "rf_radius",
     ],
 )
 df.to_csv(plot_csv)
