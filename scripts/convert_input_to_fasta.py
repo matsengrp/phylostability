@@ -1,5 +1,6 @@
 from Bio import SeqIO
 from Bio.Nexus import Nexus
+from Bio.Seq import Seq
 import os
 import glob
 import shutil
@@ -28,10 +29,10 @@ for subdir in [
 ]:
     msa_file = subdir + "/full_alignment.fasta"
     if os.path.exists(msa_file):
-        if not is_alignment(msa_file):
-            print(f"full_alignment.fasta doesn't contain msa. Delete {subdir}")
-            shutil.rmtree(subdir)
-            continue
+        # if not is_alignment(msa_file):
+        #     print(f"full_alignment.fasta doesn't contain msa. Delete {subdir}")
+        #     shutil.rmtree(subdir)
+        #     continue
         continue
     # Search for Nexus and FASTA files
     nexus_files = [
@@ -94,7 +95,12 @@ for subdir in [
         records = list(SeqIO.parse(nexus_file, "nexus"))
     else:
         # This is if we already had fasta file beforehand
-        record = list(SeqIO.parse(fasta_file, "fasta"))
+        records = list(SeqIO.parse(fasta_file, "fasta"))
+
+    # Make sure "-" is only gap character in sequences
+    for record in records:
+        record.seq = Seq(str(record.seq).replace("N", "-"))
+        print(record.seq)
 
     # Store unique sequences
     seen_sequences = set()
