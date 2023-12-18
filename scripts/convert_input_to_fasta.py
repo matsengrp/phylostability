@@ -100,7 +100,6 @@ for subdir in [
     # Make sure "-" is only gap character in sequences
     for record in records:
         record.seq = Seq(str(record.seq).replace("N", "-"))
-        print(record.seq)
 
     # Store unique sequences
     seen_sequences = set()
