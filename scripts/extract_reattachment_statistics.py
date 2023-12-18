@@ -10,9 +10,6 @@ dynamic_input = snakemake.input.dynamic_input
 full_tree_file = snakemake.input.full_tree
 full_mldist_file = snakemake.input.full_mldist_file
 
-with open("output.txt", "a") as f:
-    f.write(full_tree_file + "\n")
-
 plot_csv = snakemake.output.plot_csv
 random_forest_csv = snakemake.output.random_forest_csv
 bootstrap_csv = snakemake.output.bootstrap_csv
