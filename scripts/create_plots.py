@@ -69,6 +69,7 @@ def df_column_swarmplot(csv, col_name, plot_filepath):
     # Convert the column to numeric, to handle any inadvertent string or object types
     df[col_name] = pd.to_numeric(df[col_name], errors="coerce")
     df_sorted = df.sort_values(by="tii")
+    df_sorted = df_sorted.dropna(subset=[col_name])
 
     plt.figure(figsize=(10, 6))
     ax = sns.stripplot(data=df_sorted, x="seq_id", y=col_name)
@@ -94,49 +95,11 @@ def df_column_swarmplot(csv, col_name, plot_filepath):
                 alpha=0.5,
             )
 
-def plot_random_forest_results(results_csv, plot_filepath):
-    df = pd.read_csv(results_csv, index_col=0)
-    df_sorted = df.sort_values(by="actual").melt("actual", var_name="model", value_name="predicted_value")
-    plt.figure(figsize=(10, 6))
-    sns.scatterplot(data=df_sorted, x="actual", y="predicted_value", hue="model")
-    plt.title("results of random forest regression")
-    plt.tight_layout()
-    plt.savefig(plot_filepath)
-    plt.clf()
-
-
-def plot_random_forest_model_features(model_features_csv, plot_filepath):
-    df = pd.read_csv(
-        model_features_csv, names=["feature_name", "untuned", "tuned"], skiprows=1, header=0
-    ).melt("feature_name", var_name="model_type", value_name="importance")
-    plt.figure(figsize=(10, 6))
-    sns.barplot(data=df, x="feature_name", y="importance", hue="model_type")
-    plt.title("feature importance for random forest regression")
-    plt.xticks(rotation=90)
-    plt.tight_layout()
-    plt.savefig(plot_filepath)
-    plt.clf()
-
-
-def plot_random_forest_classifier_results(results_csv, plot_filepath):
-    df = pd.read_csv(results_csv, index_col=0)
-    df_sorted = df.sort_values(by="tii value")
-    for col in ["actual", "untuned_model_predicted", "predicted"]:
-        df_sorted[col] = ["unstable" if x else "stable" for x in df_sorted[col]]
-    df_sorted = df_sorted.melt("tii value", var_name="classifier", value_name="predicted_unstable")
-    df_sorted = df_sorted[df_sorted["predicted_unstable"] != "stable"]
-    plt.figure(figsize=(10, 6))
-    sns.countplot(data=df_sorted, x="tii value", hue="classifier")
-    plt.title("results of random forest classifier")
-    plt.tight_layout()
-    plt.savefig(plot_filepath)
-    plt.clf()
-
 
 csv = snakemake.input.csv
 bootstrap_csv = snakemake.input.bootstrap_csv
-
 plots_folder = snakemake.params.plots_folder
+
 
 if not os.path.exists(plots_folder):
     os.makedirs(plots_folder)
@@ -151,7 +114,6 @@ taxon_tii_list = [
 ]
 sorted_taxon_tii_list = sorted(taxon_tii_list, key=lambda x: x[1])
 print("Done reading data.")
-
 
 print("Start plotting bootstrap supports.")
 plot_filepath = os.path.join(plots_folder, "bootstrap_vs_tii.pdf")
@@ -257,25 +219,3 @@ df_column_swarmplot(csv, "dist_diff_reattachment_sibling", plot_filepath)
 print(
     "Done plotting ratio of distances of sibling cluster of reattachment to its nearest clade to seq_id distance to nearest clade."
 )
-
-results_csv = snakemake.input.random_forest_regression_csv
-model_features_csv = snakemake.input.model_features_csv
-print("Start plotting random forest regression results.")
-random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_results.pdf")
-plot_random_forest_results(results_csv, random_forest_plot_filepath)
-model_features_plot_filepath = os.path.join(
-    plots_folder, "random_forest_model_features.pdf"
-)
-plot_random_forest_model_features(model_features_csv, model_features_plot_filepath)
-print("Done plotting random forest regression results.")
-
-results_csv = snakemake.input.random_forest_classifier_csv
-model_features_csv = snakemake.input.discrete_model_features_csv
-print("Start plotting random forest classifier results.")
-random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_classifier_results.pdf")
-plot_random_forest_classifier_results(results_csv, random_forest_plot_filepath)
-model_features_plot_filepath = os.path.join(
-    plots_folder, "random_forest_discrete_model_features.pdf"
-)
-plot_random_forest_model_features(model_features_csv, model_features_plot_filepath)
-print("Done plotting random forest classifier results.")

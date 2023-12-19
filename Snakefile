@@ -229,10 +229,6 @@ rule random_forest_plots:
 rule create_plots:
     input:
         csv="{subdir}/reduced_alignments/reattachment_data_per_taxon_epa.csv",
-        random_forest_regression_csv=rules.random_forest_regression.output.output_file_name,
-        model_features_csv=rules.random_forest_regression.output.model_features_file,
-        random_forest_classifier_csv=rules.random_forest_classifier.output.output_file_name,
-        discrete_model_features_csv=rules.random_forest_classifier.output.model_features_file,
         bootstrap_csv="{subdir}/reduced_alignments/bts_bootstrap.csv",
     output:
         temp(touch("{subdir}/create_plots.done")),
