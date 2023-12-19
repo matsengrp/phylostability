@@ -1,3 +1,4 @@
+from Bio import SeqIO
 import os
 import pandas as pd
 from functools import reduce
@@ -6,10 +7,12 @@ import matplotlib.pyplot as plt
 output_file = snakemake.output.output_file
 output_plot_path = snakemake.params.output_plot_path
 benchmarking_folder = snakemake.params.benchmarking_folder
-seq_ids = snakemake.input.sequence_ids
+subdir = snakemake.params.subdir
 files_to_join = [ \
   x for x in os.listdir(benchmarking_folder)
 ]
+print(subdir + "/full_alignment.fasta")
+seq_ids = [record.id for record in SeqIO.parse(subdir + "/full_alignment.fasta", "fasta")]
 
 
 files_met = []
