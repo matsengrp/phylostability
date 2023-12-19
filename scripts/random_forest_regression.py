@@ -24,7 +24,7 @@ cols_to_drop = [
 ]
 
 
-def train_random_forest(df, column_name="tii", cross_validate=False):
+def train_random_forest(df, cols_to_drop, column_name="tii", cross_validate=False):
     X = df.drop(cols_to_drop, axis=1)
     y = df[column_name]
 
@@ -95,5 +95,5 @@ def combine_dfs(csvs, subdirs):
 
 df = combine_dfs(csvs, subdirs)
 df.to_csv(combined_csv_path)
-model_result = train_random_forest(df, column_name, cross_validate=True)
+model_result = train_random_forest(df, cols_to_drop, column_name, cross_validate=True)
 model_result.to_csv(output_csv)
