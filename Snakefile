@@ -11,6 +11,13 @@ IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 def get_subdirs(data_folder):
     return [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path]
 
+
+subdirs = get_subdirs(data_folder)
+for subdir in subdirs:
+    if not os.path.exists(subdir + "/benchmarking"):
+        os.makedirs(subdir + "/benchmarking")
+
+
 # Retrieve all sequence IDs from the input multiple sequence alignment
 def get_seq_ids(input_file, filetype):
     return [record.id for record in SeqIO.parse(input_file, filetype)]
@@ -34,7 +41,7 @@ rule all:
         "random_forest_plots.done",
         # expand("{subdir}/create_plots.done", subdir=subdirs),
         # expand("{subdir}/create_other_plots.done", subdir=subdirs)
-        data_folder+plots_folder+"p_au_proportion_plot.pdf"
+        data_folder+plots_folder+"p_au_proportion_plot.pdf",
         "benchmarking_plots.done",
 
 
@@ -197,7 +204,8 @@ rule random_forest_classifier:
     params:
         column_to_predict = "normalised_tii",
         model_features_csv=data_folder+"discrete_model_feature_importances.csv",
-        output_file_name=data_folder+"random_forest_classification.csv"
+        output_file_name=data_folder+"random_forest_classification.csv",
+        subdirs=get_subdirs(data_folder)
     script:
         "scripts/random_forest_classifier.py"
 
@@ -294,7 +302,6 @@ rule analyse_sh_test:
 rule combine_benchmark_outputs:
     input:
         "{subdir}/create_plots.done",
-        sequence_ids=seq_ids.get("{subdir}", [])
     output:
         output_file="{subdir}/benchmarking_data.csv"
     params:
