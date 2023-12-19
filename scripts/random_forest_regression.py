@@ -46,7 +46,9 @@ def train_random_forest(df, cols_to_drop, column_name="tii", cross_validate=Fals
     untrained_predictions = model.predict(X_test_imputed)
 
     # Evaluate the model
-    model_result = pd.DataFrame({"untuned_model_predicted": untrained_predictions, "actual": y_test})
+    model_result = pd.DataFrame(
+        {"untuned_model_predicted": untrained_predictions, "actual": y_test}
+    )
     mse = mean_squared_error(y_test, untrained_predictions)
 
     # print out the feature importances to file
@@ -58,12 +60,15 @@ def train_random_forest(df, cols_to_drop, column_name="tii", cross_validate=Fals
     if cross_validate:
         # create an optimization function for optuna
         def objective(trial):
-            n_estimators = trial.suggest_int('n_estimators', 10, 1000)
-            max_depth = trial.suggest_int('max_depth', 10, 1000, log=True)
-            min_samples_split = trial.suggest_float('min_samples_split', 0.1, 1.0)
-            min_samples_leaf = trial.suggest_float('min_samples_leaf', 0.1, 1.0)
-            max_features = trial.suggest_categorical('max_features', ['sqrt', 'log2'])
-            criterion = trial.suggest_categorical('criterion', ["absolute_error", "poisson", "friedman_mse", "squared_error"])
+            n_estimators = trial.suggest_int("n_estimators", 10, 1000)
+            max_depth = trial.suggest_int("max_depth", 10, 1000, log=True)
+            min_samples_split = trial.suggest_float("min_samples_split", 0.1, 1.0)
+            min_samples_leaf = trial.suggest_float("min_samples_leaf", 0.1, 1.0)
+            max_features = trial.suggest_categorical("max_features", ["sqrt", "log2"])
+            criterion = trial.suggest_categorical(
+                "criterion",
+                ["absolute_error", "poisson", "friedman_mse", "squared_error"],
+            )
             model = RandomForestRegressor(
                 n_estimators=n_estimators,
                 max_depth=max_depth,
@@ -71,31 +76,37 @@ def train_random_forest(df, cols_to_drop, column_name="tii", cross_validate=Fals
                 min_samples_leaf=min_samples_leaf,
                 max_features=max_features,
                 criterion=criterion,
-                random_state=42
+                random_state=42,
             )
-            model.fit(X_train, y_train)
-            y_pred = model.predict(X_test)
+            model.fit(X_train_imputed, y_train)
+            y_pred = model.predict(X_test_imputed)
             mse = mean_squared_error(y_test, y_pred)
             return mse
 
-        study = optuna.create_study(direction='minimize')
+        study = optuna.create_study(direction="minimize")
         study.optimize(objective, n_trials=200)
         best_params = study.best_params
         fit_model = RandomForestRegressor(
-            n_estimators=best_params['n_estimators'],
-            max_depth=best_params['max_depth'],
-            min_samples_split=best_params['min_samples_split'],
-            min_samples_leaf=best_params['min_samples_leaf'],
-            max_features=best_params['max_features'],
-            criterion=best_params['criterion'],
-            random_state=42
+            n_estimators=best_params["n_estimators"],
+            max_depth=best_params["max_depth"],
+            min_samples_split=best_params["min_samples_split"],
+            min_samples_leaf=best_params["min_samples_leaf"],
+            max_features=best_params["max_features"],
+            criterion=best_params["criterion"],
+            random_state=42,
         )
-        fit_model.fit(X_train, y_train)
+        fit_model.fit(X_train_imputed, y_train)
 
-        fit_model_predictions = fit_model.predict(X_test)
+        fit_model_predictions = fit_model.predict(X_test_imputed)
         model_result["predicted"] = fit_model_predictions
         fit_model_importances = fit_model.feature_importances_
-        pd.DataFrame({"untuned_model_importance": importances, "model_importance": fit_model_importances}, index=X.columns).to_csv(model_features_csv)
+        pd.DataFrame(
+            {
+                "untuned_model_importance": importances,
+                "model_importance": fit_model_importances,
+            },
+            index=X.columns,
+        ).to_csv(model_features_csv)
 
     return model_result
 
