@@ -1,15 +1,12 @@
 import os
 
-data_folder="harrington_data"
-num_samples=1
-
-if not os.path.exists(data_folder+"/selected_data"):
-    os.makedirs(data_folder+"/selected_data")
+data_folder = config["data_folder"]
+num_samples= config["num_samples"]
 
 
 rule all:
     input:
-        data_folder+"/selected_data/plots/random_forest_results.pdf"
+        data_folder+"/convert_input_to_fasta.done"
 
 
 def get_subdirs(data_folder):
@@ -36,7 +33,7 @@ rule select_datasets:
         num_samples=num_samples,
         data=data_folder,
     output:
-        touch(data_folder+"/select_datasets.done"),
+        temp(touch(data_folder+"/select_datasets.done")),
     script:
         "scripts/select_datasets.py"
 
@@ -53,15 +50,15 @@ rule convert_input_to_fasta:
         "scripts/convert_input_to_fasta.py"
 
 
-rule run_stability_analysis:
-    input:
-        data_folder+"/convert_input_to_fasta.done"
-    output:
-        data_folder+"/selected_data/plots/random_forest_results.pdf",
-        data_folder+"/selected_data/plots/p_au_proportion_plot.pdf"
-    shell:
-        '''
-        snakemake --unlock
-        # snakemake -c36 --touch --rerun-incomplete
-        snakemake -c32 -R random_forest_regression
-        '''
+# rule run_stability_analysis:
+#     input:
+#         data_folder+"/convert_input_to_fasta.done"
+#     output:
+#         data_folder+"/selected_data/plots/random_forest_results.pdf",
+#         data_folder+"/selected_data/plots/p_au_proportion_plot.pdf"
+#     shell:
+#         '''
+#         snakemake --unlock
+#         # snakemake -c36 --touch --rerun-incomplete
+#         snakemake -c32 -R random_forest_regression
+#         '''
