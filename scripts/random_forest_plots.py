@@ -1,8 +1,13 @@
+import warnings
+warnings.filterwarnings("ignore", "is_categorical_dtype")
+warnings.filterwarnings("ignore", "use_inf_as_na")
+warnings.filterwarnings("ignore", "UserWarning")
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import math
+from sklearn.metrics import confusion_matrix, auc, ConfusionMatrixDisplay
 
 plt.rcParams.update({"font.size": 12})  # Adjust this value as needed
 plt.rcParams["axes.labelsize"] = 14
@@ -11,7 +16,7 @@ plt.rcParams["xtick.labelsize"] = 12
 plt.rcParams["ytick.labelsize"] = 12
 
 
-def plot_random_forest_results(results_csv, plot_filepath):
+def plot_random_forest_regression_results(results_csv,  plot_filepath):
     df = pd.read_csv(results_csv)
     df_sorted = df.sort_values(by="actual")
 
@@ -33,13 +38,35 @@ def plot_random_forest_results(results_csv, plot_filepath):
     plt.clf()
 
 
-def plot_random_forest_model_features(model_features_csv, plot_filepath):
+def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
+    df = pd.read_csv(results_csv).replace(to_replace=True, value="unstable").replace(to_replace=False, value="stable")
+    cm = confusion_matrix(df["actual"], df["predicted"])
+
+    roc_df = pd.read_csv(roc_csv)
+    roc_auc = auc(roc_df["fpr"], roc_df["tpr"])
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+
+    ax1.plot(roc_df["fpr"], roc_df["tpr"], color='darkorange', lw=2, label='ROC curve (area={:.2f})'.format(roc_auc))
+    ax1.plot([0,1],[0,1], color='navy', lw=2, linestyle='--')
+    ax1.set_xlabel("False Positive Rate")
+    ax1.set_ylabel("True Positive Rate")
+    ax1.set_title("ROC Curve")
+    ax1.legend(loc='lower right')
+    ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['stable', 'unstable']).plot(ax=ax2)
+    ax2.set_title("Confusion Matrix")
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+
+def plot_random_forest_model_features(model_features_csv, plot_filepath, rf_type = "regression"):
     df = pd.read_csv(
-        model_features_csv, names=["feature_name", "importance"], skiprows=1
+        model_features_csv, names=["feature_name", "untuned model importance", "importance"], skiprows=1
     )
     plt.figure(figsize=(10, 6))
     sns.barplot(data=df, x="feature_name", y="importance")
-    plt.title("feature importance for random forest regression")
+    plt.title("feature importance for random forest " + rf_type)
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.savefig(plot_filepath)
@@ -136,6 +163,9 @@ def plot_stability_measures(
 
 results_csv = snakemake.input.random_forest_csv
 model_features_csv = snakemake.input.model_features_csv
+classifier_results_csv = snakemake.input.random_forest_classifier_csv
+classifier_metrics_csv = snakemake.input.classifier_metrics_csv
+discrete_model_features_csv = snakemake.input.discrete_model_features_csv
 combined_csv = snakemake.input.combined_csv_path
 plots_folder = snakemake.params.forest_plot_folder
 
@@ -153,11 +183,20 @@ plot_stability_measures(
 print("Done plotting stability measures.")
 
 
-print("Start plotting random forest results.")
+print("Start plotting random forest regression results.")
 random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_results.pdf")
-plot_random_forest_results(results_csv, random_forest_plot_filepath)
+plot_random_forest_regression_results(results_csv, random_forest_plot_filepath)
 model_features_plot_filepath = os.path.join(
     plots_folder, "random_forest_model_features.pdf"
 )
 plot_random_forest_model_features(model_features_csv, model_features_plot_filepath)
-print("Done plotting random forest results.")
+print("Done plotting random forest regresion results.")
+
+print("Start plotting random forest classifier results.")
+random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_classifier_results.pdf")
+plot_random_forest_classifier_results(classifier_results_csv, classifier_metrics_csv, random_forest_plot_filepath)
+model_features_plot_filepath = os.path.join(
+    plots_folder, "discrete_random_forest_model_features.pdf"
+)
+plot_random_forest_model_features(discrete_model_features_csv, model_features_plot_filepath, rf_type="classifier")
+print("Done plotting random forest classifier results.")

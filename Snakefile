@@ -35,6 +35,7 @@ rule all:
         # expand("{subdir}/create_plots.done", subdir=subdirs),
         # expand("{subdir}/create_other_plots.done", subdir=subdirs)
         data_folder+plots_folder+"p_au_proportion_plot.pdf"
+        "benchmarking_plots.done",
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -44,6 +45,8 @@ rule model_test_iqtree:
     output:
         temp(touch("{subdir}/model-test-iqtree.done")),
         modeltest="{subdir}/"+input_alignment+"_model.iqtree"
+    benchmark:
+        touch("{subdir}/benchmarking/benchmark_model_test_iqtree.txt")
     shell:
         """
         iqtree -s {input.msa} --prefix {input.msa}_model -m MF -redo
@@ -67,6 +70,8 @@ rule remove_sequence:
         msa="{subdir}/"+input_alignment
     output:
         reduced_msa=temp("{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta"),
+    benchmark:
+        touch("{subdir}/benchmarking/benchmark_remove_sequence_{seq_id}.txt")
     params:
         seq_id=lambda wildcards: wildcards.seq_id
     script:
@@ -82,6 +87,8 @@ rule run_iqtree_on_full_dataset:
         temp(touch("{subdir}/run_iqtree_on_full_dataset.done")),
         tree="{subdir}/"+input_alignment+".treefile",
         mldist="{subdir}/"+input_alignment+".mldist"
+    benchmark:
+        touch("{subdir}/benchmarking/benchmark_run_iqtree_on_full_dataset.txt")
     shell:
         """
         iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {input.msa} -bb 1000 -redo
@@ -99,6 +106,8 @@ rule run_iqtree_restricted_alignments:
         tree="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
         mlfile="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.iqtree",
         mldist="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist"
+    benchmark:
+        touch("{subdir}/benchmarking/benchmark_run_iqtree_restricted_alignments_{seq_id}.txt")
     shell:
         """
         iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa} -bb 1000 -redo
@@ -126,6 +135,8 @@ rule epa_reattachment:
         without_taxon_msa="{subdir}/reduced_alignments/{seq_id}/without_taxon.fasta",
     output:
         epa_result="{subdir}/reduced_alignments/{seq_id}/epa_result.jplace",
+    benchmark:
+        touch("{subdir}/benchmarking/benchmark_epa_reattachment_{seq_id}.txt")
     params:
         output_folder="{subdir}/reduced_alignments/{seq_id}"
     shell:
@@ -162,9 +173,11 @@ rule random_forest_regression:
     input:
         csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=get_subdirs(data_folder)),
     output:
-        model_features_file=data_folder+"model_feature_importances.csv",
+        model_features_file="model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_regression.csv",
-        combined_csv_path=data_folder+"combined_statistics.csv",
+        combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
+    benchmark:
+        touch(data_folder + "benchmarking/benchmark_random_forest_regression.txt")
     params:
         column_to_predict = "normalised_tii",
         subdirs=get_subdirs(data_folder),
@@ -172,11 +185,31 @@ rule random_forest_regression:
         "scripts/random_forest_regression.py"
 
 
+rule random_forest_classifier:
+    input:
+        csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=get_subdirs(data_folder)),
+        combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
+    output:
+        model_features_file="discrete_model_feature_importances.csv",
+        output_file_name=data_folder+"random_forest_classification.csv",
+        combined_csv_path=data_folder+"rf_classifier_combined_statistics.csv",
+        classifier_metrics_csv=data_folder+"classifier_results.csv",
+    params:
+        column_to_predict = "normalised_tii",
+        model_features_csv=data_folder+"discrete_model_feature_importances.csv",
+        output_file_name=data_folder+"random_forest_classification.csv"
+    script:
+        "scripts/random_forest_classifier.py"
+
+
 rule random_forest_plots:
     input:
         random_forest_csv=rules.random_forest_regression.output.output_file_name,
         model_features_csv=rules.random_forest_regression.output.model_features_file,
-        combined_csv_path=data_folder+"combined_statistics.csv",
+        random_forest_classifier_csv=rules.random_forest_classifier.output.output_file_name,
+        discrete_model_features_csv=rules.random_forest_classifier.output.model_features_file,
+        classifier_metrics_csv=rules.random_forest_classifier.output.classifier_metrics_csv,
+        combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
     params:
         forest_plot_folder=data_folder+"plots/",
     output:
@@ -188,6 +221,10 @@ rule random_forest_plots:
 rule create_plots:
     input:
         csv="{subdir}/reduced_alignments/reattachment_data_per_taxon_epa.csv",
+        random_forest_regression_csv=rules.random_forest_regression.output.output_file_name,
+        model_features_csv=rules.random_forest_regression.output.model_features_file,
+        random_forest_classifier_csv=rules.random_forest_classifier.output.output_file_name,
+        discrete_model_features_csv=rules.random_forest_classifier.output.model_features_file,
         bootstrap_csv="{subdir}/reduced_alignments/bts_bootstrap.csv",
     output:
         temp(touch("{subdir}/create_plots.done")),
@@ -251,3 +288,30 @@ rule analyse_sh_test:
         subdirs=get_subdirs(data_folder)
     script:
         "scripts/analyse_sh_test.py"
+
+
+# create single file for each dataset with timing breakdowns for the rules
+rule combine_benchmark_outputs:
+    input:
+        "{subdir}/create_plots.done",
+        sequence_ids=seq_ids.get("{subdir}", [])
+    output:
+        output_file="{subdir}/benchmarking_data.csv"
+    params:
+        subdir=lambda wildcards: wildcards.subdir,
+        benchmarking_folder="{subdir}/benchmarking/",
+        output_plot_path="{subdir}/"+plots_folder
+    script:
+        "scripts/combine_benchmark_outputs.py"
+
+
+rule benchmark_outputs_across_datasets:
+    input:
+        dfs=expand("{subdir}/benchmarking_data.csv", subdir=get_subdirs(data_folder)),
+        fastas=expand("{subdir}/" + input_alignment, subdir=get_subdirs(data_folder))
+    output:
+        temp(touch("benchmarking_plots.done"))
+    params:
+        plots_folder = data_folder + "plots/"
+    script:
+        "scripts/benchmark_outputs_across_datasets.py"
