@@ -127,6 +127,8 @@ rule extract_single_fastas:
     output:
         taxon_msa="{subdir}/reduced_alignments/{seq_id}/single_taxon.fasta",
         without_taxon_msa="{subdir}/reduced_alignments/{seq_id}/without_taxon.fasta"
+    benchmark:
+        touch("{subdir}/benchmarking/benchmark_extract_single_fastas_{seq_id}.txt")
     params:
         seq_id=lambda wildcards: wildcards.seq_id
     script:
@@ -159,6 +161,8 @@ rule write_reattached_trees:
         restricted_trees="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
     output:
         reattached_trees="{subdir}/reduced_alignments/{seq_id}/reattached_tree.nwk",
+    benchmark:
+        touch("{subdir}/benchmarking/benchmark_write_reattached_trees_{seq_id}.txt")
     script:
         "scripts/write_reattached_trees.py"
 
@@ -172,6 +176,8 @@ rule extract_reattachment_statistics:
         plot_csv="{subdir}/reduced_alignments/reattachment_data_per_taxon_epa.csv",
         random_forest_csv="{subdir}/reduced_alignments/random_forest_input.csv",
         bootstrap_csv="{subdir}/reduced_alignments/bts_bootstrap.csv",
+    benchmark:
+        touch("{subdir}/benchmarking/benchmark_extract_reattachment_statistics.txt")
     script:
         "scripts/extract_reattachment_statistics.py"
 
@@ -201,6 +207,8 @@ rule random_forest_classifier:
         output_file_name=data_folder+"random_forest_classification.csv",
         combined_csv_path=data_folder+"rf_classifier_combined_statistics.csv",
         classifier_metrics_csv=data_folder+"classifier_results.csv",
+    benchmark:
+        touch(data_folder + "benchmarking/benchmark_random_forest_classifier.txt")
     params:
         column_to_predict = "normalised_tii",
         model_features_csv=data_folder+"discrete_model_feature_importances.csv",
@@ -218,6 +226,8 @@ rule random_forest_plots:
         discrete_model_features_csv=rules.random_forest_classifier.output.model_features_file,
         classifier_metrics_csv=rules.random_forest_classifier.output.classifier_metrics_csv,
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
+    benchmark:
+        touch(data_folder + "benchmarking/benchmark_random_forest_plots.txt")
     params:
         forest_plot_folder=data_folder+"plots/",
     output:
@@ -260,6 +270,8 @@ rule write_all_reattached_trees:
     output:
         reattached_trees="{subdir}/reattached_trees.trees",
         reattached_trees_order="{subdir}/order_reattached_trees.txt"
+    benchmark:
+        touch("{subdir}/benchmarking/benchmark_write_all_reattached_trees.txt")
     script:
         "scripts/write_all_reattached_trees.py"
 
@@ -273,6 +285,8 @@ rule sh_test_model_fit:
     output:
         touch("{subdir}/sh_test_model_fit.done"),
         "{subdir}/"+input_alignment+".sh-test.iqtree"
+    benchmark:
+        touch("{subdir}/benchmarking/benchmark_sh_test_model_fit.txt")
     shell:
         """
         iqtree -s {input.msa} -z {input.reattached_trees} --prefix {wildcards.subdir}/{input_alignment}.sh-test -n 0 -zb 10000 -zw -au --redo
@@ -287,6 +301,8 @@ rule analyse_sh_test:
         reattached_trees_order=expand("{subdir}/order_reattached_trees.txt", subdir=get_subdirs(data_folder)),
     output:
         plot=data_folder+plots_folder+"p_au_proportion_plot.pdf"
+    benchmark:
+        touch(data_folder + "benchmarking/benchmark_analuse_sh_test.txt")
     params:
         plots_folder=data_folder+plots_folder,
         subdirs=get_subdirs(data_folder)
