@@ -315,7 +315,7 @@ rule analyse_sh_test:
 # create single file for each dataset with timing breakdowns for the rules
 rule combine_benchmark_outputs:
     input:
-        "{subdir}/create_plots.done",
+        data_folder+plots_folder+"p_au_proportion_plot.pdf"
     output:
         output_file="{subdir}/benchmarking_data.csv"
     params:
