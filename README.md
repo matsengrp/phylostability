@@ -13,3 +13,6 @@ If the whole process has been run successfully, the next one will add *num_sampl
 ## Data
 The data on which the pipeline should be run needs to be stored in a folder that is defined in `config.yaml` as data_folder.
 This folder should contain subfolders which themselves contain alignments as nexus or fasta files, or symlinks to such files.
+When running `snakemake -cX`, only *num_samples* of the datasets get processed, chosen randomly so that different alignment lengths and number of taxa are chosen (aligmnents are binned according to those parameteres and drawn uniformly from those bins).
+If you want to run the analysis on all datasets, set *num_samples* in `config.yaml` to be the total number of datasets.
+Alternatively, you could delete `selected_data/` from the data_folder path in `Analysis_snakefile` and run `snakemake --snakefile Analysis_snakefile -cX`.
