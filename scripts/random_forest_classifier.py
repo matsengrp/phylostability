@@ -120,7 +120,7 @@ def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
     return model_result
 
 
-df = pd.read_csv(input_combined_csv_path)
+df = pd.read_csv(input_combined_csv_path, index_col=0)
 df[column_name + "_binary"] = [True if x > 0 else False for x in df[column_name]]
 df.to_csv(combined_csv_path)
 model_result = train_random_forest_classifier(df, column_name, cross_validate=True)
