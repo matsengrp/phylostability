@@ -67,12 +67,11 @@ def get_order_of_distances_to_seq_id(
     Get difference in full_tree and sequence distance for sequences of taxon1 and taxon2
     where distance of taxon1 to seq_id is smaller than taxon2 to seq_id in best reattached
     full_tree, but greater in terms of sequence distance, for each possible seq_id.
-    # We filter and currently only look at pairs of taxa with this property whose mrca
-    # has bootstrap support in the lowest 10% of bootstap values throughout the full_tree.
+    If there are not two taxa with this property, we return [0]
     """
     mldist = get_ml_dist(mldist_file)
     max_mldist = mldist.max().max()
-    dist_diff_dict = []
+    dist_diff_list = []
 
     # find maximum distance between any two leaves in best_reattached_tree
     max_tree_dist = 0
@@ -93,7 +92,7 @@ def get_order_of_distances_to_seq_id(
     q = np.quantile(all_bootstraps, 1)
     for leaf1, leaf2 in itertools.combinations(leaves, 2):
         mrca = reattached_tree.get_common_ancestor([leaf1, leaf2])
-        if mrca.support >= q or mrca.support == 1.0:
+        if mrca.support > q or mrca.support == 1.0:
             continue
         tree_dist_leaf1 = (
             reattached_tree.get_distance(seq_id, leaf1, topology_only=True)
@@ -112,7 +111,7 @@ def get_order_of_distances_to_seq_id(
             difference = (
                 seq_dist_leaf1 / seq_dist_leaf2 - tree_dist_leaf1 / tree_dist_leaf2
             )
-            dist_diff_dict.append(difference)
+            dist_diff_list.append(difference)
         elif (
             tree_dist_leaf2 / tree_dist_leaf1 < 1
             and seq_dist_leaf2 / seq_dist_leaf1 > 1
@@ -120,8 +119,8 @@ def get_order_of_distances_to_seq_id(
             difference = (
                 seq_dist_leaf2 / seq_dist_leaf1 - tree_dist_leaf2 / tree_dist_leaf1
             )
-            dist_diff_dict.append(difference)
-    return dist_diff_dict
+            dist_diff_list.append(difference)
+    return dist_diff_list
 
 
 def get_reattachment_distances(reduced_tree, reattachment_trees, seq_id):
@@ -192,7 +191,7 @@ def reattachment_distance_to_low_support_node(
             dist = ete_dist(node, reattachment_node, topology_only=True)
         if dist > max_dist_found:
             max_dist_found = dist
-        if node.support < q and dist < min_dist_found:
+        if node.support <= q and dist < min_dist_found:
             min_dist_found = dist
     return min_dist_found / max_dist_found
 
