@@ -1,4 +1,5 @@
 import warnings
+
 warnings.filterwarnings("ignore", "is_categorical_dtype")
 warnings.filterwarnings("ignore", "use_inf_as_na")
 warnings.filterwarnings("ignore", "UserWarning")
@@ -16,7 +17,7 @@ plt.rcParams["xtick.labelsize"] = 12
 plt.rcParams["ytick.labelsize"] = 12
 
 
-def plot_random_forest_regression_results(results_csv,  plot_filepath):
+def plot_random_forest_regression_results(results_csv, plot_filepath):
     df = pd.read_csv(results_csv)
     df_sorted = df.sort_values(by="actual")
 
@@ -39,7 +40,11 @@ def plot_random_forest_regression_results(results_csv,  plot_filepath):
 
 
 def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
-    df = pd.read_csv(results_csv).replace(to_replace=True, value="unstable").replace(to_replace=False, value="stable")
+    df = (
+        pd.read_csv(results_csv)
+        .replace(to_replace=True, value="unstable")
+        .replace(to_replace=False, value="stable")
+    )
     cm = confusion_matrix(df["actual"], df["predicted"])
 
     roc_df = pd.read_csv(roc_csv)
@@ -47,22 +52,34 @@ def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
-    ax1.plot(roc_df["fpr"], roc_df["tpr"], color='darkorange', lw=2, label='ROC curve (area={:.2f})'.format(roc_auc))
-    ax1.plot([0,1],[0,1], color='navy', lw=2, linestyle='--')
+    ax1.plot(
+        roc_df["fpr"],
+        roc_df["tpr"],
+        color="darkorange",
+        lw=2,
+        label="ROC curve (area={:.2f})".format(roc_auc),
+    )
+    ax1.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
     ax1.set_xlabel("False Positive Rate")
     ax1.set_ylabel("True Positive Rate")
     ax1.set_title("ROC Curve")
-    ax1.legend(loc='lower right')
-    ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['stable', 'unstable']).plot(ax=ax2)
+    ax1.legend(loc="lower right")
+    ConfusionMatrixDisplay(
+        confusion_matrix=cm, display_labels=["stable", "unstable"]
+    ).plot(ax=ax2)
     ax2.set_title("Confusion Matrix")
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
 
 
-def plot_random_forest_model_features(model_features_csv, plot_filepath, rf_type = "regression"):
+def plot_random_forest_model_features(
+    model_features_csv, plot_filepath, rf_type="regression"
+):
     df = pd.read_csv(
-        model_features_csv, names=["feature_name", "untuned model importance", "importance"], skiprows=1
+        model_features_csv,
+        names=["feature_name", "untuned model importance", "importance"],
+        skiprows=1,
     )
     plt.figure(figsize=(10, 6))
     sns.barplot(data=df, x="feature_name", y="importance")
@@ -79,12 +96,16 @@ def plot_stability_measures(
     df = pd.read_csv(csv)
     datasets = df["dataset"].unique()
     datasets.sort()
-    # plot TII vs rf_radius
-    ax = sns.scatterplot(data=df, x="tii", y="rf_radius")
+    # Scatter plot with point color indicating count
+    aggregated_data = df.groupby(["tii", "rf_radius"]).size().reset_index(name="counts")
+    ax = sns.scatterplot(
+        data=aggregated_data, x="tii", y="rf_radius", hue="counts", palette="viridis"
+    )
+
     # Set labels and title
     plt.xlabel("TII")
     plt.ylabel("RF radius")
-    plt.title("")
+    plt.title("Scatter plot with point size indicating count")
     plt.tight_layout()
     plt.savefig(scatterplot_filepath)
     plt.clf()
@@ -98,7 +119,7 @@ def plot_stability_measures(
         plt.xlabel("RF radius")
         plt.title("RF radius over all datasets")
         plt.tight_layout()
-        plt.savefig(plot_filepath)
+        plt.savefig(rf_radius_plot_filepath)
         plt.clf()
         # plot TII
         ax = sns.boxplot(data=df, x="normalised_tii")
@@ -106,7 +127,7 @@ def plot_stability_measures(
         plt.xlabel("TII")
         plt.title("TII values over all datasets")
         plt.tight_layout()
-        plt.savefig(plot_filepath)
+        plt.savefig(tii_plot_filepath)
         plt.clf()
         return 1
     num_datasets = len(datasets)
@@ -193,10 +214,16 @@ plot_random_forest_model_features(model_features_csv, model_features_plot_filepa
 print("Done plotting random forest regresion results.")
 
 print("Start plotting random forest classifier results.")
-random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_classifier_results.pdf")
-plot_random_forest_classifier_results(classifier_results_csv, classifier_metrics_csv, random_forest_plot_filepath)
+random_forest_plot_filepath = os.path.join(
+    plots_folder, "random_forest_classifier_results.pdf"
+)
+plot_random_forest_classifier_results(
+    classifier_results_csv, classifier_metrics_csv, random_forest_plot_filepath
+)
 model_features_plot_filepath = os.path.join(
     plots_folder, "discrete_random_forest_model_features.pdf"
 )
-plot_random_forest_model_features(discrete_model_features_csv, model_features_plot_filepath, rf_type="classifier")
+plot_random_forest_model_features(
+    discrete_model_features_csv, model_features_plot_filepath, rf_type="classifier"
+)
 print("Done plotting random forest classifier results.")
