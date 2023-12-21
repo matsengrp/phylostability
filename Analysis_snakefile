@@ -2,7 +2,10 @@ from Bio import SeqIO
 import os
 import glob
 
-configfile: "config.yaml"
+snakefile_dir = workflow.basedir
+config_path = os.path.join(snakefile_dir, "config.yaml")
+
+configfile: config_path
 
 # input/output file names
 input_alignment="full_alignment.fasta"
@@ -291,7 +294,7 @@ rule sh_test_model_fit:
         touch("{subdir}/benchmarking/benchmark_sh_test_model_fit.txt")
     shell:
         """
-        iqtree -s {input.msa} -z {input.reattached_trees} --prefix {wildcards.subdir}/{input_alignment}.sh-test -n 0 -zb 10000 -zw -au --redo
+        iqtree -s {input.msa} -z {input.reattached_trees} --prefix {wildcards.subdir}/{input_alignment}.sh-test -te {input.full_tree} -zb 10000 -zw -au --redo
         """
 
 
