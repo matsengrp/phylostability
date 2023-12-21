@@ -64,9 +64,7 @@ def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
     ax1.set_ylabel("True Positive Rate")
     ax1.set_title("ROC Curve")
     ax1.legend(loc="lower right")
-    ConfusionMatrixDisplay(
-        confusion_matrix=cm, display_labels=["stable", "unstable"]
-    ).plot(ax=ax2)
+    ConfusionMatrixDisplay(confusion_matrix=cm).plot(ax=ax2)
     ax2.set_title("Confusion Matrix")
     plt.tight_layout()
     plt.savefig(plot_filepath)
