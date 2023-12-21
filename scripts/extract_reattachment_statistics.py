@@ -391,7 +391,7 @@ restricted_mldist_files = dynamic_input[2 * n : 3 * n]
 output = []
 taxon_tii_list = []
 nj_tiis = get_nj_tiis(full_mldist_file, restricted_mldist_files)
-tii_normalising_constant = 2 * len(full_tree) - 3
+tii_normalising_constant = len(full_tree) - 3
 nj_tiis = {s: nj_tiis[s] / tii_normalising_constant for s in nj_tiis}
 
 for seq_id in seq_ids:
