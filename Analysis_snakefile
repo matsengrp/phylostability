@@ -212,7 +212,7 @@ rule random_forest_classifier:
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_classifier.txt")
     params:
-        column_to_predict = "normalised_tii",
+        column_to_predict = "tii",
         model_features_csv=data_folder+"discrete_model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_classification.csv",
         subdirs=get_subdirs(data_folder)
