@@ -32,7 +32,7 @@ rule run_analysis:
         temp(touch("run_analysis.done"))
     shell:
         """
-        snakemake --snakefile {analysis_snakefile_path} -d {current_working_directory} --cores {num_cores} --rerun-incomplete
+        snakemake --snakefile {analysis_snakefile_path} -d {current_working_directory} --cores {num_cores}
         rm {current_working_directory}/{data_folder}/convert_input_to_fasta.done
         """
 

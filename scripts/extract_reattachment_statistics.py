@@ -362,21 +362,30 @@ def get_rf_radius(full_tree, reduced_tree, seq_id):
     """ "
     Return maximum distance of split that's present in full_tree but not
     reduced_tree to reattachment position.
+    Normalise by dividing by maximum possible distance of reattachment
+    to any edge.
     """
     rf_output = full_tree.robinson_foulds(reduced_tree, unrooted_trees=True)
     changed_edges = rf_output[3] - rf_output[4]
     rf_radius = 0
+    seq_id_leaf = full_tree.search_nodes(name=seq_id)[0]
+    reattachment_position = seq_id_leaf.up
     for set in changed_edges:
         cluster1 = set[0]
         node = full_tree.get_common_ancestor(cluster1)
         if node.is_root():
             cluster2 = set[1]
             node = full_tree.get_common_ancestor(cluster2)
-        seq_id_leaf = full_tree.search_nodes(name=seq_id)[0]
-        reattachment_position = seq_id_leaf.up
         dist = ete_dist(node, reattachment_position, topology_only=True)
         if dist > rf_radius:
             rf_radius = dist
+    normalising_constant = max(
+        [
+            ete_dist(node, reattachment_position, topology_only=True)
+            for node in full_tree.iter_descendants()
+            if not node.is_leaf()
+        ]
+    )
     return rf_radius
 
 
@@ -459,9 +468,9 @@ for seq_id in seq_ids:
     )
     taxon_height = calculate_taxon_height(reattached_tree, seq_id)
     norm_taxon_height = taxon_height / sum_branch_lengths
-    order_diff = get_order_of_distances_to_seq_id(
-        seq_id, full_mldist_file, reattached_tree
-    )
+    # order_diff = get_order_of_distances_to_seq_id(
+    #     seq_id, full_mldist_file, reattached_tree
+    # )
     dist_reattachment_low_bootstrap_node = reattachment_distance_to_low_support_node(
         seq_id, reattached_tree, bootstrap_threshold=0.1
     )
@@ -496,7 +505,7 @@ for seq_id in seq_ids:
             num_likely_reattachments,
             bootstrap_list,
             nj_tiis[seq_id],
-            order_diff,
+            # order_diff,
             reattachment_distances,
             dist_reattachment_low_bootstrap_node,
             seq_and_tree_dist_ratio,
@@ -523,7 +532,7 @@ df = pd.DataFrame(
         "num_likely_reattachments",
         "bootstrap",
         "nj_tii",
-        "order_diff",
+        # "order_diff",
         "reattachment_distances",
         "dist_reattachment_low_bootstrap_node",
         "seq_and_tree_dist_ratio",
