@@ -19,7 +19,7 @@ classifier_metrics_csv = snakemake.output.classifier_metrics_csv
 cols_to_drop = [
     "seq_id",
     "likelihood",
-    "tii",
+    "normalised_tii",
     "dataset",
     "rf_radius",
     column_name + "_binary",
@@ -121,7 +121,7 @@ def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
 
 
 df = pd.read_csv(input_combined_csv_path, index_col=0)
-df[column_name + "_binary"] = [True if x > 0 else False for x in df[column_name]]
+df[column_name + "_binary"] = [1 if x > 0 else 0 for x in df[column_name]]
 df.to_csv(combined_csv_path)
 model_result = train_random_forest_classifier(df, column_name, cross_validate=True)
 model_result.to_csv(output_csv)
