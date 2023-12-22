@@ -1,6 +1,7 @@
 import optuna
 import pandas as pd
 import numpy as np
+import json
 
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.ensemble import RandomForestRegressor
@@ -13,6 +14,7 @@ model_features_csv = snakemake.output.model_features_file
 combined_csv_path = snakemake.output.combined_csv_path
 column_name = snakemake.params.column_to_predict
 subdirs = snakemake.params.subdirs
+parameter_file = snakemake.outpu.parameter_file
 
 # taxon_name_col = "seq_id"
 cols_to_drop = [
@@ -86,6 +88,8 @@ def train_random_forest(df, cols_to_drop, column_name="tii", cross_validate=Fals
         study = optuna.create_study(direction="minimize")
         study.optimize(objective, n_trials=200)
         best_params = study.best_params
+        with open(parameter_file, "a") as f:
+            json.dump(best_params, f, indent=4)
         fit_model = RandomForestRegressor(
             n_estimators=best_params["n_estimators"],
             max_depth=best_params["max_depth"],

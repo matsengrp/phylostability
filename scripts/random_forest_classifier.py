@@ -1,6 +1,7 @@
 import optuna
 import pandas as pd
 import numpy as np
+import json
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
@@ -13,6 +14,7 @@ model_features_csv = snakemake.output.model_features_file
 input_combined_csv_path = snakemake.input.combined_csv_path
 combined_csv_path = snakemake.output.combined_csv_path
 classifier_metrics_csv = snakemake.output.classifier_metrics_csv
+parameter_file = snakemake.outpu.parameter_file
 
 
 # taxon_name_col = "seq_id"
@@ -92,6 +94,8 @@ def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
         study = optuna.create_study(direction="maximize")
         study.optimize(objective, n_trials=200)
         best_params = study.best_params
+        with open(parameter_file, "a") as f:
+            json.dump(best_params, f, indent=4)
         fit_model = RandomForestClassifier(
             n_estimators=best_params["n_estimators"],
             max_depth=best_params["max_depth"],

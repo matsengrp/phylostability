@@ -194,6 +194,7 @@ rule random_forest_regression:
         model_features_file="model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_regression.csv",
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
+        parameter_folder=data_folder+"best_parameters_regression.json",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_regression.txt")
     params:
@@ -212,6 +213,7 @@ rule random_forest_classifier:
         output_file_name=data_folder+"random_forest_classification.csv",
         combined_csv_path=data_folder+"rf_classifier_combined_statistics.csv",
         classifier_metrics_csv=data_folder+"classifier_results.csv",
+        parameter_folder=data_folder+"best_parameters_classifier.json",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_classifier.txt")
     params:
