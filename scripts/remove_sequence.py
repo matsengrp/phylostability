@@ -2,9 +2,9 @@ from Bio import SeqIO
 import os
 
 # Read the MSA
-input_msa = snakemake.input[0]
-output_msa = snakemake.output[0]
-seq_id = snakemake.params[0]
+input_msa = snakemake.input.msa
+output_msa = snakemake.output.reduced_msa
+seq_id = snakemake.params.seq_id
 
 with open(input_msa, "r") as f_in:
     sequences = list(SeqIO.parse(f_in, "fasta"))

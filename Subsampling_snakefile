@@ -1,0 +1,64 @@
+import os
+
+data_folder = config["data_folder"]
+num_samples= config["num_samples"]
+
+
+rule all:
+    input:
+        data_folder+"/convert_input_to_fasta.done"
+
+
+def get_subdirs(data_folder):
+    return [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path]
+
+
+# save num_taxa and num_sequences for every nexus or fasta file in a subdirectory of data_folder
+rule get_nexus_data:
+    output:
+        touch(data_folder+"/get_nexus_data.done"),
+        data_folder+"/nexus_data.csv"
+    params:
+        data=data_folder
+    shell:
+        "./scripts/get_nexus_data.sh  {params.data}"
+
+
+rule select_datasets:
+    input:
+        data_folder+"/get_nexus_data.done",
+        data_csv=data_folder+"/nexus_data.csv"
+    params:
+        selected_datasets_csv=data_folder+"/selected_datasets.csv",
+        num_samples=num_samples,
+        data=data_folder,
+    output:
+        temp(touch(data_folder+"/select_datasets.done")),
+    script:
+        "scripts/select_datasets.py"
+
+
+# convert input alignments from nexus to fasta, if necessary
+rule convert_input_to_fasta:
+    input:
+        data_folder+"/select_datasets.done"
+    output:
+        temp(touch(data_folder+"/convert_input_to_fasta.done"))
+    params:
+        data_folder = data_folder+"/selected_data/",
+    script:
+        "scripts/convert_input_to_fasta.py"
+
+
+# rule run_stability_analysis:
+#     input:
+#         data_folder+"/convert_input_to_fasta.done"
+#     output:
+#         data_folder+"/selected_data/plots/random_forest_results.pdf",
+#         data_folder+"/selected_data/plots/p_au_proportion_plot.pdf"
+#     shell:
+#         '''
+#         snakemake --unlock
+#         # snakemake -c36 --touch --rerun-incomplete
+#         snakemake -c32 -R random_forest_regression
+#         '''
