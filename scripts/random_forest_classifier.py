@@ -124,7 +124,31 @@ def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
     return model_result
 
 
+def balance_datasets(df):
+    """
+    Subsample rows in df so that we have equal number of stable and unstable rows
+    (tii=0 vs tii!=0)
+    """
+    # Assuming df is your original DataFrame
+    for dataset in pd.unique(df["dataset"]):
+        filtered_df = df[df["dataset"] == dataset]
+        stable_df = filtered_df[filtered_df["tii"] == 0]
+        unstable_df = filtered_df[filtered_df["tii"] != 0]
+        num_stable = len(stable_df)
+        num_unstable = len(unstable_df)
+        # Determine the number to subsample to (the smaller of the two groups)
+        num_to_sample = min(num_stable, num_unstable)
+        # Subsample from each group
+        subsampled_stable = stable_df.sample(n=num_to_sample)
+        subsampled_unstable = unstable_df.sample(n=num_to_sample)
+        balanced_df = pd.concat([subsampled_stable, subsampled_unstable])
+    return balanced_df
+
+
 df = pd.read_csv(input_combined_csv_path, index_col=0)
+df = balance_datasets(
+    df
+)  # balance datasets -- uncomment to train on imbalanced dataset
 df[column_name + "_binary"] = [1 if x > 0 else 0 for x in df[column_name]]
 df.to_csv(combined_csv_path)
 model_result = train_random_forest_classifier(df, column_name, cross_validate=True)
