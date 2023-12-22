@@ -14,7 +14,7 @@ model_features_csv = snakemake.output.model_features_file
 combined_csv_path = snakemake.output.combined_csv_path
 column_name = snakemake.params.column_to_predict
 subdirs = snakemake.params.subdirs
-parameter_file = snakemake.outpu.parameter_file
+parameter_file = snakemake.output.parameter_file
 
 # taxon_name_col = "seq_id"
 cols_to_drop = [

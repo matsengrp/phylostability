@@ -14,7 +14,7 @@ model_features_csv = snakemake.output.model_features_file
 input_combined_csv_path = snakemake.input.combined_csv_path
 combined_csv_path = snakemake.output.combined_csv_path
 classifier_metrics_csv = snakemake.output.classifier_metrics_csv
-parameter_file = snakemake.outpu.parameter_file
+parameter_file = snakemake.output.parameter_file
 
 
 # taxon_name_col = "seq_id"
