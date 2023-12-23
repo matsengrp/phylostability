@@ -129,6 +129,7 @@ def balance_datasets(df):
     Subsample rows in df so that we have equal number of stable and unstable rows
     (tii=0 vs tii!=0)
     """
+    df_list = []
     # Assuming df is your original DataFrame
     for dataset in pd.unique(df["dataset"]):
         filtered_df = df[df["dataset"] == dataset]
@@ -142,7 +143,10 @@ def balance_datasets(df):
         subsampled_stable = stable_df.sample(n=num_to_sample)
         subsampled_unstable = unstable_df.sample(n=num_to_sample)
         balanced_df = pd.concat([subsampled_stable, subsampled_unstable])
-    return balanced_df
+        df_list.append(balanced_df)
+
+    combined_df = pd.concat(df_list, ignore_index=True)
+    return combined_df
 
 
 df = pd.read_csv(input_combined_csv_path, index_col=0)
