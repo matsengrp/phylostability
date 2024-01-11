@@ -96,7 +96,7 @@ def plot_stability_measures(
     datasets.sort()
     # Scatter plot with point color indicating count
     aggregated_data = df.groupby(["tii", "rf_radius"]).size().reset_index(name="counts")
-    ax = sns.scatterplot(
+    sns.scatterplot(
         data=aggregated_data, x="tii", y="rf_radius", hue="counts", palette="viridis"
     )
 
@@ -112,7 +112,10 @@ def plot_stability_measures(
         # Instead of individual TII plots, boxplot representing TIIs for all data sets
         plt.figure(figsize=(10, 6))
         # Plot RF radius
-        ax = sns.boxplot(data=df, x="rf_radius")
+        max_radius = max(df["rf_radius"])
+        num_bins = len(df["rf_radius"].unique())
+        bins = [(i - 0.5) * max_radius / num_bins for i in range(0, num_bins)]
+        sns.histplot(data=df, x="rf_radius", bins=bins)
         # Set labels and title
         plt.xlabel("RF radius")
         plt.title("RF radius over all datasets")
@@ -120,7 +123,10 @@ def plot_stability_measures(
         plt.savefig(rf_radius_plot_filepath)
         plt.clf()
         # plot TII
-        ax = sns.boxplot(data=df, x="normalised_tii")
+        max_radius = max(df["normalised_tii"])
+        num_bins = len(df["normalised_tii"].unique())
+        bins = [(i - 0.5) * max_radius / num_bins for i in range(0, num_bins)]
+        sns.histplot(data=df, x="normalised_tii", bins=bins)
         # Set labels and title
         plt.xlabel("TII")
         plt.title("TII values over all datasets")
