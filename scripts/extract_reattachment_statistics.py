@@ -45,16 +45,13 @@ def get_nj_tiis(full_mldist_file, restricted_mldist_files):
     full_mldist = get_ml_dist(full_mldist_file)
     full_nj_tree = compute_nj_tree(full_mldist)
     tiis = {}
-    # maximum possible RF distance:
-    normalising_constant = 2 * len(full_nj_tree) - 3
     for file in restricted_mldist_files:
         seq_id = file.split("/")[-2]
         restricted_mldist = get_ml_dist(file)
         restricted_nj_tree = compute_nj_tree(restricted_mldist)
-        tiis[seq_id] = (
-            full_nj_tree.robinson_foulds(restricted_nj_tree, unrooted_trees=True)[0]
-            # / normalising_constant
-        )
+        tiis[seq_id] = full_nj_tree.robinson_foulds(
+            restricted_nj_tree, unrooted_trees=True
+        )[0]
     return tiis
 
 
