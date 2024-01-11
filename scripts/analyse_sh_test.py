@@ -13,6 +13,10 @@ subdirs = snakemake.params.subdirs
 
 
 def extract_table_from_file(filename):
+    """
+    Read table with AU-test results from iqtree run from .iqtree file.
+    Returns table as pandas DataFrame.
+    """
     # Flag to indicate whether we are currently reading the table
     reading_table = False
     table_data = []
@@ -67,17 +71,16 @@ def extract_table_from_file(filename):
     return df
 
 
-# Get order of trees in iqtree table
-
 df_list = []
 for subdir in subdirs:
+    # get taxon name, normalised and unnormalised tii of subdir
     ss_df = pd.read_csv([f for f in summary_statistics if subdir + "/" in f][0])
     ss_df = ss_df[["seq_id", "normalised_tii", "tii"]]
     # make sure ss_df rows match those in other dfs (need to add one row for full tree)
     new_row = pd.DataFrame({"seq_id": ["full"], "normalised_tii": [0], "tii": [0]})
     ss_df = pd.concat([ss_df, new_row], ignore_index=True)
 
-    # seq_id in ss_df is actually seq_id + " " + tii. We need to fix that.
+    # seq_id in ss_df is actually seq_id + " " + tii. We only want seq_id
     def extract_seq_id(s):
         return s.split(" ")[0]
 
@@ -89,13 +92,13 @@ for subdir in subdirs:
     with open(order_file, "r") as file:
         order = [line.strip() for line in file]
 
+    # create df with AU-test results and additional information from ss_df
     df = extract_table_from_file(iqtree_file)
     df["dataset"] = iqtree_file.split("/")[-2]
     df["seq_id"] = order
     df = df.merge(ss_df, on="seq_id", how="left")
     df["ID"] = df["dataset"] + " " + df["seq_id"] + " " + df["tii"].astype(str)
     filtered_df = df[df["p-AU"] < 0.05]
-    df_list.append(df)
 
     # iqtree deletes duplicate trees. If the tree with p-value < 0.05 is a duplicate,
     # we also want to add the remaining trees to the plot.
@@ -104,7 +107,6 @@ for subdir in subdirs:
     id_to_topology = {}
     # get for each tree topology in reattached_tree_file all seq_ids for which reattached
     # trees have that topology (get maps in both ways)
-
     with open(order_file, "r") as ids_file, open(
         reattached_tree_file, "r"
     ) as trees_file:
@@ -113,12 +115,12 @@ for subdir in subdirs:
             newick_tree = Tree(tree_line.strip())
             tree_string = newick_tree.write(
                 format=9
-            )  # Convert the tree to a string representation
+            )  # Convert the tree to a string representation (topology -- no branch lengths)
             if tree_string not in topology_id_map:
                 topology_id_map[tree_string] = []
             topology_id_map[tree_string].append(tree_id)
             id_to_topology[id] = tree_string
-    # collect topologies that are present in filtere_df
+    # collect topologies that are present in filtered_df, i.e. have AU-test p-value < 0.05
     topologies_of_interest = set()
     for tree_id in filtered_df["ID"]:
         for topology, ids in topology_id_map.items():
@@ -129,6 +131,7 @@ for subdir in subdirs:
     matching_ids = set(
         [topology_id_map[topology] for topology in topologies_of_interest]
     )
+    # Add taxa with same topology to dataframe
     # Creating a copy to avoid modifying the original DataFrame while iterating
     new_rows = filtered_df.copy()
 
@@ -148,13 +151,11 @@ for subdir in subdirs:
 
     # Now new_rows contains the original rows plus the new rows
     filtered_df = new_rows
-
+    df_list.append(filtered_df)
 
 big_df = pd.concat(df_list, ignore_index=True)
-
-
 plt.figure(figsize=(10, 6))
-sns.scatterplot(filtered_df, x="ID", y="normalised_tii")
+sns.scatterplot(big_df, x="ID", y="normalised_tii")
 plt.xticks(rotation=90)
 plt.tight_layout()
 plt.savefig(plot_filepath)
