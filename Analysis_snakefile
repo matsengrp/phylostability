@@ -310,7 +310,7 @@ rule analyse_sh_test:
     output:
         plot=data_folder+plots_folder+"p_au_proportion_plot.pdf"
     benchmark:
-        touch(data_folder + "benchmarking/benchmark_analuse_sh_test.txt")
+        touch(data_folder + "benchmarking/benchmark_analyse_sh_test.txt")
     params:
         plots_folder=data_folder+plots_folder,
         subdirs=get_subdirs(data_folder)
