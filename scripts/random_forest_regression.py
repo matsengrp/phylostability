@@ -126,7 +126,48 @@ def combine_dfs(csvs, subdirs):
     return combined_df
 
 
+def balance_df_tiis(df, min_samples, bin_file):
+    """
+    Take balanced subset of df according to TII to avoid skewing predicting
+    TIIs that appear most frequently in training set.
+    Save number of bins and number of samples per bin in bin_file
+    """
+    df_copy = df.copy()  # Leave original df untouched
+    reduce_binsize = True
+    num_bins = 100  # Start with 100 bins, decrease if necessary
+    while reduce_binsize:
+        if num_bins == 1:
+            reduce_binsize = False
+        df_copy["tii_bin"] = pd.cut(
+            df_copy["normalised_tii"], bins=num_bins, labels=False, duplicates="drop"
+        )
+        bin_counts = df_copy.groupby("tii_bin").size()
+        bin_counts.to_csv(bin_file)
+        min_samples_per_bin = bin_counts.min()
+        if (
+            min_samples_per_bin * num_bins < min_samples
+        ):  # we want to use in total at least 1,000 samples
+            # this cutoff should depend on dataset
+            num_bins = int(num_bins / 2)
+            print("Less than 5 datasets per bin. Decrease bin size to ", num_bins)
+        else:
+            reduce_binsize = False
+    evenly_distributed_df = (
+        df_copy.groupby("tii_bin")
+        .apply(lambda x: x.sample(n=min_samples_per_bin))
+        .reset_index(drop=True)
+    )
+    evenly_distributed_df = evenly_distributed_df.drop("tii_bin", axis=1)
+    return evenly_distributed_df
+
+
+balance_data = True
 df = combine_dfs(csvs, subdirs)
 df.to_csv(combined_csv_path)
+if balance_data:
+    bin_file = "regression_balance_bins.csv"
+    print("Use bins to get balanced subset for regression.")
+    min_samples = 1000 # needs to be adjusted to data
+    df = balance_df_tiis(df, min_samples, bin_file)
 model_result = train_random_forest(df, cols_to_drop, column_name, cross_validate=True)
 model_result.to_csv(output_csv)
