@@ -89,7 +89,12 @@ def plot_random_forest_model_features(
 
 
 def plot_stability_measures(
-    csv, rf_radius_plot_filepath, tii_plot_filepath, scatterplot_filepath
+    csv,
+    rf_radius_plot_filepath,
+    tii_plot_filepath,
+    normalised_tii_plot_filepath,
+    scatterplot_filepath,
+    plot_individual = False
 ):
     df = pd.read_csv(csv)
     datasets = df["dataset"].unique()
@@ -108,7 +113,7 @@ def plot_stability_measures(
     plt.savefig(scatterplot_filepath)
     plt.clf()
 
-    if len(datasets) > 20:
+    if not plot_individual:
         # Instead of individual TII plots, boxplot representing TIIs for all data sets
         plt.figure(figsize=(10, 6))
         # Plot RF radius
@@ -123,15 +128,26 @@ def plot_stability_measures(
         plt.savefig(rf_radius_plot_filepath)
         plt.clf()
         # plot TII
-        max_radius = max(df["normalised_tii"])
-        num_bins = len(df["normalised_tii"].unique())
-        bins = [(i - 0.5) * max_radius / num_bins for i in range(0, num_bins)]
-        sns.histplot(data=df, x="normalised_tii", bins=bins)
+        max_tii = max(df["tii"])
+        num_bins = 100  # len(df["normalised_tii"].unique())
+        bins = [(i - 0.5) * max_tii / num_bins for i in range(0, num_bins)]
+        sns.histplot(data=df, x="tii", bins=bins)
         # Set labels and title
         plt.xlabel("TII")
         plt.title("TII values over all datasets")
         plt.tight_layout()
         plt.savefig(tii_plot_filepath)
+        plt.clf()
+        # plot normalised TII
+        max_tii = max(df["normalised_tii"])
+        num_bins = 100  # len(df["normalised_tii"].unique())
+        bins = [(i - 0.5) * max_tii / num_bins for i in range(0, num_bins)]
+        sns.histplot(data=df, x="normalised_tii", bins=bins)
+        # Set labels and title
+        plt.xlabel("TII")
+        plt.title("normalised TII values over all datasets")
+        plt.tight_layout()
+        plt.savefig(normalised_tii_plot_filepath)
         plt.clf()
         return 1
     num_datasets = len(datasets)
@@ -200,10 +216,15 @@ if not os.path.exists(plots_folder):
 
 print("Start plotting stability measures.")
 tii_plot_filepath = os.path.join(plots_folder, "tii.pdf")
+normalised_tii_plot_filepath = os.path.join(plots_folder, "normalised_tii.pdf")
 rf_radius_plot_filepath = os.path.join(plots_folder, "rf_radius.pdf")
 scatterplot_filepath = os.path.join(plots_folder, "tii_vs_rf_radius.pdf")
 plot_stability_measures(
-    combined_csv, rf_radius_plot_filepath, tii_plot_filepath, scatterplot_filepath
+    combined_csv,
+    rf_radius_plot_filepath,
+    tii_plot_filepath,
+    normalised_tii_plot_filepath,
+    scatterplot_filepath,
 )
 print("Done plotting stability measures.")
 
