@@ -167,7 +167,7 @@ df.to_csv(combined_csv_path)
 if balance_data:
     bin_file = "regression_balance_bins.csv"
     print("Use bins to get balanced subset for regression.")
-    min_samples = 1000 # needs to be adjusted to data
+    min_samples = 1000  # needs to be adjusted to data
     df = balance_df_tiis(df, min_samples, bin_file)
 model_result = train_random_forest(df, cols_to_drop, column_name, cross_validate=True)
 model_result.to_csv(output_csv)

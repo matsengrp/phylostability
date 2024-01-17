@@ -383,7 +383,7 @@ def get_rf_radius(full_tree, reduced_tree, seq_id):
             if not node.is_leaf()
         ]
     )
-    return rf_radius
+    return rf_radius / normalising_constant
 
 
 # get all the data files we need
