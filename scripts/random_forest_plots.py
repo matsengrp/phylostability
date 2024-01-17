@@ -100,9 +100,9 @@ def plot_stability_measures(
     datasets = df["dataset"].unique()
     datasets.sort()
     # Scatter plot with point color indicating count
-    aggregated_data = df.groupby(["tii", "rf_radius"]).size().reset_index(name="counts")
+    aggregated_data = df.groupby(["normalised_tii", "rf_radius"]).size().reset_index(name="counts")
     sns.scatterplot(
-        data=aggregated_data, x="tii", y="rf_radius", hue="counts", palette="viridis"
+        data=aggregated_data, x="normalised_tii", y="rf_radius", hue="counts", palette="viridis"
     )
 
     # Set labels and title

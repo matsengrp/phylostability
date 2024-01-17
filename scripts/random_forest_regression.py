@@ -126,7 +126,7 @@ def combine_dfs(csvs, subdirs):
     return combined_df
 
 
-def balance_df_tiis(df, min_samples, bin_file):
+def balance_df_stability_meaure(df, min_samples, bin_file, stability_measure):
     """
     Take balanced subset of df according to TII to avoid skewing predicting
     TIIs that appear most frequently in training set.
@@ -138,26 +138,25 @@ def balance_df_tiis(df, min_samples, bin_file):
     while reduce_binsize:
         if num_bins == 1:
             reduce_binsize = False
-        df_copy["tii_bin"] = pd.cut(
-            df_copy["normalised_tii"], bins=num_bins, labels=False, duplicates="drop"
+        df_copy["stability_bin"] = pd.cut(
+            df_copy[stability_measure], bins=num_bins, labels=False, duplicates="drop"
         )
-        bin_counts = df_copy.groupby("tii_bin").size()
+        bin_counts = df_copy.groupby("stability_bin").size()
         bin_counts.to_csv(bin_file)
         min_samples_per_bin = bin_counts.min()
         if (
             min_samples_per_bin * num_bins < min_samples
-        ):  # we want to use in total at least 1,000 samples
-            # this cutoff should depend on dataset
+        ):  # we want to use in total at least min_samples samples
             num_bins = int(num_bins / 2)
-            print("Less than 5 datasets per bin. Decrease bin size to ", num_bins)
+            print("Less than ", min_samples_per_bin ," datasets per bin. Decrease number of bins to ", num_bins)
         else:
             reduce_binsize = False
     evenly_distributed_df = (
-        df_copy.groupby("tii_bin")
+        df_copy.groupby("stability_bin")
         .apply(lambda x: x.sample(n=min_samples_per_bin))
         .reset_index(drop=True)
     )
-    evenly_distributed_df = evenly_distributed_df.drop("tii_bin", axis=1)
+    evenly_distributed_df = evenly_distributed_df.drop("stability_bin", axis=1)
     return evenly_distributed_df
 
 
@@ -168,6 +167,6 @@ if balance_data:
     bin_file = "regression_balance_bins.csv"
     print("Use bins to get balanced subset for regression.")
     min_samples = 1000  # needs to be adjusted to data
-    df = balance_df_tiis(df, min_samples, bin_file)
+    df = balance_df_stability_meaure(df, min_samples, bin_file, column_name)
 model_result = train_random_forest(df, cols_to_drop, column_name, cross_validate=True)
 model_result.to_csv(output_csv)
