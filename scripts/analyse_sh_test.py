@@ -8,6 +8,8 @@ iqtree_files = snakemake.input.iqtree_file
 tree_order_files = snakemake.input.reattached_trees_order
 summary_statistics = snakemake.input.summary_statistics
 reattached_trees = snakemake.input.reattached_trees
+classifier_statistics = snakemake.input.classifier_statistics
+regression_statistics = snakemake.input.regression_statistics
 plot_filepath = snakemake.output.plot
 subdirs = snakemake.params.subdirs
 
@@ -153,9 +155,18 @@ for subdir in subdirs:
     filtered_df = new_rows
     df_list.append(filtered_df)
 
+# mean normalised tiis for regression and classifier data
+classifier_df = pd.read_csv(classifier_statistics)
+classifier_mean_tii = classifier_df["normalised_tii"].mean()
+regression_df = pd.read_csv(regression_statistics)
+regression_mean_tii = regression_df["normalised_tii"].mean()
+
 big_df = pd.concat(df_list, ignore_index=True)
+big_df.to_csv("au_test_result.csv")
 plt.figure(figsize=(10, 6))
-sns.scatterplot(big_df, x="ID", y="normalised_tii")
+ax = sns.histplot(big_df["normalised_tii"])
+ax.axvline(classifier_mean_tii, color="black")
+ax.axvline(regression_mean_tii, color="red")
 plt.xticks(rotation=90)
 plt.tight_layout()
 plt.savefig(plot_filepath)

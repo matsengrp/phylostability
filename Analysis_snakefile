@@ -307,6 +307,8 @@ rule analyse_sh_test:
         iqtree_file=expand("{subdir}/"+input_alignment+".sh-test.iqtree", subdir=get_subdirs(data_folder)),
         reattached_trees_order=expand("{subdir}/order_reattached_trees.txt", subdir=get_subdirs(data_folder)),
         reattached_trees=expand("{subdir}/reattached_trees.trees", subdir=get_subdirs(data_folder)),
+        classifier_statistics=data_folder+"rf_classifier_combined_statistics.csv",
+        regression_statistics=data_folder+"rf_regression_combined_statistics.csv",
     output:
         plot=data_folder+plots_folder+"p_au_proportion_plot.pdf"
     benchmark:
