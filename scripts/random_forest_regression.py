@@ -27,14 +27,24 @@ cols_to_drop = [
 ]
 
 
-def train_random_forest(df, cols_to_drop, column_name="tii", cross_validate=False):
+def train_random_forest(
+    df, cols_to_drop, column_name="tii", cross_validate=False, balance_data=False
+):
     X = df.drop(cols_to_drop, axis=1)
     y = df[column_name]
 
-    # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
+    if balance_data:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=X["stability_bin"]
+        )
+        X_train = X_train.drop("stability_bin", axis=1)
+        X_test = X_test.drop("stability_bin", axis=1)
+        X = X.drop("stability_bin", axis=1)
+    else:
+        # Split the data into training and testing sets
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
 
     imputer = SimpleImputer(missing_values=np.nan, strategy="mean")
     X_train_imputed = imputer.fit_transform(X_train)
@@ -126,7 +136,7 @@ def combine_dfs(csvs, subdirs):
     return combined_df
 
 
-def balance_df_stability_meaure(df, min_samples, bin_file, stability_measure):
+def balance_df_stability_meaure(df, min_test_size, bin_file, stability_measure):
     """
     Take balanced subset of df according to TII to avoid skewing predicting
     TIIs that appear most frequently in training set.
@@ -145,10 +155,16 @@ def balance_df_stability_meaure(df, min_samples, bin_file, stability_measure):
         bin_counts.to_csv(bin_file)
         min_samples_per_bin = bin_counts.min()
         if (
-            min_samples_per_bin * num_bins < min_samples
-        ):  # we want to use in total at least min_samples samples
+            min_samples_per_bin * num_bins * 0.2 < min_test_size
+            or min_samples_per_bin < 2
+        ):  # we set a minimum size for our test set
             num_bins = int(num_bins / 2)
-            print("Less than ", min_samples_per_bin ," datasets per bin. Decrease number of bins to ", num_bins)
+            print(
+                "Less than ",
+                min_samples_per_bin,
+                " datasets per bin. Decrease number of bins to ",
+                num_bins,
+            )
         else:
             reduce_binsize = False
     evenly_distributed_df = (
@@ -156,17 +172,19 @@ def balance_df_stability_meaure(df, min_samples, bin_file, stability_measure):
         .apply(lambda x: x.sample(n=min_samples_per_bin))
         .reset_index(drop=True)
     )
-    evenly_distributed_df = evenly_distributed_df.drop("stability_bin", axis=1)
+    # evenly_distributed_df = evenly_distributed_df.drop("stability_bin", axis=1)
     return evenly_distributed_df
 
 
-balance_data = True
+balance_data = False
 df = combine_dfs(csvs, subdirs)
 df.to_csv(combined_csv_path)
 if balance_data:
     bin_file = "regression_balance_bins.csv"
     print("Use bins to get balanced subset for regression.")
-    min_samples = 1000  # needs to be adjusted to data
-    df = balance_df_stability_meaure(df, min_samples, bin_file, column_name)
-model_result = train_random_forest(df, cols_to_drop, column_name, cross_validate=True)
+    min_test_size = 1000  # needs to be adjusted to data
+    df = balance_df_stability_meaure(df, min_test_size, bin_file, column_name)
+model_result = train_random_forest(
+    df, cols_to_drop, column_name, cross_validate=True, balance_data=balance_data
+)
 model_result.to_csv(output_csv)
