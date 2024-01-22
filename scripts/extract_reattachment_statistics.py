@@ -418,7 +418,7 @@ for seq_id in seq_ids:
     rf_distance = full_tree.robinson_foulds(restricted_tree, unrooted_trees=True)[0]
     normalised_rf_distance = rf_distance / tii_normalising_constant
 
-    # get bootstrap support values in restricted full_tree
+    # get bootstrap support values in restricted tree
     bootstrap_list = [
         node.support
         for node in restricted_tree.traverse()
@@ -446,7 +446,7 @@ for seq_id in seq_ids:
     sum_branch_lengths = sum(
         [node.dist for node in best_reattached_tree.iter_descendants()]
     )
-    branch_length_normalisation = sum_branch_lengths * n
+    branch_length_normalisation = sum_branch_lengths / n
     # to avoid having an empty list, we set distance between reattachments to be 0.
     # Note that this is correct if three is only one best reattachment.
     if len(reattachment_distances) == 0:
