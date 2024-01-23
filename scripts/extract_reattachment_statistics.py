@@ -456,7 +456,7 @@ for seq_id in seq_ids:
     edge_num = best_placement[0]
     likelihood = best_placement[1]
     like_weight_ratio = best_placement[2]
-    distal_length = best_placement[3] / branch_length_normalisation
+    distal_length = best_placement[3]
     pendant_length = best_placement[4] / branch_length_normalisation
     reattached_tree, reattachment_branch_length = get_reattached_tree(
         dict["tree"],
@@ -465,7 +465,10 @@ for seq_id in seq_ids:
         best_placement[3],
         best_placement[4],
     )
-    distal_length = distal_length / reattachment_branch_length
+    distal_length = (
+        min(distal_length, reattachment_branch_length - distal_length)
+        / branch_length_normalisation
+    )
     reattachment_branch_length = (
         reattachment_branch_length / branch_length_normalisation
     )
