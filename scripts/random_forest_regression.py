@@ -22,8 +22,9 @@ cols_to_drop = [
     "likelihood",
     "tii",
     "dataset",
+    "normalised_tii",
     "rf_radius",
-    column_name,
+    # column_name,
 ]
 
 

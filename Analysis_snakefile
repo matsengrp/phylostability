@@ -199,6 +199,7 @@ rule random_forest_regression:
         touch(data_folder + "benchmarking/benchmark_random_forest_regression.txt")
     params:
         column_to_predict = "normalised_tii",
+        # column_to_predict = "rf_radius",
         subdirs=get_subdirs(data_folder),
     script:
         "scripts/random_forest_regression.py"
