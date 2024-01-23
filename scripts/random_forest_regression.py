@@ -176,7 +176,7 @@ def balance_df_stability_meaure(df, min_test_size, bin_file, stability_measure):
     return evenly_distributed_df
 
 
-balance_data = False
+balance_data = True
 df = combine_dfs(csvs, subdirs)
 df.to_csv(combined_csv_path)
 if balance_data:
