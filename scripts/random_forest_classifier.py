@@ -33,7 +33,7 @@ def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
     y = df[column_name + "_binary"]
     # Split the data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
     y_val = X_test[column_name]
     X_train = X_train.drop(column_name, axis=1)
