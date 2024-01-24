@@ -148,7 +148,7 @@ def balance_df_stability_meaure(df, min_test_size, bin_file, stability_measure):
     """
     df_copy = df.copy()  # Leave original df untouched
     reduce_binsize = True
-    num_bins = 100  # Start with 100 bins, decrease if necessary
+    num_bins = 20  # Start with 20 bins, decrease if necessary
     while reduce_binsize:
         if num_bins == 1:
             reduce_binsize = False
@@ -161,12 +161,13 @@ def balance_df_stability_meaure(df, min_test_size, bin_file, stability_measure):
         if (
             min_samples_per_bin * num_bins * 0.2 < min_test_size
             or min_samples_per_bin < 2
+            or num_bins > int(0.2 * min_samples_per_bin * num_bins) # we need less bins than number of test samples
         ):  # we set a minimum size for our test set
-            num_bins = int(num_bins / 2)
+            num_bins = num_bins - 1
             print(
-                "Less than ",
+                "Smallest bin contains ",
                 min_samples_per_bin,
-                " datasets per bin. Decrease number of bins to ",
+                " datasets. Decrease number of bins to ",
                 num_bins,
             )
         else:
@@ -176,7 +177,6 @@ def balance_df_stability_meaure(df, min_test_size, bin_file, stability_measure):
         .apply(lambda x: x.sample(n=min_samples_per_bin))
         .reset_index(drop=True)
     )
-    # evenly_distributed_df = evenly_distributed_df.drop("stability_bin", axis=1)
     return evenly_distributed_df
 
 
