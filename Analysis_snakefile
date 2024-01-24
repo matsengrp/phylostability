@@ -12,6 +12,7 @@ input_alignment="full_alignment.fasta"
 data_folder=config["data_folder"]+"/selected_data/"
 plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
+stability_measure="rf_radius"
 
 def get_subdirs(data_folder):
     return [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path]
@@ -195,12 +196,12 @@ rule random_forest_regression:
         output_file_name=data_folder+"random_forest_regression.csv",
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
         parameter_file=data_folder+"best_parameters_regression.json",
-        r2_file=data_folder+"regression_r2.txt"
+        r2_file=data_folder+"regression_r2.txt",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_regression.txt")
     params:
-        column_to_predict = "normalised_tii",
-        # column_to_predict = "rf_radius",
+        # column_to_predict = "normalised_tii",
+        column_to_predict = stability_measure,
         subdirs=get_subdirs(data_folder),
     script:
         "scripts/random_forest_regression.py"
@@ -235,10 +236,12 @@ rule random_forest_plots:
         discrete_model_features_csv=rules.random_forest_classifier.output.model_features_file,
         classifier_metrics_csv=rules.random_forest_classifier.output.classifier_metrics_csv,
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
+        r2_file=data_folder+"regression_r2.txt",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_plots.txt")
     params:
         forest_plot_folder=data_folder+"plots/",
+        stability_measure=stability_measure,
     output:
         temp(touch("random_forest_plots.done"))
     script:

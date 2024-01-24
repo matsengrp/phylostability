@@ -17,21 +17,30 @@ plt.rcParams["xtick.labelsize"] = 12
 plt.rcParams["ytick.labelsize"] = 12
 
 
-def plot_random_forest_regression_results(results_csv, plot_filepath):
+def plot_random_forest_regression_results(results_csv, plot_filepath, stability_measure, r2_file):
+    with open(r2_file, "r") as f:
+        r2 = float(f.readlines()[0].strip())
     df = pd.read_csv(results_csv)
     df_sorted = df.sort_values(by="actual")
 
     plt.figure(figsize=(10, 6))
-    sns.scatterplot(data=df_sorted, x="actual", y="predicted")
+    ax = sns.scatterplot(data=df_sorted, x="actual", y="predicted")
 
     # Determine the common maximum limit for both axes
     common_limit = max(df["actual"].max(), df["predicted"].max()) + 0.01
+
+    textstr = f'R²= {r2:.2f}'  # Formats the string to display R² with 2 decimal places
+    props = dict(boxstyle='square', facecolor='white', alpha=0.5)
+
+    # Position: x, y, text, properties of the box
+    ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=14,
+            verticalalignment='top', bbox=props)
 
     # Set the same limits for both the x-axis and y-axis
     plt.xlim(-0.01, common_limit)
     plt.ylim(-0.01, common_limit)
 
-    plt.title("Results of Random Forest Regression")
+    plt.title("Results of Random Forest Regression predicting " + stability_measure)
     plt.xlabel("Actual")
     plt.ylabel("Predicted")
     plt.tight_layout()
@@ -208,7 +217,9 @@ classifier_results_csv = snakemake.input.random_forest_classifier_csv
 classifier_metrics_csv = snakemake.input.classifier_metrics_csv
 discrete_model_features_csv = snakemake.input.discrete_model_features_csv
 combined_csv = snakemake.input.combined_csv_path
+r2_file = snakemake.input.r2_file
 plots_folder = snakemake.params.forest_plot_folder
+stability_measure = snakemake.params.stability_measure
 
 
 if not os.path.exists(plots_folder):
@@ -231,7 +242,7 @@ print("Done plotting stability measures.")
 
 print("Start plotting random forest regression results.")
 random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_results.pdf")
-plot_random_forest_regression_results(results_csv, random_forest_plot_filepath)
+plot_random_forest_regression_results(results_csv, random_forest_plot_filepath, stability_measure, r2_file)
 model_features_plot_filepath = os.path.join(
     plots_folder, "random_forest_model_features.pdf"
 )
