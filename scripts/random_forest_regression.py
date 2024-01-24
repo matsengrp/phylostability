@@ -15,6 +15,7 @@ combined_csv_path = snakemake.output.combined_csv_path
 column_name = snakemake.params.column_to_predict
 subdirs = snakemake.params.subdirs
 parameter_file = snakemake.output.parameter_file
+r2_file = snakemake.output.r2_file
 
 # taxon_name_col = "seq_id"
 cols_to_drop = [
@@ -122,7 +123,9 @@ def train_random_forest(
             },
             index=X.columns,
         ).to_csv(model_features_csv)
-
+        R2 = fit_model.score(X_train_imputed, y_train)
+        with open(r2_file, "w") as f:
+            f.write(str(R2) + "\n")
     return model_result
 
 
@@ -183,7 +186,7 @@ df.to_csv(combined_csv_path)
 if balance_data:
     bin_file = "regression_balance_bins.csv"
     print("Use bins to get balanced subset for regression.")
-    min_test_size = 1000  # needs to be adjusted to data
+    min_test_size = 200  # needs to be adjusted to data
     df = balance_df_stability_meaure(df, min_test_size, bin_file, column_name)
 model_result = train_random_forest(
     df, cols_to_drop, column_name, cross_validate=True, balance_data=balance_data
