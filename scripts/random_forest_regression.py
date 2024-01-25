@@ -16,6 +16,7 @@ column_name = snakemake.params.column_to_predict
 subdirs = snakemake.params.subdirs
 parameter_file = snakemake.output.parameter_file
 r2_file = snakemake.output.r2_file
+regression_bins = snakemake.output.regression_bins
 
 # taxon_name_col = "seq_id"
 cols_to_drop = [
@@ -161,7 +162,10 @@ def balance_df_stability_meaure(df, min_test_size, bin_file, stability_measure):
         if (
             min_samples_per_bin * num_bins * 0.2 < min_test_size
             or min_samples_per_bin < 2
-            or num_bins > int(0.2 * min_samples_per_bin * num_bins) # we need less bins than number of test samples
+            or num_bins
+            > int(
+                0.2 * min_samples_per_bin * num_bins
+            )  # we need less bins than number of test samples
         ):  # we set a minimum size for our test set
             num_bins = num_bins - 1
             print(
@@ -184,10 +188,9 @@ balance_data = True
 df = combine_dfs(csvs, subdirs)
 df.to_csv(combined_csv_path)
 if balance_data:
-    bin_file = "regression_balance_bins.csv"
     print("Use bins to get balanced subset for regression.")
     min_test_size = 200  # needs to be adjusted to data
-    df = balance_df_stability_meaure(df, min_test_size, bin_file, column_name)
+    df = balance_df_stability_meaure(df, min_test_size, regression_bins, column_name)
 model_result = train_random_forest(
     df, cols_to_drop, column_name, cross_validate=True, balance_data=balance_data
 )
