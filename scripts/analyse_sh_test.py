@@ -11,6 +11,8 @@ reattached_trees = snakemake.input.reattached_trees
 classifier_statistics = snakemake.input.classifier_statistics
 regression_statistics = snakemake.input.regression_statistics
 plot_filepath = snakemake.output.plot
+au_test_results = snakemake.output.au_test_results
+au_test_regression_input = snakemake.output.au_test_regression_input
 subdirs = snakemake.params.subdirs
 
 
@@ -74,6 +76,7 @@ def extract_table_from_file(filename):
 
 
 df_list = []
+df_unfiltered_list = []
 for subdir in subdirs:
     # get taxon name, normalised and unnormalised tii of subdir
     ss_df = pd.read_csv([f for f in summary_statistics if subdir + "/" in f][0])
@@ -100,6 +103,7 @@ for subdir in subdirs:
     df["seq_id"] = order
     df = df.merge(ss_df, on="seq_id", how="left")
     df["ID"] = df["dataset"] + " " + df["seq_id"] + " " + df["tii"].astype(str)
+    df_unfiltered_list.append(df)
     filtered_df = df[df["p-AU"] < 0.05]
 
     # iqtree deletes duplicate trees. If the tree with p-value < 0.05 is a duplicate,
@@ -162,15 +166,18 @@ regression_df = pd.read_csv(regression_statistics)
 regression_mean_tii = regression_df["normalised_tii"].mean()
 
 big_df = pd.concat(df_list, ignore_index=True)
-big_df.to_csv("au_test_result.csv")
+big_df.to_csv(au_test_results)
 plt.figure(figsize=(10, 6))
 ax = sns.histplot(big_df["normalised_tii"])
-ax.axvline(classifier_mean_tii, color="black", label="Mean TII Classifier")
-ax.axvline(regression_mean_tii, color="red", label="Mean TII Regression")
+ax.axvline(classifier_mean_tii, color="black", label="Mean TII Classifier data")
+ax.axvline(regression_mean_tii, color="red", label="Mean TII all data")
 ax.legend()
 plt.xticks(rotation=90)
 plt.tight_layout()
 plt.savefig(plot_filepath)
+
+all_au_df = pd.concat(df_unfiltered_list, ignore_index=True)
+all_au_df.to_csv(au_test_regression_input)
 
 # # Group by 'dataset' and calculate the proportion
 # grouped_df = big_df.groupby("dataset", group_keys=True)
