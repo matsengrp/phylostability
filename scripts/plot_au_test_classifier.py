@@ -10,13 +10,10 @@ def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
         .replace(to_replace=0, value="unstable")
         .replace(to_replace=1, value="stable")
     )
-    print(df)
     cm = confusion_matrix(df["actual"], df["predicted"])
 
     roc_df = pd.read_csv(roc_csv)
     roc_auc = auc(roc_df["fpr"], roc_df["tpr"])
-
-    print(roc_auc)
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
