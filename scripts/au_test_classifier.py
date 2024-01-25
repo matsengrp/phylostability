@@ -61,7 +61,6 @@ def train_random_forest_classifier(df, column_name, cross_validate=False):
         }
     )
 
-    # print out the feature importances to file
     importances = model.feature_importances_
     pd.Series(importances, index=X_train.columns).to_csv(model_features_csv)
 
@@ -133,11 +132,9 @@ def add_au_test_result(df, au_df):
     au_df_subset = au_df[["seq_id", "dataset", "p-AU"]]
     df["seq_id"] = df["seq_id"].str.replace(r"\s+\d+$", "", regex=True)
     merged_df = pd.merge(df, au_df_subset, on=["seq_id", "dataset"], how="left")
-    print(merged_df)
     merged_df["p-AU_binary"] = merged_df["p-AU"].apply(
         lambda x: 0 if float(x) < 0.05 else 1
     )
-    print(len(merged_df[merged_df["p-AU_binary"] == 0]))
     merged_df.drop("p-AU", axis=1, inplace=True)
     df = merged_df
     return df

@@ -17,7 +17,9 @@ plt.rcParams["xtick.labelsize"] = 12
 plt.rcParams["ytick.labelsize"] = 12
 
 
-def plot_random_forest_regression_results(results_csv, plot_filepath, stability_measure, r2_file):
+def plot_random_forest_regression_results(
+    results_csv, plot_filepath, stability_measure, r2_file
+):
     with open(r2_file, "r") as f:
         r2 = float(f.readlines()[0].strip())
     df = pd.read_csv(results_csv)
@@ -29,12 +31,19 @@ def plot_random_forest_regression_results(results_csv, plot_filepath, stability_
     # Determine the common maximum limit for both axes
     common_limit = max(df["actual"].max(), df["predicted"].max()) + 0.01
 
-    textstr = f'R²= {r2:.2f}'  # Formats the string to display R² with 2 decimal places
-    props = dict(boxstyle='square', facecolor='white', alpha=0.5)
+    textstr = f"R²= {r2:.2f}"  # Formats the string to display R² with 2 decimal places
+    props = dict(boxstyle="square", facecolor="white", alpha=0.5)
 
     # Position: x, y, text, properties of the box
-    ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=14,
-            verticalalignment='top', bbox=props)
+    ax.text(
+        0.05,
+        0.95,
+        textstr,
+        transform=ax.transAxes,
+        fontsize=14,
+        verticalalignment="top",
+        bbox=props,
+    )
 
     # Set the same limits for both the x-axis and y-axis
     plt.xlim(-0.01, common_limit)
@@ -73,7 +82,7 @@ def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
     ax1.set_ylabel("True Positive Rate")
     ax1.set_title("ROC Curve")
     ax1.legend(loc="lower right")
-    ConfusionMatrixDisplay(confusion_matrix=cm).plot(ax=ax2)
+    ConfusionMatrixDisplay(confusion_matrix=cm).plot(ax=ax2, cmap="Blues")
     ax2.set_title("Confusion Matrix")
     plt.tight_layout()
     plt.savefig(plot_filepath)
@@ -103,15 +112,21 @@ def plot_stability_measures(
     tii_plot_filepath,
     normalised_tii_plot_filepath,
     scatterplot_filepath,
-    plot_individual = False
+    plot_individual=False,
 ):
     df = pd.read_csv(csv)
     datasets = df["dataset"].unique()
     datasets.sort()
     # Scatter plot with point color indicating count
-    aggregated_data = df.groupby(["normalised_tii", "rf_radius"]).size().reset_index(name="counts")
+    aggregated_data = (
+        df.groupby(["normalised_tii", "rf_radius"]).size().reset_index(name="counts")
+    )
     sns.scatterplot(
-        data=aggregated_data, x="normalised_tii", y="rf_radius", hue="counts", palette="viridis"
+        data=aggregated_data,
+        x="normalised_tii",
+        y="rf_radius",
+        hue="counts",
+        palette="viridis",
     )
 
     # Set labels and title
@@ -242,7 +257,9 @@ print("Done plotting stability measures.")
 
 print("Start plotting random forest regression results.")
 random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_results.pdf")
-plot_random_forest_regression_results(results_csv, random_forest_plot_filepath, stability_measure, r2_file)
+plot_random_forest_regression_results(
+    results_csv, random_forest_plot_filepath, stability_measure, r2_file
+)
 model_features_plot_filepath = os.path.join(
     plots_folder, "random_forest_model_features.pdf"
 )
