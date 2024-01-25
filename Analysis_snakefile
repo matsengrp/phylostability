@@ -290,28 +290,28 @@ rule write_all_reattached_trees:
         "scripts/write_all_reattached_trees.py"
 
 
-# SH-test to test model fit of full tree to reattached trees
-rule sh_test_model_fit:
+# AU-test to test model fit of full tree to reattached trees
+rule au_test_model_fit:
     input:
         msa="{subdir}/"+input_alignment,
         reattached_trees="{subdir}/reattached_trees.trees",
         full_tree = "{subdir}/"+input_alignment+".treefile"
     output:
-        touch("{subdir}/sh_test_model_fit.done"),
-        "{subdir}/"+input_alignment+".sh-test.iqtree"
+        touch("{subdir}/au_test_model_fit.done"),
+        "{subdir}/"+input_alignment+".au-test.iqtree"
     benchmark:
-        touch("{subdir}/benchmarking/benchmark_sh_test_model_fit.txt")
+        touch("{subdir}/benchmarking/benchmark_au_test_model_fit.txt")
     shell:
         """
-        iqtree -s {input.msa} -z {input.reattached_trees} --prefix {wildcards.subdir}/{input_alignment}.sh-test -te {input.full_tree} -zb 10000 -zw -au --redo
+        iqtree -s {input.msa} -z {input.reattached_trees} --prefix {wildcards.subdir}/{input_alignment}.au-test -te {input.full_tree} -zb 10000 -zw -au --redo
         """
 
 
-rule analyse_sh_test:
+rule analyse_au_test:
     input:
-        expand("{subdir}/sh_test_model_fit.done", subdir=get_subdirs(data_folder)),
+        expand("{subdir}/au_test_model_fit.done", subdir=get_subdirs(data_folder)),
         summary_statistics=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=get_subdirs(data_folder)),
-        iqtree_file=expand("{subdir}/"+input_alignment+".sh-test.iqtree", subdir=get_subdirs(data_folder)),
+        iqtree_file=expand("{subdir}/"+input_alignment+".au-test.iqtree", subdir=get_subdirs(data_folder)),
         reattached_trees_order=expand("{subdir}/order_reattached_trees.txt", subdir=get_subdirs(data_folder)),
         reattached_trees=expand("{subdir}/reattached_trees.trees", subdir=get_subdirs(data_folder)),
         classifier_statistics=data_folder+"rf_classifier_combined_statistics.csv",
@@ -321,12 +321,12 @@ rule analyse_sh_test:
         au_test_results=data_folder+"au_test_result.csv",
         au_test_regression_input=data_folder+"au_test_regression_input.csv",
     benchmark:
-        touch(data_folder + "benchmarking/benchmark_analyse_sh_test.txt")
+        touch(data_folder + "benchmarking/benchmark_analyse_au_test.txt")
     params:
         plots_folder=data_folder+plots_folder,
         subdirs=get_subdirs(data_folder)
     script:
-        "scripts/analyse_sh_test.py"
+        "scripts/analyse_au_test.py"
 
 
 rule au_test_classifier:
