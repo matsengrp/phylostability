@@ -49,7 +49,8 @@ rule all:
         # expand("{subdir}/create_other_plots.done", subdir=subdirs)
         data_folder+plots_folder+"p_au_proportion_plot.pdf",
         "benchmarking_plots.done",
-        "plot_au_test_classifier.done"
+        "plot_au_test_classifier.done",
+        data_folder+plots_folder+"au_pie_chart.pdf"
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -317,7 +318,8 @@ rule analyse_au_test:
         classifier_statistics=data_folder+"rf_classifier_combined_statistics.csv",
         regression_statistics=data_folder+"rf_regression_combined_statistics.csv",
     output:
-        plot=data_folder+plots_folder+"p_au_proportion_plot.pdf",
+        plot=data_folder+plots_folder+"p_au_vs_tii_plot.pdf",
+        piechart_plot=data_folder+plots_folder+"au_pie_chart.pdf",
         au_test_results=data_folder+"au_test_result.csv",
         au_test_regression_input=data_folder+"au_test_regression_input.csv",
     benchmark:
