@@ -2,11 +2,7 @@ import optuna
 import pandas as pd
 import numpy as np
 import json
-import seaborn as sns
-import matplotlib.pyplot as plt
 import os
-import math
-from sklearn.metrics import confusion_matrix, auc, ConfusionMatrixDisplay
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
@@ -172,39 +168,6 @@ def balance_datasets(df):
     return combined_df
 
 
-def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
-    df = (
-        pd.read_csv(results_csv)
-        .replace(to_replace=0, value="unstable")
-        .replace(to_replace=1, value="stable")
-    )
-    print(df)
-    cm = confusion_matrix(df["actual"], df["predicted"])
-
-    roc_df = pd.read_csv(roc_csv)
-    roc_auc = auc(roc_df["fpr"], roc_df["tpr"])
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
-
-    ax1.plot(
-        roc_df["fpr"],
-        roc_df["tpr"],
-        color="darkorange",
-        lw=2,
-        label="ROC curve (area={:.2f})".format(roc_auc),
-    )
-    ax1.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
-    ax1.set_xlabel("False Positive Rate")
-    ax1.set_ylabel("True Positive Rate")
-    ax1.set_title("ROC Curve")
-    ax1.legend(loc="lower right")
-    ConfusionMatrixDisplay(confusion_matrix=cm).plot(ax=ax2)
-    ax2.set_title("Confusion Matrix")
-    plt.tight_layout()
-    plt.savefig(plot_filepath)
-    plt.clf()
-
-
 df = pd.read_csv(combined_statistics, index_col=0)
 au_df = pd.read_csv(au_test_regression_input)
 # if len(au_df) >= 10:
@@ -215,5 +178,3 @@ model_result = train_random_forest_classifier(
     df, column_name="p-AU_binary", cross_validate=True
 )
 model_result.to_csv(output_csv)
-plot_filepath = plot_folder + "/au_test_classifier_results.pdf"
-plot_random_forest_classifier_results(output_csv, classifier_metrics_csv, plot_filepath)

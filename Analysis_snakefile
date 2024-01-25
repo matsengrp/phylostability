@@ -12,7 +12,7 @@ input_alignment="full_alignment.fasta"
 data_folder=config["data_folder"]+"/selected_data/"
 plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
-stability_measure="rf_radius"
+stability_measure="normalised_tii"
 
 def get_subdirs(data_folder):
     return [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path]
@@ -49,7 +49,7 @@ rule all:
         # expand("{subdir}/create_other_plots.done", subdir=subdirs)
         data_folder+plots_folder+"p_au_proportion_plot.pdf",
         "benchmarking_plots.done",
-        "au_test_classifier.done",
+        "plot_au_test_classifier.done"
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -198,6 +198,7 @@ rule random_forest_regression:
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
         parameter_file=data_folder+"best_parameters_regression.json",
         r2_file=data_folder+"regression_r2.txt",
+        regression_bins=data_folder+"regression_bins.csv",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_regression.txt")
     params:
@@ -342,8 +343,20 @@ rule au_test_classifier:
         parameter_file=data_folder+"best_parameters_au_test_classifier.json",
     output:
         temp(touch("au_test_classifier.done")),
+        output_file_name=data_folder+"au_test_classification.csv",
     script:
         "scripts/au_test_classifier.py"
+
+
+rule plot_au_test_classifier:
+    input:
+        classifier_metrics_csv=data_folder+"au_test_classifier_results.csv",
+        classifier_results=data_folder+"au_test_classification.csv",
+    output:
+        temp(touch("plot_au_test_classifier.done")),
+        plot_file=data_folder+"plots/au_test_classifier_results.pdf",
+    script:
+        "scripts/plot_au_test_classifier.py"
 
 
 # create single file for each dataset with timing breakdowns for the rules
