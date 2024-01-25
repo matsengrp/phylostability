@@ -49,6 +49,7 @@ rule all:
         # expand("{subdir}/create_other_plots.done", subdir=subdirs)
         data_folder+plots_folder+"p_au_proportion_plot.pdf",
         "benchmarking_plots.done",
+        "au_test_classifier.done",
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -315,7 +316,9 @@ rule analyse_sh_test:
         classifier_statistics=data_folder+"rf_classifier_combined_statistics.csv",
         regression_statistics=data_folder+"rf_regression_combined_statistics.csv",
     output:
-        plot=data_folder+plots_folder+"p_au_proportion_plot.pdf"
+        plot=data_folder+plots_folder+"p_au_proportion_plot.pdf",
+        au_test_results=data_folder+"au_test_result.csv",
+        au_test_regression_input=data_folder+"au_test_regression_input.csv",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_analyse_sh_test.txt")
     params:
@@ -323,6 +326,24 @@ rule analyse_sh_test:
         subdirs=get_subdirs(data_folder)
     script:
         "scripts/analyse_sh_test.py"
+
+
+rule au_test_classifier:
+    input:
+        au_test_results=data_folder+"au_test_result.csv",
+        combined_statistics=data_folder+"rf_regression_combined_statistics.csv",
+        au_test_regression_input=data_folder+"au_test_regression_input.csv",
+    params:
+        plot_folder=data_folder+"plots/",
+        model_features_file="au_test_feature_importances.csv",
+        output_file_name=data_folder+"au_test_classification.csv",
+        combined_csv_path=data_folder+"au_test_combined_statistics.csv",
+        classifier_metrics_csv=data_folder+"au_test_classifier_results.csv",
+        parameter_file=data_folder+"best_parameters_au_test_classifier.json",
+    output:
+        temp(touch("au_test_classifier.done")),
+    script:
+        "scripts/au_test_classifier.py"
 
 
 # create single file for each dataset with timing breakdowns for the rules
