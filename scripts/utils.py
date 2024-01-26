@@ -23,7 +23,7 @@ def ete_dist(node1, node2, topology_only=False):
     if node2 in node1.get_ancestors():
         leaf = node1.get_leaves()[0]
         if node1 == leaf and topology_only == True:
-            add_to_dist = 1
+            add_to_dist += 1
         return (
             node2.get_distance(leaf, topology_only=topology_only)
             - node1.get_distance(leaf, topology_only=topology_only)
@@ -32,7 +32,10 @@ def ete_dist(node1, node2, topology_only=False):
     else:
         leaf = node2.get_leaves()[0]
         if node2 == leaf and topology_only == True and node1 in node2.get_ancestors():
-            add_to_dist = 1
+            add_to_dist += 1
+        if not node1.is_root() and node1.get_common_ancestor(node2).is_root():
+            # we don't want to count root node as +1 for distance
+            add_to_dist -= 1
         return (
             node1.get_distance(leaf, topology_only=topology_only)
             - node2.get_distance(leaf, topology_only=topology_only)
