@@ -319,7 +319,6 @@ rule analyse_au_test:
         regression_statistics=data_folder+"rf_regression_combined_statistics.csv",
     output:
         plot=data_folder+plots_folder+"p_au_vs_tii_plot.pdf",
-        piechart_plot=data_folder+plots_folder+"au_pie_chart.pdf",
         au_test_results=data_folder+"au_test_result.csv",
         au_test_regression_input=data_folder+"au_test_regression_input.csv",
     benchmark:
@@ -354,9 +353,11 @@ rule plot_au_test_classifier:
     input:
         classifier_metrics_csv=data_folder+"au_test_classifier_results.csv",
         classifier_results=data_folder+"au_test_classification.csv",
+        all_au_test_results=data_folder+"au_test_regression_input.csv",
     output:
         temp(touch("plot_au_test_classifier.done")),
-        plot_file=data_folder+"plots/au_test_classifier_results.pdf",
+        classifier_plot_file=data_folder+"plots/au_test_classifier_results.pdf",
+        pie_plot_file=data_folder+plots_folder+"au_pie_chart.pdf",
     script:
         "scripts/plot_au_test_classifier.py"
 

@@ -5,6 +5,7 @@ warnings.filterwarnings("ignore", "use_inf_as_na")
 warnings.filterwarnings("ignore", "UserWarning")
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib as mlp
 import pandas as pd
 import os
 import math
@@ -16,6 +17,9 @@ plt.rcParams["axes.titlesize"] = 16
 plt.rcParams["xtick.labelsize"] = 12
 plt.rcParams["ytick.labelsize"] = 12
 
+# Colour for plots
+dark2 = mpl.colormaps["Dark2"]
+
 
 def plot_random_forest_regression_results(
     results_csv, plot_filepath, stability_measure, r2_file
@@ -26,7 +30,9 @@ def plot_random_forest_regression_results(
     df_sorted = df.sort_values(by="actual")
 
     plt.figure(figsize=(10, 6))
-    ax = sns.scatterplot(data=df_sorted, x="actual", y="predicted")
+    ax = sns.scatterplot(
+        data=df_sorted, x="actual", y="predicted", color=dark2.colors[0]
+    )
 
     # Determine the common maximum limit for both axes
     common_limit = max(df["actual"].max(), df["predicted"].max()) + 0.01
@@ -63,7 +69,7 @@ def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
         .replace(to_replace=True, value="unstable")
         .replace(to_replace=False, value="stable")
     )
-    cm = confusion_matrix(df["actual"], df["predicted"])
+    conf_m = confusion_matrix(df["actual"], df["predicted"])
 
     roc_df = pd.read_csv(roc_csv)
     roc_auc = auc(roc_df["fpr"], roc_df["tpr"])
@@ -73,16 +79,16 @@ def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
     ax1.plot(
         roc_df["fpr"],
         roc_df["tpr"],
-        color="darkorange",
+        color=dark2.colors[0],
         lw=2,
         label="ROC curve (area={:.2f})".format(roc_auc),
     )
-    ax1.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
+    ax1.plot([0, 1], [0, 1], color=dark2.colors[1], lw=2, linestyle="--")
     ax1.set_xlabel("False Positive Rate")
     ax1.set_ylabel("True Positive Rate")
     ax1.set_title("ROC Curve")
     ax1.legend(loc="lower right")
-    ConfusionMatrixDisplay(confusion_matrix=cm).plot(ax=ax2, cmap="Blues")
+    ConfusionMatrixDisplay(confusion_matrix=conf_m).plot(ax=ax2, cmap="Blues")
     ax2.set_title("Confusion Matrix")
     plt.tight_layout()
     plt.savefig(plot_filepath)
@@ -98,7 +104,7 @@ def plot_random_forest_model_features(
         skiprows=1,
     )
     plt.figure(figsize=(10, 6))
-    sns.barplot(data=df, x="feature_name", y="importance")
+    sns.barplot(data=df, x="feature_name", y="importance", color=dark2.colors[0])
     plt.title("feature importance for random forest " + rf_type)
     plt.xticks(rotation=90)
     plt.tight_layout()
@@ -126,7 +132,7 @@ def plot_stability_measures(
         x="normalised_tii",
         y="rf_radius",
         hue="counts",
-        palette="viridis",
+        color=dark2.colors[0],
     )
 
     # Set labels and title
@@ -144,7 +150,7 @@ def plot_stability_measures(
         max_radius = max(df["rf_radius"])
         num_bins = len(df["rf_radius"].unique())
         bins = [(i - 0.5) * max_radius / num_bins for i in range(0, num_bins)]
-        sns.histplot(data=df, x="rf_radius", bins=bins)
+        sns.histplot(data=df, x="rf_radius", bins=bins, color=dark2.colors[0])
         # Set labels and title
         plt.xlabel("RF radius")
         plt.title("RF radius over all datasets")
@@ -155,7 +161,7 @@ def plot_stability_measures(
         max_tii = max(df["tii"])
         num_bins = 100  # len(df["normalised_tii"].unique())
         bins = [(i - 0.5) * max_tii / num_bins for i in range(0, num_bins)]
-        sns.histplot(data=df, x="tii", bins=bins)
+        sns.histplot(data=df, x="tii", bins=bins, color=dark2.colors[0])
         # Set labels and title
         plt.xlabel("TII")
         plt.title("TII values over all datasets")
@@ -166,7 +172,7 @@ def plot_stability_measures(
         max_tii = max(df["normalised_tii"])
         num_bins = 100  # len(df["normalised_tii"].unique())
         bins = [(i - 0.5) * max_tii / num_bins for i in range(0, num_bins)]
-        sns.histplot(data=df, x="normalised_tii", bins=bins)
+        sns.histplot(data=df, x="normalised_tii", bins=bins, color=dark2.colors[0])
         # Set labels and title
         plt.xlabel("TII")
         plt.title("normalised TII values over all datasets")
@@ -203,7 +209,12 @@ def plot_stability_measures(
 
             # Plot histogram with binwidth=1 and adjusted binrange
             sns.histplot(
-                data=current_df, x=var, ax=ax, binwidth=1, binrange=(bin_start, bin_end)
+                data=current_df,
+                x=var,
+                ax=ax,
+                binwidth=1,
+                binrange=(bin_start, bin_end),
+                color=dark2.colors[0],
             )
             ax.set_title(dataset + " (n = " + str(len(current_df)) + ")")
             # Set x-axis label only for bottom row plots
