@@ -41,7 +41,7 @@ def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
     plt.clf()
 
 
-def plot_au_test_pie_chart(df, plot_filepath)
+def plot_au_test_pie_chart(df, plot_filepath):
     # Pie Chart
     condition1 = ((df["normalised_tii"] == 0.0) & (df["p-AU"] < 0.05)).sum()
     condition2 = ((df["normalised_tii"] > 0.0) & (df["p-AU"] < 0.05)).sum()
@@ -49,21 +49,22 @@ def plot_au_test_pie_chart(df, plot_filepath)
     condition4 = ((df["normalised_tii"] > 0.0) & (df["p-AU"] >= 0.05)).sum()
 
     # Data to plot
+    sizes = [condition1, condition2, condition3, condition4]
+    total = sum(sizes)
+    percentages = [100 * (size / total) for size in sizes]
     labels = [
         "stable and significant ({:.1f}%)".format(percentages[0]),
-        "unstable and significant ({:.1f}%)".format(percentages[1])",
-        "stable and non-significant ({:.1f}%)".format(percentages[2])",
-        "unstable and non-significant ({:.1f}%)".format(percentages[3])",
+        "unstable and significant ({:.1f}%)".format(percentages[1]),
+        "stable and non-significant ({:.1f}%)".format(percentages[2]),
+        "unstable and non-significant ({:.1f}%)".format(percentages[3]),
     ]
-    # Corresponding sizes
-    sizes = [condition1, condition2, condition3, condition4]
     # Colors
     colors = [dark2.colors[i] for i in range(3, -1, -1)]
     # Exploding the 1st slice (optional)
     explode = (0.1, 0, 0, 0)
 
     # Plot
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(10, 8))
     plt.pie(
         sizes,
         explode=explode,
@@ -74,17 +75,18 @@ def plot_au_test_pie_chart(df, plot_filepath)
         startangle=140,
     )
     plt.axis("equal")
-    plt.savefig(piechart_plot)
+    plt.savefig(plot_filepath)
 
 
 classifier_results = snakemake.input.classifier_results
 classifier_metrics_csv = snakemake.input.classifier_metrics_csv
 classifier_plot_file = snakemake.output.classifier_plot_file
+all_au_test_results = snakemake.input.all_au_test_results
 pie_plot_file = snakemake.output.pie_plot_file
 
 plot_random_forest_classifier_results(
     classifier_results, classifier_metrics_csv, classifier_plot_file
 )
 
-all_au_test_results = snakemake.input.all_au_test_results
-plot_au_test_pie_chart(df, plot_filepath)
+df = pd.read_csv(all_au_test_results)
+plot_au_test_pie_chart(df, pie_plot_file)

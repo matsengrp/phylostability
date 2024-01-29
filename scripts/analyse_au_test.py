@@ -13,7 +13,6 @@ regression_statistics = snakemake.input.regression_statistics
 plot_filepath = snakemake.output.plot
 au_test_results = snakemake.output.au_test_results
 au_test_regression_input = snakemake.output.au_test_regression_input
-piechart_plot = snakemake.output.piechart_plot
 subdirs = snakemake.params.subdirs
 
 

@@ -5,7 +5,7 @@ warnings.filterwarnings("ignore", "use_inf_as_na")
 warnings.filterwarnings("ignore", "UserWarning")
 import seaborn as sns
 import matplotlib.pyplot as plt
-import matplotlib as mlp
+import matplotlib as mpl
 import pandas as pd
 import os
 import math
