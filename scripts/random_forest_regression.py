@@ -17,6 +17,7 @@ subdirs = snakemake.params.subdirs
 parameter_file = snakemake.output.parameter_file
 r2_file = snakemake.output.r2_file
 regression_bins = snakemake.output.regression_bins
+rf_regression_balanced_input = snakemake.output.rf_regression_balanced_input
 
 # taxon_name_col = "seq_id"
 cols_to_drop = [
@@ -26,12 +27,15 @@ cols_to_drop = [
     "dataset",
     "normalised_tii",
     "rf_radius",
-    # column_name,
 ]
 
 
 def train_random_forest(
-    df, cols_to_drop, column_name="tii", cross_validate=False, balance_data=False
+    df,
+    cols_to_drop,
+    column_name="normalised_tii",
+    cross_validate=False,
+    balance_data=False,
 ):
     X = df.drop(cols_to_drop, axis=1)
     y = df[column_name]
@@ -191,6 +195,7 @@ if balance_data:
     print("Use bins to get balanced subset for regression.")
     min_test_size = 200  # needs to be adjusted to data
     df = balance_df_stability_meaure(df, min_test_size, regression_bins, column_name)
+    df.to_csv(rf_regression_balanced_input)
 model_result = train_random_forest(
     df, cols_to_drop, column_name, cross_validate=True, balance_data=balance_data
 )
