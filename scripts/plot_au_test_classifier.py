@@ -27,8 +27,8 @@ def plot_au_test_pie_chart(df, plot_filepath):
             else:
                 # Determine the number of decimal places needed
                 decimal_places = abs(int(math.floor(math.log10(abs(value)))))
-                if decimal_places == 0:
-                    decimal_places += 1
+                if decimal_places < 2:
+                    decimal_places = 2
                 format_string = "{{:.{}f}}%".format(decimal_places)
                 new_values.append(format_string.format(value))
         return new_values
