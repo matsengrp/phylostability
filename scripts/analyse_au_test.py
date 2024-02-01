@@ -13,7 +13,6 @@ regression_statistics = snakemake.input.regression_statistics
 plot_filepath = snakemake.output.plot
 au_test_results = snakemake.output.au_test_results
 au_test_regression_input = snakemake.output.au_test_regression_input
-piechart_plot = snakemake.output.piechart_plot
 subdirs = snakemake.params.subdirs
 
 
@@ -180,40 +179,6 @@ plt.savefig(plot_filepath)
 all_au_df = pd.concat(df_unfiltered_list, ignore_index=True)
 all_au_df.to_csv(au_test_regression_input)
 
-# Pie Chart
-condition1 = ((df["normalised_tii"] == 0.0) & (df["p-AU"] < 0.05)).sum()
-condition2 = ((df["normalised_tii"] > 0.0) & (df["p-AU"] < 0.05)).sum()
-condition3 = ((df["normalised_tii"] == 0.0) & (df["p-AU"] >= 0.05)).sum()
-condition4 = ((df["normalised_tii"] > 0.0) & (df["p-AU"] >= 0.05)).sum()
-
-# Data to plot
-labels = [
-    "tii=0.0, p-AU<0.05",
-    "tii>0.0, p-AU<0.05",
-    "tii=0.0, p-AU>=0.05",
-    "tii>0.0, p-AU>=0.05",
-]
-# Corresponding sizes
-sizes = [condition1, condition2, condition3, condition4]
-# Colors
-tab10 = plt.cm.get_cmap("tab10", 10)
-colors = [tab10.colors[i] for i in range(0, 4)]
-# Exploding the 1st slice (optional)
-explode = (0.1, 0, 0, 0)
-
-# Plot
-plt.figure(figsize=(8, 6))
-plt.pie(
-    sizes,
-    explode=explode,
-    labels=labels,
-    colors=colors,
-    autopct="%1.1f%%",
-    shadow=True,
-    startangle=140,
-)
-plt.axis("equal")
-plt.savefig(piechart_plot)
 
 # # Group by 'dataset' and calculate the proportion
 # grouped_df = big_df.groupby("dataset", group_keys=True)

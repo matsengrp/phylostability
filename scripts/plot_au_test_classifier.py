@@ -1,45 +1,77 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+import math
+
 from sklearn.metrics import confusion_matrix, auc, ConfusionMatrixDisplay
 
+# Font sizes for figures
+plt.rcParams.update({"font.size": 12})  # Adjust this value as needed
+plt.rcParams["axes.labelsize"] = 18
+plt.rcParams["axes.titlesize"] = 20
+plt.rcParams["xtick.labelsize"] = 16
+plt.rcParams["ytick.labelsize"] = 16
 
-def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
-    df = (
-        pd.read_csv(results_csv)
-        .replace(to_replace=0, value="unstable")
-        .replace(to_replace=1, value="stable")
+# Colour for plots
+dark2 = mpl.colormaps["Dark2"]
+
+
+def plot_au_test_pie_chart(df, plot_filepath):
+    def custom_format(values):
+        min_value = min(values)
+        new_values = []
+        for value in values:
+            if value == 0:
+                return "0%"
+            else:
+                # Determine the number of decimal places needed
+                decimal_places = abs(int(math.floor(math.log10(abs(value)))))
+                if decimal_places < 2:
+                    decimal_places = 2
+                format_string = "{{:.{}f}}%".format(decimal_places)
+                new_values.append(format_string.format(value))
+        return new_values
+
+    # Pie Chart
+    condition1 = ((df["normalised_tii"] == 0.0) & (df["p-AU"] < 0.05)).sum()
+    condition2 = ((df["normalised_tii"] > 0.0) & (df["p-AU"] < 0.05)).sum()
+    condition3 = ((df["normalised_tii"] == 0.0) & (df["p-AU"] >= 0.05)).sum()
+    condition4 = ((df["normalised_tii"] > 0.0) & (df["p-AU"] >= 0.05)).sum()
+
+    # Data to plot
+    sizes = [condition1, condition2, condition3, condition4]
+    total = sum(sizes)
+    percentages = custom_format([100 * (size / total) for size in sizes])
+
+    labels = [
+        "stable and significant ({}) \n".format(percentages[0]),
+        "unstable and significant ({})".format(percentages[1]),
+        "stable and non-significant ({})".format(percentages[2]),
+        "unstable and non-significant ({})".format(percentages[3]),
+    ]
+    # Colors
+    colors = [dark2.colors[i] for i in range(3, -1, -1)]
+    # Exploding the 1st slice (optional)
+    explode = (0.1, 0, 0, 0)
+
+    # Plot
+    plt.figure(figsize=(10, 4))
+    plt.pie(
+        sizes,
+        explode=explode,
+        labels=labels,
+        colors=colors,
+        # autopct="%1.1f%%",
+        # shadow=True,
+        startangle=140,
     )
-    cm = confusion_matrix(df["actual"], df["predicted"])
-
-    roc_df = pd.read_csv(roc_csv)
-    roc_auc = auc(roc_df["fpr"], roc_df["tpr"])
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
-
-    ax1.plot(
-        roc_df["fpr"],
-        roc_df["tpr"],
-        color="darkorange",
-        lw=2,
-        label="ROC curve (area={:.2f})".format(roc_auc),
-    )
-    ax1.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
-    ax1.set_xlabel("False Positive Rate")
-    ax1.set_ylabel("True Positive Rate")
-    ax1.set_title("ROC Curve")
-    ax1.legend(loc="lower right")
-    ConfusionMatrixDisplay(confusion_matrix=cm).plot(ax=ax2)
-    ax2.set_title("Confusion Matrix")
-    plt.tight_layout()
+    plt.axis("equal")
     plt.savefig(plot_filepath)
-    plt.clf()
 
 
-classifier_results = snakemake.input.classifier_results
-classifier_metrics_csv = snakemake.input.classifier_metrics_csv
-plot_file = snakemake.output.plot_file
+all_au_test_results = snakemake.input.all_au_test_results
+pie_plot_file = snakemake.output.pie_plot_file
 
-plot_random_forest_classifier_results(
-    classifier_results, classifier_metrics_csv, plot_file
-)
+df = pd.read_csv(all_au_test_results)
+plot_au_test_pie_chart(df, pie_plot_file)

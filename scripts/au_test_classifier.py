@@ -26,6 +26,7 @@ cols_to_drop = [
     "normalised_tii",
     "dataset",
     "rf_radius",
+    "tii"
     # "p-AU_binary",
 ]
 
@@ -133,7 +134,7 @@ def add_au_test_result(df, au_df):
     df["seq_id"] = df["seq_id"].str.replace(r"\s+\d+$", "", regex=True)
     merged_df = pd.merge(df, au_df_subset, on=["seq_id", "dataset"], how="left")
     merged_df["p-AU_binary"] = merged_df["p-AU"].apply(
-        lambda x: 0 if float(x) < 0.05 else 1
+        lambda x: 1 if float(x) < 0.05 else 0
     )
     merged_df.drop("p-AU", axis=1, inplace=True)
     df = merged_df

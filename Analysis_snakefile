@@ -45,10 +45,7 @@ def dynamic_input(wildcards):
 rule all:
     input:
         "random_forest_plots.done",
-        # expand("{subdir}/create_plots.done", subdir=subdirs),
-        # expand("{subdir}/create_other_plots.done", subdir=subdirs)
-        data_folder+plots_folder+"p_au_proportion_plot.pdf",
-        "benchmarking_plots.done",
+        # "benchmarking_plots.done",
         "plot_au_test_classifier.done",
         data_folder+plots_folder+"au_pie_chart.pdf",
         plot_filepath=plots_folder+"bts_vs_bootstrap.pdf",
@@ -195,12 +192,13 @@ rule random_forest_regression:
     input:
         csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=get_subdirs(data_folder)),
     output:
-        model_features_file="model_feature_importances.csv",
+        model_features_file=data_folder+"regression_model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_regression.csv",
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
         parameter_file=data_folder+"best_parameters_regression.json",
         r2_file=data_folder+"regression_r2.txt",
         regression_bins=data_folder+"regression_bins.csv",
+        rf_regression_balanced_input=data_folder+"rf_regression_balanced_input.csv",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_regression.txt")
     params:
@@ -216,7 +214,7 @@ rule random_forest_classifier:
         csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=get_subdirs(data_folder)),
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
     output:
-        model_features_file="discrete_model_feature_importances.csv",
+        model_features_file=data_folder+"classifier_model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_classification.csv",
         combined_csv_path=data_folder+"rf_classifier_combined_statistics.csv",
         classifier_metrics_csv=data_folder+"classifier_results.csv",
@@ -225,7 +223,6 @@ rule random_forest_classifier:
         touch(data_folder + "benchmarking/benchmark_random_forest_classifier.txt")
     params:
         column_to_predict = "tii",
-        model_features_csv=data_folder+"discrete_model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_classification.csv",
         subdirs=get_subdirs(data_folder)
     script:
@@ -241,6 +238,9 @@ rule random_forest_plots:
         classifier_metrics_csv=rules.random_forest_classifier.output.classifier_metrics_csv,
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
         r2_file=data_folder+"regression_r2.txt",
+        au_test_classifier_metrics_csv=data_folder+"au_test_classifier_results.csv",
+        au_test_classifier_results=data_folder+"au_test_classification.csv",
+        au_test_model_features_file=data_folder+"au_test_feature_importances.csv",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_plots.txt")
     params:
@@ -320,7 +320,6 @@ rule analyse_au_test:
         regression_statistics=data_folder+"rf_regression_combined_statistics.csv",
     output:
         plot=data_folder+plots_folder+"p_au_vs_tii_plot.pdf",
-        piechart_plot=data_folder+plots_folder+"au_pie_chart.pdf",
         au_test_results=data_folder+"au_test_result.csv",
         au_test_regression_input=data_folder+"au_test_regression_input.csv",
     benchmark:
@@ -339,7 +338,7 @@ rule au_test_classifier:
         au_test_regression_input=data_folder+"au_test_regression_input.csv",
     params:
         plot_folder=data_folder+"plots/",
-        model_features_file="au_test_feature_importances.csv",
+        model_features_file=data_folder+"au_test_feature_importances.csv",
         output_file_name=data_folder+"au_test_classification.csv",
         combined_csv_path=data_folder+"au_test_combined_statistics.csv",
         classifier_metrics_csv=data_folder+"au_test_classifier_results.csv",
@@ -353,11 +352,10 @@ rule au_test_classifier:
 
 rule plot_au_test_classifier:
     input:
-        classifier_metrics_csv=data_folder+"au_test_classifier_results.csv",
-        classifier_results=data_folder+"au_test_classification.csv",
+        all_au_test_results=data_folder+"au_test_regression_input.csv",
     output:
         temp(touch("plot_au_test_classifier.done")),
-        plot_file=data_folder+"plots/au_test_classifier_results.pdf",
+        pie_plot_file=data_folder+plots_folder+"au_pie_chart.pdf",
     script:
         "scripts/plot_au_test_classifier.py"
 

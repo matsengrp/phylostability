@@ -367,6 +367,7 @@ def get_rf_radius(full_tree, reduced_tree, seq_id):
     rf_radius = 0
     seq_id_leaf = full_tree.search_nodes(name=seq_id)[0]
     reattachment_position = seq_id_leaf.up
+
     for set in changed_edges:
         # find lower node of changed edge (node)
         cluster1 = set[0]
@@ -374,8 +375,12 @@ def get_rf_radius(full_tree, reduced_tree, seq_id):
         if node.is_root():
             cluster2 = set[1]
             node = full_tree.get_common_ancestor(cluster2)
-        node_dist = ete_dist(node, reattachment_position, topology_only=True)
-        node_up_dist = ete_dist(node.up, reattachment_position, topology_only=True)
+        node_dist = full_tree.get_distance(
+            node, reattachment_position, topology_only=True
+        )
+        node_up_dist = full_tree.get_distance(
+            node.up, reattachment_position, topology_only=True
+        )
         if node_dist == node_up_dist == 1:
             dist = 0
         else:
@@ -384,7 +389,7 @@ def get_rf_radius(full_tree, reduced_tree, seq_id):
             rf_radius = dist
     normalising_constant = max(
         [
-            ete_dist(node, reattachment_position, topology_only=True)
+            full_tree.get_distance(node, reattachment_position, topology_only=True)
             for node in full_tree.iter_descendants()
             if not node.is_leaf()
         ]
