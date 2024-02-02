@@ -47,7 +47,8 @@ rule all:
         "random_forest_plots.done",
         # "benchmarking_plots.done",
         "plot_au_test_classifier.done",
-        data_folder+plots_folder+"au_pie_chart.pdf"
+        data_folder+plots_folder+"au_pie_chart.pdf",
+        data_folder+"plots/bts_vs_bootstrap.pdf",
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -383,3 +384,13 @@ rule benchmark_outputs_across_datasets:
         plots_folder = data_folder + "plots/"
     script:
         "scripts/benchmark_outputs_across_datasets.py"
+
+rule plot_bts_vs_bootstrap:
+    input:
+        bootstrap_csvs=expand("{subdir}/reduced_alignments/bts_bootstrap.csv", subdir=get_subdirs(data_folder)),
+    params:
+        subdirs=get_subdirs(data_folder)
+    output:
+        plot_filepath=data_folder+"plots/bts_vs_bootstrap.pdf"
+    script:
+        "scripts/plot_bts_vs_bootstrap.py"
