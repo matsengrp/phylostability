@@ -48,7 +48,7 @@ rule all:
         # "benchmarking_plots.done",
         "plot_au_test_classifier.done",
         data_folder+plots_folder+"au_pie_chart.pdf",
-        plot_filepath=plots_folder+"bts_vs_bootstrap.pdf",
+        data_folder+"plots/bts_vs_bootstrap.pdf",
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -391,4 +391,6 @@ rule plot_bts_vs_bootstrap:
     params:
         subdirs=get_subdirs(data_folder)
     output:
-        plot_filepath=plots_folder+"bts_vs_bootstrap.pdf"
+        plot_filepath=data_folder+"plots/bts_vs_bootstrap.pdf"
+    script:
+        "scripts/plot_bts_vs_bootstrap.py"

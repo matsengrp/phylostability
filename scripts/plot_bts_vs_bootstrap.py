@@ -28,7 +28,8 @@ def bootstrap_and_bts_plot(
         data=df,
         x="bts",
         y="bootstrap_support",
-        size="density",
+        size=10,
+        legend=False,
         color=dark2.colors[0],
     )
 
@@ -54,9 +55,7 @@ def combine_dfs(csvs, subdirs):
 
 bootstrap_csvs = snakemake.input.bootstrap_csvs
 subdirs = snakemake.params.subdirs
-plot_filepath = plot_filepath
-
+plot_filepath = snakemake.output.plot_filepath
 
 df = combine_dfs(bootstrap_csvs, subdirs)
-print(df)
 bootstrap_and_bts_plot(df, plot_filepath)
