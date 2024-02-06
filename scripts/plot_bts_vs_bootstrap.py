@@ -23,15 +23,15 @@ def bootstrap_and_bts_plot(
     Plot BTS vs bootstrap support values of full tree
     """
     # Create the scatter plot with colors based on density and a logarithmic scale
-    df["density"] = df.groupby(["bts", "bootstrap_support"])["bts"].transform("count")
-    sns.scatterplot(
-        data=df,
-        x="bts",
-        y="bootstrap_support",
-        size=10,
-        legend=False,
-        color=dark2.colors[0],
-    )
+    df["density"] = df.groupby(["bts", "bootstrap"])["bts"].transform("count")
+    sns.histplot(
+    data=df,
+    x="bts",
+    y="bootstrap",
+    bins=100,  # Adjust the number of bins for both x and y axes as needed
+    cmap="Blues",  # Choose a colormap that fits your preference
+    cbar=True,  # Show the color bar indicating counts
+)
 
     # Set other plot properties
     plt.title("")

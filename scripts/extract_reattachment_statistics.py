@@ -294,6 +294,15 @@ def get_bootstrap_and_bts_scores(
         for node in full_tree.iter_descendants()
         if not node.is_leaf()
     }
+    # get bootstrap dict that contains min bootstrap values for edge we consider for bts
+    bootstrap_per_bts_dict = {
+        ",".join(sorted(node.get_leaf_names())): min([node.support, node.up.support])
+        for node in full_tree.iter_descendants()
+        if not node.is_leaf()
+        and not node.up.is_root()
+    }
+    for child in [child for child in full_tree.get_children() if not child.is_leaf()]:
+        bootstrap_per_bts_dict[",".join(sorted(child.get_leaf_names()))] = child.support
 
     for treefile in reduced_tree_files:
         full_tree = Tree(treefile)
@@ -341,16 +350,10 @@ def get_bootstrap_and_bts_scores(
         else:
             branch_scores[branch_score] *= 100 / num_leaves
         branch_scores[branch_score] = int(branch_scores[branch_score])
-    branch_scores_df = pd.DataFrame(branch_scores, index=["bts"]).transpose()
+    branch_scores_df = pd.DataFrame(list(branch_scores.items()), columns=["edges", "bts"])
+    bootstrap_per_bts_df = pd.DataFrame(list(bootstrap_per_bts_dict.items()), columns=["edges", "bootstrap"])
 
-    # sort both dataframes so we plot corresponding values correctly
-    branch_scores_df = branch_scores_df.sort_values(
-        by=list(branch_scores_df.columns)
-    ).reset_index(drop=True)
-    bootstrap_df = bootstrap_df.sort_values(by=list(bootstrap_df.columns)).reset_index(
-        drop=True
-    )
-    merged_df = pd.concat([branch_scores_df, bootstrap_df], axis=1)
+    merged_df = pd.merge(branch_scores_df, bootstrap_per_bts_df, on="edges")
 
     return merged_df
 
@@ -375,10 +378,10 @@ def get_rf_radius(full_tree, reduced_tree, seq_id):
         if node.is_root():
             cluster2 = set[1]
             node = full_tree.get_common_ancestor(cluster2)
-        node_dist = full_tree.get_distance(
+        node_dist = ete_dist(
             node, reattachment_position, topology_only=True
         )
-        node_up_dist = full_tree.get_distance(
+        node_up_dist = ete_dist(
             node.up, reattachment_position, topology_only=True
         )
         if node_dist == node_up_dist == 1:
@@ -389,7 +392,7 @@ def get_rf_radius(full_tree, reduced_tree, seq_id):
             rf_radius = dist
     normalising_constant = max(
         [
-            full_tree.get_distance(node, reattachment_position, topology_only=True)
+            ete_dist(node, reattachment_position, topology_only=True)
             for node in full_tree.iter_descendants()
             if not node.is_leaf()
         ]
