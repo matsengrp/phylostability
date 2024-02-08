@@ -56,7 +56,7 @@ def plot_au_test_pie_chart(df, plot_filepath):
     explode = (0.1, 0, 0, 0)
 
     # Plot
-    plt.figure(figsize=(10, 4))
+    plt.figure(figsize=(12, 4))
     plt.pie(
         sizes,
         explode=explode,
