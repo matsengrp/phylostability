@@ -24,17 +24,20 @@ def bootstrap_and_bts_plot(
     """
     # Create the scatter plot with colors based on density and a logarithmic scale
     df["density"] = df.groupby(["bts", "bootstrap"])["bts"].transform("count")
-    sns.histplot(
+    sns.lineplot(
     data=df,
     x="bts",
     y="bootstrap",
-    bins=100,  # Adjust the number of bins for both x and y axes as needed
-    cmap="Blues",  # Choose a colormap that fits your preference
-    cbar=True,  # Show the color bar indicating counts
+    # hue="dataset"
+    # bins=100,  # Adjust the number of bins for both x and y axes as needed
+    # cmap="Blues",  # Choose a colormap that fits your preference
+    # cbar=True,  # Show the color bar indicating counts
 )
 
     # Set other plot properties
     plt.title("")
+    plt.xlim([-1, 101])
+    plt.ylim([-1, 101])
     plt.xlabel("bootstrap support")
     plt.ylabel("branch taxon score")
     plt.tight_layout()
@@ -55,7 +58,9 @@ def combine_dfs(csvs, subdirs):
 
 bootstrap_csvs = snakemake.input.bootstrap_csvs
 subdirs = snakemake.params.subdirs
+aggregated_bootstrap_csv = snakemake.output.aggregated_bootstrap_csv
 plot_filepath = snakemake.output.plot_filepath
 
 df = combine_dfs(bootstrap_csvs, subdirs)
+df.to_csv(aggregated_bootstrap_csv)
 bootstrap_and_bts_plot(df, plot_filepath)

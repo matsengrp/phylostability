@@ -12,7 +12,8 @@ input_alignment="full_alignment.fasta"
 data_folder=config["data_folder"]+"/selected_data/"
 plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
-stability_measure="rf_radius"
+stability_measure="normalised_tii"
+# stability_measure="rf_radius"
 
 def get_subdirs(data_folder):
     return [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path]
@@ -391,6 +392,7 @@ rule plot_bts_vs_bootstrap:
     params:
         subdirs=get_subdirs(data_folder)
     output:
-        plot_filepath=data_folder+"plots/bts_vs_bootstrap.pdf"
+        plot_filepath=data_folder+"plots/bts_vs_bootstrap.pdf",
+        aggregated_bootstrap_csv=data_folder+"bts_bootstrap.csv"
     script:
         "scripts/plot_bts_vs_bootstrap.py"
