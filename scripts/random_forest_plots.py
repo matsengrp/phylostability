@@ -231,6 +231,7 @@ def plot_stability_measures(
     tii_plot_filepath,
     normalised_tii_plot_filepath,
     scatterplot_filepath,
+    rf_radius_num_taxa_filepath,
     plot_individual=False,
 ):
     df = pd.read_csv(csv)
@@ -254,6 +255,20 @@ def plot_stability_measures(
     plt.title("")
     plt.tight_layout()
     plt.savefig(scatterplot_filepath)
+    plt.clf()
+
+    # plot RF radius vs num_leaves
+    sns.scatterplot(
+        data=df,
+        x="num_leaves",
+        y="rf_radius",
+        color=dark2.colors[0]
+    )
+    plt.xlabel("Number of taxa")
+    plt.ylabel("RF radius")
+    plt.title("")
+    plt.tight_layout()
+    plt.savefig(rf_radius_num_taxa_filepath)
     plt.clf()
 
     if not plot_individual:
@@ -372,12 +387,14 @@ tii_plot_filepath = os.path.join(plots_folder, "tii.pdf")
 normalised_tii_plot_filepath = os.path.join(plots_folder, "normalised_tii.pdf")
 rf_radius_plot_filepath = os.path.join(plots_folder, "rf_radius.pdf")
 scatterplot_filepath = os.path.join(plots_folder, "tii_vs_rf_radius.pdf")
+rf_radius_num_taxa_filepath = os.path.join(plots_folder, "rf_radius_num_taxa.pdf")
 plot_stability_measures(
     combined_csv,
     rf_radius_plot_filepath,
     tii_plot_filepath,
     normalised_tii_plot_filepath,
     scatterplot_filepath,
+    rf_radius_num_taxa_filepath,
 )
 print("Done plotting stability measures.")
 
