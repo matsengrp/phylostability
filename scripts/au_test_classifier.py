@@ -12,8 +12,8 @@ combined_statistics = snakemake.input.combined_statistics
 au_test_results = snakemake.input.au_test_results
 au_test_regression_input = snakemake.input.au_test_regression_input
 output_csv = snakemake.params.output_file_name
-model_features_csv = snakemake.params.model_features_file
-classifier_metrics_csv = snakemake.params.classifier_metrics_csv
+model_features_csv = snakemake.output.model_features_file
+classifier_metrics_csv = snakemake.output.classifier_metrics_csv
 parameter_file = snakemake.params.parameter_file
 plot_folder = snakemake.params.plot_folder
 combined_csv_path = snakemake.params.combined_csv_path
@@ -26,6 +26,7 @@ cols_to_drop = [
     "normalised_tii",
     "dataset",
     "rf_radius",
+    "tii"
     # "p-AU_binary",
 ]
 
@@ -133,7 +134,7 @@ def add_au_test_result(df, au_df):
     df["seq_id"] = df["seq_id"].str.replace(r"\s+\d+$", "", regex=True)
     merged_df = pd.merge(df, au_df_subset, on=["seq_id", "dataset"], how="left")
     merged_df["p-AU_binary"] = merged_df["p-AU"].apply(
-        lambda x: 0 if float(x) < 0.05 else 1
+        lambda x: 1 if float(x) < 0.05 else 0
     )
     merged_df.drop("p-AU", axis=1, inplace=True)
     df = merged_df
