@@ -167,7 +167,8 @@ def reattachment_distance_to_low_support_node(
         for node in reattached_tree.traverse()
         if not node.is_root() and not node.is_leaf() and node != reattachment_node
     ]
-    q = np.quantile(all_bootstraps, bootstrap_threshold)
+    # q = np.quantile(all_bootstraps, bootstrap_threshold)
+    q = 70
     # parent of seq_id is reattachment_node
     min_dist_found = float("inf")
     max_dist_found = 0  # for normalising

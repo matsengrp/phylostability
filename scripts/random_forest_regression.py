@@ -153,7 +153,7 @@ def balance_df_stability_meaure(df, min_test_size, bin_file, stability_measure):
     """
     df_copy = df.copy()  # Leave original df untouched
     reduce_binsize = True
-    num_bins = 20  # Start with 20 bins, decrease if necessary
+    num_bins = 50  # Start with 20 bins, decrease if necessary
     while reduce_binsize:
         if num_bins == 1:
             reduce_binsize = False
