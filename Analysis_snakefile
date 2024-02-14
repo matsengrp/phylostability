@@ -12,8 +12,8 @@ input_alignment="full_alignment.fasta"
 data_folder=config["data_folder"]+"/selected_data/"
 plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
-stability_measure="normalised_tii"
-# stability_measure="rf_radius"
+stability_measure=config["stability_measure"]
+
 
 def get_subdirs(data_folder):
     return [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path]
@@ -320,7 +320,6 @@ rule analyse_au_test:
         classifier_statistics=data_folder+"rf_classifier_combined_statistics.csv",
         regression_statistics=data_folder+"rf_regression_combined_statistics.csv",
     output:
-        plot=data_folder+plots_folder+"p_au_vs_tii_plot.pdf",
         au_test_results=data_folder+"au_test_result.csv",
         au_test_regression_input=data_folder+"au_test_regression_input.csv",
     benchmark:
@@ -364,7 +363,7 @@ rule plot_au_test_classifier:
 # create single file for each dataset with timing breakdowns for the rules
 rule combine_benchmark_outputs:
     input:
-        data_folder+plots_folder+"p_au_proportion_plot.pdf"
+        "plot_au_test_classifier.done"
     output:
         output_file="{subdir}/benchmarking_data.csv"
     params:
