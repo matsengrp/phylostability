@@ -10,7 +10,7 @@ summary_statistics = snakemake.input.summary_statistics
 reattached_trees = snakemake.input.reattached_trees
 classifier_statistics = snakemake.input.classifier_statistics
 regression_statistics = snakemake.input.regression_statistics
-plot_filepath = snakemake.output.plot
+# plot_filepath = snakemake.output.plot
 au_test_results = snakemake.output.au_test_results
 au_test_regression_input = snakemake.output.au_test_regression_input
 subdirs = snakemake.params.subdirs
@@ -167,14 +167,14 @@ regression_mean_tii = regression_df["normalised_tii"].mean()
 
 big_df = pd.concat(df_list, ignore_index=True)
 big_df.to_csv(au_test_results)
-plt.figure(figsize=(10, 6))
-ax = sns.histplot(big_df["normalised_tii"])
-ax.axvline(classifier_mean_tii, color="black", label="Mean TII Classifier data")
-ax.axvline(regression_mean_tii, color="red", label="Mean TII all data")
-ax.legend()
-plt.xticks(rotation=90)
-plt.tight_layout()
-plt.savefig(plot_filepath)
+# plt.figure(figsize=(10, 6))
+# ax = sns.histplot(big_df["normalised_tii"])
+# ax.axvline(classifier_mean_tii, color="black", label="Mean TII Classifier data")
+# ax.axvline(regression_mean_tii, color="red", label="Mean TII all data")
+# ax.legend()
+# plt.xticks(rotation=90)
+# plt.tight_layout()
+# plt.savefig(plot_filepath)
 
 all_au_df = pd.concat(df_unfiltered_list, ignore_index=True)
 all_au_df.to_csv(au_test_regression_input)
