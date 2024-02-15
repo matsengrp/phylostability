@@ -283,11 +283,11 @@ rule create_other_plots:
 rule write_pruned_and_inferred_trees:
     input:
         full_tree="{subdir}/"+input_alignment+".treefile",
-        inferred_trees="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
+        inferred_trees="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
     output:
         both_trees="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.nwk",
     params:
-        seq_ids=lambda wildcards: wildcards.seq_id
+        seq_id=lambda wildcards: wildcards.seq_id
     benchmark:
         touch("{subdir}/benchmarking/benchmark_write_pruned_trees_{seq_id}.txt")
     script:
