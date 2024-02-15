@@ -83,15 +83,16 @@ for subdir in subdirs:
         au_files.append(subdir+"/reduced_alignments/"+seq_id+"/pruned_and_inferred_tree.nwk")
         au_files.append(subdir+"/reduced_alignments/"+seq_id+"/au-test.iqtree")
 
+print(au_files)
 
 df_list = []
 
-datasets = set([file.split("/")[0] for file in au_files])
+datasets = set([file.split("/")[2] for file in au_files])
 
 
 for dataset in datasets:
     dataset_files = [f for f in au_files if dataset+"/" in f]
-    for seq_id in [f.split("/")[2] for f in dataset_files]:
+    for seq_id in [f.split("/")[4] for f in dataset_files]:
         this_seq_id_files = [f for f in dataset_files if seq_id in f]
         both_trees_file = [f for f in this_seq_id_files if "nwk" in f][0]
         iqtree_file = [f for f in this_seq_id_files if "iqtree" in f][0]
@@ -103,8 +104,8 @@ for dataset in datasets:
         trees = f.readlines()
     pruned_tree = Tree(trees[0].strip())
     inferred_tree = Tree(trees[1].strip())
-    tii = pruned_tree.robinson_foulds(inferred_tree)[0]
-    normalised_tii = pruned_tree.robinson_foulds(inferred_tree)[0]/pruned_tree.robinson_foulds(inferred_tree)[1]
+    tii = pruned_tree.robinson_foulds(inferred_tree, unrooted_trees = True)[0]
+    normalised_tii = tii/pruned_tree.robinson_foulds(inferred_tree, unrooted_trees = True)[1]
     df["tii"] = tii
     df["ID"] = df["dataset"] + " " + df["seq_id"] + " " + df["tii"].astype(str)
     df_list.append(df)
