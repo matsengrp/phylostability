@@ -10,7 +10,6 @@ from sklearn.metrics import roc_curve, accuracy_score
 
 combined_statistics = snakemake.input.combined_statistics
 au_test_results = snakemake.input.au_test_results
-au_test_regression_input = snakemake.input.au_test_regression_input
 output_csv = snakemake.params.output_file_name
 model_features_csv = snakemake.output.model_features_file
 classifier_metrics_csv = snakemake.output.classifier_metrics_csv
