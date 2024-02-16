@@ -125,32 +125,43 @@ def train_random_forest_classifier(df, column_name, cross_validate=False):
     return model_result
 
 
-def add_au_test_result(df, au_df):
+def add_au_test_result(df, au_df, only_au = False):
     """
     Add results from au_test in given file au_test_results to df conrtaining all summary statistics
     """
     au_df_subset = au_df[["seq_id", "dataset", "p-AU"]]
     df["seq_id"] = df["seq_id"].str.replace(r"\s+\d+$", "", regex=True)
     merged_df = pd.merge(df, au_df_subset, on=["seq_id", "dataset"], how="left")
-    merged_df["p-AU_binary"] = merged_df["p-AU"].apply(
-        lambda x: 1 if float(x) < 0.05 else 0
-    )
+    if only_au:
+        merged_df["p-AU_binary"] = merged_df["p-AU"].apply(
+            lambda x: 1 if float(x) < 0.05 else 0
+        )
+    else:
+        merged_df["significant_unstable"] = np.where(
+            (merged_df["p-AU"] < 0.05) & (merged_df["tii"] != 0),
+            1,
+            0
+        )
     merged_df.drop("p-AU", axis=1, inplace=True)
     df = merged_df
     return df
 
 
-def balance_datasets(df):
+def balance_datasets(df, only_au=False):
     """
     Subsample rows in df so that we have equal number of stable and unstable rows
     (p-AU<0.05 vs p-AU>=0.05)
     """
     df_list = []
+    if only_au:
+        col_name = "p-AU_binary"
+    else:
+        col_name = "significant_unstable"
     # Assuming df is your original DataFrame
     for dataset in pd.unique(df["dataset"]):
         filtered_df = df[df["dataset"] == dataset]
-        stable_df = filtered_df[filtered_df["p-AU_binary"] == 1]
-        unstable_df = filtered_df[filtered_df["p-AU_binary"] == 0]
+        stable_df = filtered_df[filtered_df[col_name] == 0]
+        unstable_df = filtered_df[filtered_df[col_name] == 1]
         num_stable = len(stable_df)
         num_unstable = len(unstable_df)
         # Determine the number to subsample to (the smaller of the two groups)
@@ -164,13 +175,19 @@ def balance_datasets(df):
     combined_df = pd.concat(df_list, ignore_index=True)
     return combined_df
 
-
+only_au = False
 df = pd.read_csv(combined_statistics, index_col=0)
 au_df = pd.read_csv(au_test_results)
-df = add_au_test_result(df, au_df)
-df = balance_datasets(df)
+df = add_au_test_result(df, au_df, only_au)
+df = balance_datasets(df, only_au)
 df.to_csv(combined_csv_path)
-model_result = train_random_forest_classifier(
-    df, column_name="p-AU_binary", cross_validate=True
-)
+if only_au:
+    model_result = train_random_forest_classifier(
+        df, column_name="p-AU_binary", cross_validate=True
+    )
+else:
+    model_result = train_random_forest_classifier(
+        df, column_name="significant_unstable", cross_validate=True
+    )
+
 model_result.to_csv(output_csv)
