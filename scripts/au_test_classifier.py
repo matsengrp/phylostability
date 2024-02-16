@@ -166,7 +166,7 @@ def balance_datasets(df):
 
 
 df = pd.read_csv(combined_statistics, index_col=0)
-au_df = pd.read_csv(au_test_regression_input)
+au_df = pd.read_csv(au_test_results)
 # if len(au_df) >= 10:
 df = add_au_test_result(df, au_df)
 df = balance_datasets(df)

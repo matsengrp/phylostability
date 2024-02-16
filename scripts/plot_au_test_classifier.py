@@ -23,7 +23,7 @@ def plot_au_test_pie_chart(df, plot_filepath):
         new_values = []
         for value in values:
             if value == 0:
-                return "0%"
+                new_values.append("0.0%")
             else:
                 # Determine the number of decimal places needed
                 decimal_places = abs(int(math.floor(math.log10(abs(value)))))
@@ -43,7 +43,6 @@ def plot_au_test_pie_chart(df, plot_filepath):
     sizes = [condition1, condition2, condition3, condition4]
     total = sum(sizes)
     percentages = custom_format([100 * (size / total) for size in sizes])
-
     labels = [
         "stable and significant ({}) \n".format(percentages[0]),
         "unstable and significant ({})".format(percentages[1]),

@@ -100,15 +100,16 @@ for dataset in datasets:
         df["dataset"] = dataset
         df["seq_id"] = seq_id
     
-    with open(both_trees_file, "r") as f:
-        trees = f.readlines()
-    pruned_tree = Tree(trees[0].strip())
-    inferred_tree = Tree(trees[1].strip())
-    tii = pruned_tree.robinson_foulds(inferred_tree, unrooted_trees = True)[0]
-    normalised_tii = tii/pruned_tree.robinson_foulds(inferred_tree, unrooted_trees = True)[1]
-    df["tii"] = tii
-    df["ID"] = df["dataset"] + " " + df["seq_id"] + " " + df["tii"].astype(str)
-    df_list.append(df)
+        with open(both_trees_file, "r") as f:
+            trees = f.readlines()
+        pruned_tree = Tree(trees[0].strip())
+        inferred_tree = Tree(trees[1].strip())
+        tii = pruned_tree.robinson_foulds(inferred_tree, unrooted_trees = True)[0]
+        normalised_tii = tii/pruned_tree.robinson_foulds(inferred_tree, unrooted_trees = True)[1]
+        df["tii"] = tii
+        df["normalised_tii"] = normalised_tii
+        df["ID"] = df["dataset"] + " " + df["seq_id"] + " " + df["tii"].astype(str)
+        df_list.append(df)
 
 
 big_df = pd.concat(df_list, ignore_index=True)
