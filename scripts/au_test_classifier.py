@@ -127,7 +127,7 @@ def train_random_forest_classifier(df, column_name, cross_validate=False):
 
 def add_au_test_result(df, au_df):
     """
-    Add results from au_test in given file au_test_results to df
+    Add results from au_test in given file au_test_results to df conrtaining all summary statistics
     """
     au_df_subset = au_df[["seq_id", "dataset", "p-AU"]]
     df["seq_id"] = df["seq_id"].str.replace(r"\s+\d+$", "", regex=True)
@@ -167,7 +167,6 @@ def balance_datasets(df):
 
 df = pd.read_csv(combined_statistics, index_col=0)
 au_df = pd.read_csv(au_test_results)
-# if len(au_df) >= 10:
 df = add_au_test_result(df, au_df)
 df = balance_datasets(df)
 df.to_csv(combined_csv_path)

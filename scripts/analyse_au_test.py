@@ -34,6 +34,7 @@ def extract_table_from_file(filename):
             if reading_table and line.strip():
                 this_line = [l for l in line.split() if l not in ["+", "-"]]
                 table_data.append(this_line)
+                break # only save first tree, which is pruned tree
     # Convert the table data to a pandas DataFrame
     columns = [
         "Tree",
@@ -83,8 +84,6 @@ for subdir in subdirs:
         au_files.append(subdir+"/reduced_alignments/"+seq_id+"/pruned_and_inferred_tree.nwk")
         au_files.append(subdir+"/reduced_alignments/"+seq_id+"/au-test.iqtree")
 
-print(au_files)
-
 df_list = []
 
 datasets = set([file.split("/")[2] for file in au_files])
@@ -92,7 +91,7 @@ datasets = set([file.split("/")[2] for file in au_files])
 
 for dataset in datasets:
     dataset_files = [f for f in au_files if dataset+"/" in f]
-    for seq_id in [f.split("/")[4] for f in dataset_files]:
+    for seq_id in set([f.split("/")[4] for f in dataset_files]):
         this_seq_id_files = [f for f in dataset_files if seq_id in f]
         both_trees_file = [f for f in this_seq_id_files if "nwk" in f][0]
         iqtree_file = [f for f in this_seq_id_files if "iqtree" in f][0]
