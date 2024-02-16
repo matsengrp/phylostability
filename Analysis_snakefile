@@ -294,10 +294,26 @@ rule write_pruned_and_inferred_trees:
         "scripts/write_pruned_and_inferred_trees.py"
 
 
+# this is a hacky way of allowing to re-run pipeline for paper without re-running iqtree,
+# bc in remove_sequence, reduced_msa is temp() and we added in au_test_model_fit later,
+# which needs reduced_alignment.fasta
+rule remove_sequence_au_test:
+    input:
+        msa="{subdir}/"+input_alignment
+    output:
+        reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment_au.fasta",
+    benchmark:
+        touch("{subdir}/benchmarking/benchmark_remove_sequence_au_{seq_id}.txt")
+    params:
+        seq_id=lambda wildcards: wildcards.seq_id
+    script:
+        "scripts/remove_sequence.py"
+
+
 # AU-test to test model fit of full tree to reattached trees
 rule au_test_model_fit:
     input:
-        reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
+        reduced_msa_au="{subdir}/reduced_alignments/{seq_id}/reduced_alignment_au.fasta",
         trees="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.nwk",
         full_model="{subdir}/iqtree-model.txt",
     output:
@@ -307,7 +323,7 @@ rule au_test_model_fit:
         touch("{subdir}/benchmarking/benchmark_au_test_model_fit_{seq_id}.txt"),
     shell:
         """
-        iqtree -s {input.reduced_msa} -z {input.trees} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/au-test -m $(cat {input.full_model}) -zb 10000 -zw -au
+        iqtree -s {input.reduced_msa_au} -z {input.trees} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/au-test -m $(cat {input.full_model}) -zb 10000 -zw -au -redo
         """
 
 def aggregate_all_au_done(wildcards):
