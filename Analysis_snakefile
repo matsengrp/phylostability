@@ -323,7 +323,7 @@ rule au_test_model_fit:
         touch("{subdir}/benchmarking/benchmark_au_test_model_fit_{seq_id}.txt"),
     shell:
         """
-        iqtree -s {input.reduced_msa_au} -z {input.trees} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/au-test -m $(cat {input.full_model}) -zb 10000 -zw -au -redo
+        iqtree -s {input.reduced_msa_au} -z {input.trees} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/au-test -m $(cat {input.full_model}) -n 0 -zb 10000 -zw -au -redo
         """
 
 def aggregate_all_au_done(wildcards):
