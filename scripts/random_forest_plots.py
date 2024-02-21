@@ -22,6 +22,29 @@ plt.rcParams["ytick.labelsize"] = 16
 dark2 = mpl.colormaps["Dark2"]
 
 
+# Names for features in plots
+feature_name_dict = {
+    "num_leaves": "#leaves",
+    "like_weight_ratio": "LWR",
+    "reattachment_branch_length": "insertion branch length",
+    "distal_length": "normalized distance to nearest node",
+    "pendant_branch_length": "pendant length",
+    "taxon_height": "insertion height",
+    "num_likely_reattachments": "#insertion locations",
+    "nj_tii": "NJ TII",
+    "dist_reattachment_low_bootstrap_node": "distance to low bootstrap node",
+    "dist_diff_reattachment_sibling": "dist diff insertion sibling",
+    "bootstrap_mean": "bootstrap mean",
+    "bootstrap_std": "bootstrap SD",
+    "reattachment_distances_mean": "dist to insertion mean",
+    "reattachment_distances_std": "dist to insertion SD",
+    "seq_and_tree_dist_ratio_mean": "distance ratio mean",
+    "seq_and_tree_dist_ratio_std": "distance ratio SD",
+    "seq_distance_ratios_closest_seq_mean": "ratio diff closest sequence mean",
+    "seq_distance_ratios_closest_seq_std": "ratio diff closest sequence SD",
+}
+
+
 def plot_random_forest_regression_results(
     results_csv, plot_filepath, stability_measure, r2_file
 ):
@@ -134,26 +157,6 @@ def plot_random_forest_model_features(model_features_csv, plot_filepath):
         names=["feature_name", "untuned model importance", "importance"],
         skiprows=1,
     )
-    feature_name_dict = {
-        "num_leaves": "#leaves",
-        "like_weight_ratio": "LWR",
-        "reattachment_branch_length": "insertion branch length",
-        "distal_length": "distal length",
-        "pendant_branch_length": "pendant length",
-        "taxon_height": "insertion height",
-        "num_likely_reattachments": "#insertion locations",
-        "nj_tii": "NJ TII",
-        "dist_reattachment_low_bootstrap_node": "distance to low bootstrap node",
-        "dist_diff_reattachment_sibling": "dist diff insertion sibling",
-        "bootstrap_mean": "bootstrap mean",
-        "bootstrap_std": "bootstrap SD",
-        "reattachment_distances_mean": "dist to insertion mean",
-        "reattachment_distances_std": "dist to insertion SD",
-        "seq_and_tree_dist_ratio_mean": "distance ratio mean",
-        "seq_and_tree_dist_ratio_std": "distance ratio SD",
-        "seq_distance_ratios_closest_seq_mean": "ratio diff closest sequence mean",
-        "seq_distance_ratios_closest_seq_std": "ratio diff closest sequence SD",
-    }
     df["new_feature_name"] = list(
         map(lambda x: feature_name_dict[x], df["feature_name"])
     )
@@ -171,26 +174,6 @@ def plot_random_forest_model_features(model_features_csv, plot_filepath):
 def plot_combined_random_forest_model_features(
     classification_features_csv, regression_features, plot_filepath
 ):
-    feature_name_dict = {
-        "num_leaves": "#leaves",
-        "like_weight_ratio": "LWR",
-        "reattachment_branch_length": "insertion branch length",
-        "distal_length": "distal length",
-        "pendant_branch_length": "pendant length",
-        "taxon_height": "insertion height",
-        "num_likely_reattachments": "#insertion locations",
-        "nj_tii": "NJ TII",
-        "dist_reattachment_low_bootstrap_node": "distance to low bootstrap node",
-        "dist_diff_reattachment_sibling": "dist diff insertion sibling",
-        "bootstrap_mean": "bootstrap mean",
-        "bootstrap_std": "bootstrap SD",
-        "reattachment_distances_mean": "dist to insertion mean",
-        "reattachment_distances_std": "dist to insertion SD",
-        "seq_and_tree_dist_ratio_mean": "distance ratio mean",
-        "seq_and_tree_dist_ratio_std": "distance ratio SD",
-        "seq_distance_ratios_closest_seq_mean": "ratio diff closest sequence mean",
-        "seq_distance_ratios_closest_seq_std": "ratio diff closest sequence SD",
-    }
     classification_df = pd.read_csv(
         classification_features_csv,
         names=["feature_name", "untuned model importance", "importance"],
