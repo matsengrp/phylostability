@@ -385,17 +385,13 @@ def get_rf_radius(full_tree, reduced_tree, seq_id):
         node_up_dist = ete_dist(
             node.up, reattachment_position, topology_only=True
         )
-        if node_dist == node_up_dist == 1:
-            dist = 0
-        else:
-            dist = min(node_dist, node_up_dist)
+        dist = max(node_dist, node_up_dist)
         if dist > rf_radius:
             rf_radius = dist
     normalising_constant = max(
         [
             ete_dist(node, reattachment_position, topology_only=True)
             for node in full_tree.iter_descendants()
-            if not node.is_leaf()
         ]
     )
     return rf_radius / normalising_constant
