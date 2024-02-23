@@ -215,6 +215,7 @@ def plot_stability_measures(
     normalised_tii_plot_filepath,
     scatterplot_filepath,
     rf_radius_num_taxa_filepath,
+    instability_to_bootstrap_filepath,
     plot_individual=False,
 ):
     df = pd.read_csv(csv)
@@ -241,12 +242,7 @@ def plot_stability_measures(
     plt.clf()
 
     # plot RF radius vs num_leaves
-    sns.scatterplot(
-        data=df,
-        x="num_leaves",
-        y="rf_radius",
-        color=dark2.colors[0]
-    )
+    sns.scatterplot(data=df, x="num_leaves", y="rf_radius", color=dark2.colors[0])
     plt.xlabel("Number of taxa")
     plt.ylabel("RF radius")
     plt.title("")
@@ -289,6 +285,19 @@ def plot_stability_measures(
         plt.title("")
         plt.tight_layout()
         plt.savefig(normalised_tii_plot_filepath)
+        plt.clf()
+        # plot distance of instable edges to next low bootstrap support node
+        max_tii = max(df["change_to_low_bootstrap_dist"])
+        num_bins = 100  # len(df["normalised_tii"].unique())
+        bins = [(i - 0.5) * max_tii / num_bins for i in range(0, num_bins)]
+        sns.histplot(
+            data=df, x="change_to_low_bootstrap_dist", bins=bins, color=dark2.colors[0]
+        )
+        # Set labels and title
+        plt.xlabel("Distance")
+        plt.title("")
+        plt.tight_layout()
+        plt.savefig(instability_to_bootstrap_filepath)
         plt.clf()
         return 1
     num_datasets = len(datasets)
@@ -343,7 +352,7 @@ def plot_stability_measures(
         # plt.tight_layout()
         if var == "rf_radius":
             plt.savefig(rf_radius_plot_filepath)
-        else:
+        elif var == "tii":
             plt.savefig(tii_plot_filepath)
         plt.clf()
 
@@ -371,6 +380,9 @@ normalised_tii_plot_filepath = os.path.join(plots_folder, "normalised_tii.pdf")
 rf_radius_plot_filepath = os.path.join(plots_folder, "rf_radius.pdf")
 scatterplot_filepath = os.path.join(plots_folder, "tii_vs_rf_radius.pdf")
 rf_radius_num_taxa_filepath = os.path.join(plots_folder, "rf_radius_num_taxa.pdf")
+instability_to_bootstrap_filepath = os.path.join(
+    plots_folder, "instability_to_bootstrap_filepath.pdf"
+)
 plot_stability_measures(
     combined_csv,
     rf_radius_plot_filepath,
@@ -378,6 +390,7 @@ plot_stability_measures(
     normalised_tii_plot_filepath,
     scatterplot_filepath,
     rf_radius_num_taxa_filepath,
+    instability_to_bootstrap_filepath,
 )
 print("Done plotting stability measures.")
 

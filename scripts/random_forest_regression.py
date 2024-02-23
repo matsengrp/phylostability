@@ -27,6 +27,7 @@ cols_to_drop = [
     "dataset",
     "normalised_tii",
     "rf_radius",
+    "change_to_low_bootstrap_dist",
 ]
 
 

@@ -25,7 +25,8 @@ cols_to_drop = [
     "normalised_tii",
     "dataset",
     "rf_radius",
-    "tii"
+    "tii",
+    "change_to_low_bootstrap_dist",
     # "p-AU_binary",
 ]
 
@@ -125,7 +126,7 @@ def train_random_forest_classifier(df, column_name, cross_validate=False):
     return model_result
 
 
-def add_au_test_result(df, au_df, only_au = False):
+def add_au_test_result(df, au_df, only_au=False):
     """
     Add results from au_test in given file au_test_results to df conrtaining all summary statistics
     """
@@ -138,9 +139,7 @@ def add_au_test_result(df, au_df, only_au = False):
         )
     else:
         merged_df["significant_unstable"] = np.where(
-            (merged_df["p-AU"] < 0.05) & (merged_df["tii"] != 0),
-            1,
-            0
+            (merged_df["p-AU"] < 0.05) & (merged_df["tii"] != 0), 1, 0
         )
     merged_df.drop("p-AU", axis=1, inplace=True)
     df = merged_df
@@ -174,6 +173,7 @@ def balance_datasets(df, only_au=False):
 
     combined_df = pd.concat(df_list, ignore_index=True)
     return combined_df
+
 
 only_au = False
 df = pd.read_csv(combined_statistics, index_col=0)
