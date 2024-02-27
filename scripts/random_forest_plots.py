@@ -381,7 +381,7 @@ rf_radius_plot_filepath = os.path.join(plots_folder, "rf_radius.pdf")
 scatterplot_filepath = os.path.join(plots_folder, "tii_vs_rf_radius.pdf")
 rf_radius_num_taxa_filepath = os.path.join(plots_folder, "rf_radius_num_taxa.pdf")
 instability_to_bootstrap_filepath = os.path.join(
-    plots_folder, "instability_to_bootstrap_filepath.pdf"
+    plots_folder, "dist_instability_to_low_bootstrap.pdf"
 )
 plot_stability_measures(
     combined_csv,
