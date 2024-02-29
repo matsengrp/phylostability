@@ -411,6 +411,7 @@ rule benchmark_outputs_across_datasets:
     script:
         "scripts/benchmark_outputs_across_datasets.py"
 
+
 rule plot_bts_vs_bootstrap:
     input:
         bootstrap_csvs=expand("{subdir}/reduced_alignments/bts_bootstrap.csv", subdir=get_subdirs(data_folder)),
