@@ -50,6 +50,7 @@ rule all:
         "plot_au_test_classifier.done",
         data_folder+plots_folder+"au_pie_chart.pdf",
 
+
 # Define the rule to extract the best model for iqtree on the full MSA
 rule model_test_iqtree:
     input:
@@ -81,7 +82,7 @@ rule remove_sequence:
     input:
         msa="{subdir}/"+input_alignment
     output:
-        reduced_msa=temp("{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta"),
+        reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
     benchmark:
         touch("{subdir}/benchmarking/benchmark_remove_sequence_{seq_id}.txt")
     params:
@@ -126,6 +127,7 @@ rule run_iqtree_restricted_alignments:
         """
 
 
+# Extract fastas containing single sequences for epa-ng insertion
 rule extract_single_fastas:
     input:
         msa="{subdir}/"+input_alignment
@@ -140,6 +142,7 @@ rule extract_single_fastas:
         "scripts/extract_single_taxon_msa.py"
 
 
+# Compute best insertion locations for taxon with epa-ng
 rule epa_reattachment:
     input:
         rules.run_iqtree_restricted_alignments.output.done,
@@ -160,6 +163,7 @@ rule epa_reattachment:
         """
 
 
+# convert epa-ng output to actual trees
 rule write_reattached_trees:
     input:
         epa_result="{subdir}/reduced_alignments/{seq_id}/epa_result.jplace",
@@ -172,6 +176,7 @@ rule write_reattached_trees:
         "scripts/write_reattached_trees.py"
 
 
+# compute all summary statistics as input for random forest predictions
 rule extract_reattachment_statistics:
     input:
         dynamic_input=dynamic_input,
@@ -187,6 +192,7 @@ rule extract_reattachment_statistics:
         "scripts/extract_reattachment_statistics.py"
 
 
+# regression predicting stability measure
 rule random_forest_regression:
     input:
         csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=get_subdirs(data_folder)),
@@ -201,13 +207,13 @@ rule random_forest_regression:
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_regression.txt")
     params:
-        # column_to_predict = "normalised_tii",
         column_to_predict = stability_measure,
         subdirs=get_subdirs(data_folder),
     script:
         "scripts/random_forest_regression.py"
 
 
+# classification predicting stability measure
 rule random_forest_classifier:
     input:
         csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=get_subdirs(data_folder)),
@@ -228,6 +234,7 @@ rule random_forest_classifier:
         "scripts/random_forest_classifier.py"
 
 
+# plot random forest results as well as stability measures
 rule random_forest_plots:
     input:
         random_forest_csv=rules.random_forest_regression.output.output_file_name,
@@ -251,6 +258,7 @@ rule random_forest_plots:
         "scripts/random_forest_plots.py"
 
 
+# create plots for statistics of each dataset
 rule create_plots:
     input:
         csv="{subdir}/reduced_alignments/reattachment_data_per_taxon_epa.csv",
@@ -263,6 +271,7 @@ rule create_plots:
         "scripts/create_plots.py"
 
 
+# create additional plots for statistics of each dataset
 rule create_other_plots:
     input:
         dynamic_input=dynamic_input,
@@ -278,6 +287,7 @@ rule create_other_plots:
         "scripts/create_other_plots.py"
 
 
+# combine newick of pruned and inferred tree to one file for AU-test
 rule write_pruned_and_inferred_trees:
     input:
         full_tree="{subdir}/"+input_alignment+".treefile",
@@ -292,26 +302,10 @@ rule write_pruned_and_inferred_trees:
         "scripts/write_pruned_and_inferred_trees.py"
 
 
-# this is a hacky way of allowing to re-run pipeline for paper without re-running iqtree,
-# bc in remove_sequence, reduced_msa is temp() and we added in au_test_model_fit later,
-# which needs reduced_alignment.fasta
-rule remove_sequence_au_test:
-    input:
-        msa="{subdir}/"+input_alignment
-    output:
-        reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment_au.fasta",
-    benchmark:
-        touch("{subdir}/benchmarking/benchmark_remove_sequence_au_{seq_id}.txt")
-    params:
-        seq_id=lambda wildcards: wildcards.seq_id
-    script:
-        "scripts/remove_sequence.py"
-
-
 # AU-test to test model fit of full tree to reattached trees
 rule au_test_model_fit:
     input:
-        reduced_msa_au="{subdir}/reduced_alignments/{seq_id}/reduced_alignment_au.fasta",
+        reduced_msa_au="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
         trees="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.nwk",
         full_model="{subdir}/iqtree-model.txt",
     output:
@@ -324,6 +318,8 @@ rule au_test_model_fit:
         iqtree -s {input.reduced_msa_au} -z {input.trees} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/au-test -m $(cat {input.full_model}) -n 0 -zb 10000 -zw -au -redo
         """
 
+
+# auxiliary function to check that all AU-tests are done
 def aggregate_all_au_done(wildcards):
     all_done = []
     for subdir in subdirs:
@@ -343,6 +339,7 @@ rule all_au_test_done_subset:
         temp(touch("all_au_test_done.done"))
 
 
+# aggregate output of AU test and transform it to csv for classifier and plotting
 rule analyse_au_test:
     input:
         "all_au_test_done.done",
@@ -356,6 +353,7 @@ rule analyse_au_test:
         "scripts/analyse_au_test.py"
 
 
+# random forest classification for significant instability
 rule au_test_classifier:
     input:
         au_test_results=data_folder+"au_test_result.csv",
@@ -374,6 +372,7 @@ rule au_test_classifier:
         "scripts/au_test_classifier.py"
 
 
+# plot signinficant instability prediction results
 rule plot_au_test_classifier:
     input:
         all_au_test_results=data_folder+"au_test_result.csv",
@@ -398,6 +397,7 @@ rule combine_benchmark_outputs:
         "scripts/combine_benchmark_outputs.py"
 
 
+# plot benchmarking results
 rule benchmark_outputs_across_datasets:
     input:
         dfs=expand("{subdir}/benchmarking_data.csv", subdir=get_subdirs(data_folder)),
