@@ -45,16 +45,13 @@ def get_nj_tiis(full_mldist_file, restricted_mldist_files):
     full_mldist = get_ml_dist(full_mldist_file)
     full_nj_tree = compute_nj_tree(full_mldist)
     tiis = {}
-    # maximum possible RF distance:
-    normalising_constant = 2 * len(full_nj_tree) - 3
     for file in restricted_mldist_files:
         seq_id = file.split("/")[-2]
         restricted_mldist = get_ml_dist(file)
         restricted_nj_tree = compute_nj_tree(restricted_mldist)
-        tiis[seq_id] = (
-            full_nj_tree.robinson_foulds(restricted_nj_tree, unrooted_trees=True)[0]
-            # / normalising_constant
-        )
+        tiis[seq_id] = full_nj_tree.robinson_foulds(
+            restricted_nj_tree, unrooted_trees=True
+        )[0]
     return tiis
 
 
@@ -157,43 +154,66 @@ def get_reattachment_distances(reduced_tree, reattachment_trees, seq_id):
     return reattachment_distances
 
 
+def normalised_dist_closest_low_bootstrap_node(node, tree, threshold=70):
+    """
+    Compute topological distance to closet node with bootstrap support < 70
+    If edge=True, we take minimum of distance of node and node.up to low bootstrap
+    support node.
+    """
+    low_bootstrap_nodes = [
+        n
+        for n in tree.traverse()
+        if not n.is_leaf() and not n.is_root() and n != node and n.support < threshold
+    ]
+    if len(low_bootstrap_nodes) == 0:
+        return np.nan
+    min_dist = min(
+        [ete_dist(n, node, topology_only=True) for n in low_bootstrap_nodes]
+    )
+    max_dist = max([ete_dist(n, node, topology_only=True) for n in tree.traverse()])
+    return min_dist / max_dist
+
+
 def reattachment_distance_to_low_support_node(
-    seq_id, reattached_tree, bootstrap_threshold=0.1
+    seq_id, reattached_tree
 ):
     """
-    Plot (topological) distance of reattachment position in best_reattached_tree to
+    Compute (topological) distance of reattachment position in best_reattached_tree to
     nearest low bootstrap node for each seq_id.
     """
     reattachment_node = reattached_tree.search_nodes(name=seq_id)[0].up
-    all_bootstraps = [
-        node.support
-        for node in reattached_tree.traverse()
-        if not node.is_root() and not node.is_leaf() and node != reattachment_node
-    ]
-    q = np.quantile(all_bootstraps, bootstrap_threshold)
-    # parent of seq_id is reattachment_node
-    min_dist_found = float("inf")
-    max_dist_found = 0  # for normalising
-    for node in [
-        node
-        for node in reattached_tree.traverse()
-        if not node.is_leaf() and node != reattachment_node
-    ]:
-        # take max of distance of two endpoints of nodes at which we reattach
-        if not node.is_root():
-            dist = max(
-                [
-                    ete_dist(node, reattachment_node, topology_only=True),
-                    ete_dist(node.up, reattachment_node, topology_only=True),
-                ]
-            )
-        else:
-            dist = ete_dist(node, reattachment_node, topology_only=True)
-        if dist > max_dist_found:
-            max_dist_found = dist
-        if node.support <= q and dist < min_dist_found:
-            min_dist_found = dist
-    return min_dist_found / max_dist_found
+    dist = normalised_dist_closest_low_bootstrap_node(
+        reattachment_node, reattached_tree
+    )
+    return dist
+
+
+def changed_edge_dist_to_low_bootstrap(reduced_tree, full_tree):
+    """
+    Compute mean distance of edges that are in reduced tree but not full tree
+    to low bootstrap support node (in reduced tree).
+    We set distance of an edge to be the distance of the closest node of the
+    considered edge to a low bootstrap node.
+    Returns 0 if reduced_tree and full_tree have same topology
+    """
+    rf_output = full_tree.robinson_foulds(reduced_tree, unrooted_trees=True)
+    changed_edges = rf_output[3] - rf_output[4]
+    if len(changed_edges) == 0:
+        return np.nan
+    dist_list = []
+    for set in changed_edges:
+        # find lower node of changed edge (node)
+        cluster1 = set[0]
+        node = reduced_tree.get_common_ancestor(cluster1)
+        if node.is_root():
+            cluster2 = set[1]
+            node = reduced_tree.get_common_ancestor(cluster2)
+        # find closest low bootstrap node
+        dist_to_low_bootstrap = normalised_dist_closest_low_bootstrap_node(
+            node, reduced_tree
+        )
+        dist_list.append(dist_to_low_bootstrap)
+    return sum(dist_list) / len(dist_list)
 
 
 def seq_and_tree_dist_diff(
@@ -297,6 +317,14 @@ def get_bootstrap_and_bts_scores(
         for node in full_tree.iter_descendants()
         if not node.is_leaf()
     }
+    # get bootstrap dict that contains min bootstrap values for edge we consider for bts
+    bootstrap_per_bts_dict = {
+        ",".join(sorted(node.get_leaf_names())): min([node.support, node.up.support])
+        for node in full_tree.iter_descendants()
+        if not node.is_leaf() and not node.up.is_root()
+    }
+    for child in [child for child in full_tree.get_children() if not child.is_leaf()]:
+        bootstrap_per_bts_dict[",".join(sorted(child.get_leaf_names()))] = child.support
 
     for treefile in reduced_tree_files:
         full_tree = Tree(treefile)
@@ -344,16 +372,14 @@ def get_bootstrap_and_bts_scores(
         else:
             branch_scores[branch_score] *= 100 / num_leaves
         branch_scores[branch_score] = int(branch_scores[branch_score])
-    branch_scores_df = pd.DataFrame(branch_scores, index=["bts"]).transpose()
-
-    # sort both dataframes so we plot corresponding values correctly
-    branch_scores_df = branch_scores_df.sort_values(
-        by=list(branch_scores_df.columns)
-    ).reset_index(drop=True)
-    bootstrap_df = bootstrap_df.sort_values(by=list(bootstrap_df.columns)).reset_index(
-        drop=True
+    branch_scores_df = pd.DataFrame(
+        list(branch_scores.items()), columns=["edges", "bts"]
     )
-    merged_df = pd.concat([branch_scores_df, bootstrap_df], axis=1)
+    bootstrap_per_bts_df = pd.DataFrame(
+        list(bootstrap_per_bts_dict.items()), columns=["edges", "bootstrap"]
+    )
+
+    merged_df = pd.merge(branch_scores_df, bootstrap_per_bts_df, on="edges")
 
     return merged_df
 
@@ -370,23 +396,26 @@ def get_rf_radius(full_tree, reduced_tree, seq_id):
     rf_radius = 0
     seq_id_leaf = full_tree.search_nodes(name=seq_id)[0]
     reattachment_position = seq_id_leaf.up
+
     for set in changed_edges:
+        # find lower node of changed edge (node)
         cluster1 = set[0]
         node = full_tree.get_common_ancestor(cluster1)
         if node.is_root():
             cluster2 = set[1]
             node = full_tree.get_common_ancestor(cluster2)
-        dist = ete_dist(node, reattachment_position, topology_only=True)
+        node_dist = ete_dist(node, reattachment_position, topology_only=True)
+        node_up_dist = ete_dist(node.up, reattachment_position, topology_only=True)
+        dist = max(node_dist, node_up_dist)
         if dist > rf_radius:
             rf_radius = dist
     normalising_constant = max(
         [
             ete_dist(node, reattachment_position, topology_only=True)
             for node in full_tree.iter_descendants()
-            if not node.is_leaf()
         ]
     )
-    return rf_radius
+    return rf_radius / normalising_constant
 
 
 # get all the data files we need
@@ -415,7 +444,7 @@ for seq_id in seq_ids:
     rf_distance = full_tree.robinson_foulds(restricted_tree, unrooted_trees=True)[0]
     normalised_rf_distance = rf_distance / tii_normalising_constant
 
-    # get bootstrap support values in restricted full_tree
+    # get bootstrap support values in restricted tree
     bootstrap_list = [
         node.support
         for node in restricted_tree.traverse()
@@ -443,7 +472,7 @@ for seq_id in seq_ids:
     sum_branch_lengths = sum(
         [node.dist for node in best_reattached_tree.iter_descendants()]
     )
-    branch_length_normalisation = sum_branch_lengths * n
+    branch_length_normalisation = sum_branch_lengths / n
     # to avoid having an empty list, we set distance between reattachments to be 0.
     # Note that this is correct if three is only one best reattachment.
     if len(reattachment_distances) == 0:
@@ -453,7 +482,7 @@ for seq_id in seq_ids:
     edge_num = best_placement[0]
     likelihood = best_placement[1]
     like_weight_ratio = best_placement[2]
-    distal_length = best_placement[3] / branch_length_normalisation
+    distal_length = best_placement[3]
     pendant_length = best_placement[4] / branch_length_normalisation
     reattached_tree, reattachment_branch_length = get_reattached_tree(
         dict["tree"],
@@ -462,7 +491,10 @@ for seq_id in seq_ids:
         best_placement[3],
         best_placement[4],
     )
-    distal_length = distal_length / reattachment_branch_length
+    distal_length = (
+        min(distal_length, reattachment_branch_length - distal_length)
+        / branch_length_normalisation
+    )
     reattachment_branch_length = (
         reattachment_branch_length / branch_length_normalisation
     )
@@ -472,7 +504,7 @@ for seq_id in seq_ids:
     #     seq_id, full_mldist_file, reattached_tree
     # )
     dist_reattachment_low_bootstrap_node = reattachment_distance_to_low_support_node(
-        seq_id, reattached_tree, bootstrap_threshold=0.1
+        seq_id, reattached_tree
     )
     seq_and_tree_dist_ratio = seq_and_tree_dist_diff(
         seq_id,
@@ -488,6 +520,9 @@ for seq_id in seq_ids:
         reattached_tree,
     )
     rf_radius = get_rf_radius(full_tree, restricted_tree, seq_id)
+    change_to_low_bootstrap_dist = changed_edge_dist_to_low_bootstrap(
+        restricted_tree, full_tree
+    )
     # save all those summary statistics
     output.append(
         [
@@ -512,6 +547,7 @@ for seq_id in seq_ids:
             dist_diff_reattachment_sibling,
             seq_distance_ratios_closest_seq,
             rf_radius,
+            change_to_low_bootstrap_dist,
         ]
     )
 
@@ -539,6 +575,7 @@ df = pd.DataFrame(
         "dist_diff_reattachment_sibling",
         "seq_distance_ratios_closest_seq",
         "rf_radius",
+        "change_to_low_bootstrap_dist",
     ],
 )
 df.to_csv(plot_csv)

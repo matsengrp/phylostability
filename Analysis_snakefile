@@ -12,6 +12,8 @@ input_alignment="full_alignment.fasta"
 data_folder=config["data_folder"]+"/selected_data/"
 plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
+stability_measure=config["stability_measure"]
+
 
 def get_subdirs(data_folder):
     return [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path]
@@ -22,10 +24,10 @@ for subdir in subdirs:
     if not os.path.exists(subdir + "/benchmarking"):
         os.makedirs(subdir + "/benchmarking")
 
-
 # Retrieve all sequence IDs from the input multiple sequence alignment
 def get_seq_ids(input_file, filetype):
     return [record.id for record in SeqIO.parse(input_file, filetype)]
+
 
 def dynamic_input(wildcards):
     subdir = wildcards.subdir
@@ -44,10 +46,8 @@ def dynamic_input(wildcards):
 rule all:
     input:
         "random_forest_plots.done",
-        # expand("{subdir}/create_plots.done", subdir=subdirs),
-        # expand("{subdir}/create_other_plots.done", subdir=subdirs)
-        data_folder+plots_folder+"p_au_proportion_plot.pdf",
-        "benchmarking_plots.done",
+        # "benchmarking_plots.done",
+        "plot_au_test_classifier.done",
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -81,7 +81,7 @@ rule remove_sequence:
     input:
         msa="{subdir}/"+input_alignment
     output:
-        reduced_msa=temp("{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta"),
+        reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
     benchmark:
         touch("{subdir}/benchmarking/benchmark_remove_sequence_{seq_id}.txt")
     params:
@@ -126,6 +126,7 @@ rule run_iqtree_restricted_alignments:
         """
 
 
+# Extract fastas containing single sequences for epa-ng insertion
 rule extract_single_fastas:
     input:
         msa="{subdir}/"+input_alignment
@@ -140,6 +141,7 @@ rule extract_single_fastas:
         "scripts/extract_single_taxon_msa.py"
 
 
+# Compute best insertion locations for taxon with epa-ng
 rule epa_reattachment:
     input:
         rules.run_iqtree_restricted_alignments.output.done,
@@ -160,6 +162,7 @@ rule epa_reattachment:
         """
 
 
+# convert epa-ng output to actual trees
 rule write_reattached_trees:
     input:
         epa_result="{subdir}/reduced_alignments/{seq_id}/epa_result.jplace",
@@ -172,6 +175,7 @@ rule write_reattached_trees:
         "scripts/write_reattached_trees.py"
 
 
+# compute all summary statistics as input for random forest predictions
 rule extract_reattachment_statistics:
     input:
         dynamic_input=dynamic_input,
@@ -187,29 +191,34 @@ rule extract_reattachment_statistics:
         "scripts/extract_reattachment_statistics.py"
 
 
+# regression predicting stability measure
 rule random_forest_regression:
     input:
         csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=get_subdirs(data_folder)),
     output:
-        model_features_file="model_feature_importances.csv",
+        model_features_file=data_folder+"regression_model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_regression.csv",
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
         parameter_file=data_folder+"best_parameters_regression.json",
+        r2_file=data_folder+"regression_r2.txt",
+        regression_bins=data_folder+"regression_bins.csv",
+        rf_regression_balanced_input=data_folder+"rf_regression_balanced_input.csv",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_regression.txt")
     params:
-        column_to_predict = "normalised_tii",
+        column_to_predict = stability_measure,
         subdirs=get_subdirs(data_folder),
     script:
         "scripts/random_forest_regression.py"
 
 
+# classification predicting stability measure
 rule random_forest_classifier:
     input:
         csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=get_subdirs(data_folder)),
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
     output:
-        model_features_file="discrete_model_feature_importances.csv",
+        model_features_file=data_folder+"classifier_model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_classification.csv",
         combined_csv_path=data_folder+"rf_classifier_combined_statistics.csv",
         classifier_metrics_csv=data_folder+"classifier_results.csv",
@@ -218,13 +227,17 @@ rule random_forest_classifier:
         touch(data_folder + "benchmarking/benchmark_random_forest_classifier.txt")
     params:
         column_to_predict = "tii",
-        model_features_csv=data_folder+"discrete_model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_classification.csv",
         subdirs=get_subdirs(data_folder)
-    script:
-        "scripts/random_forest_classifier.py"
+    run:
+        from scripts.random_forest_classifier import random_forest_classification
+        try: 
+            random_forest_classification(params.column_to_predict, output.output_file_name, output.model_features_file, input.combined_csv_path, output.combined_csv_path, output.classifier_metrics_csv, output.parameter_file)
+        except ValueError as e:
+            print(e)
 
 
+# plot random forest results as well as stability measures
 rule random_forest_plots:
     input:
         random_forest_csv=rules.random_forest_regression.output.output_file_name,
@@ -233,16 +246,22 @@ rule random_forest_plots:
         discrete_model_features_csv=rules.random_forest_classifier.output.model_features_file,
         classifier_metrics_csv=rules.random_forest_classifier.output.classifier_metrics_csv,
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
+        r2_file=data_folder+"regression_r2.txt",
+        au_test_classifier_metrics_csv=data_folder+"au_test_classifier_results.csv",
+        au_test_classifier_results=data_folder+"au_test_classification.csv",
+        au_test_model_features_file=data_folder+"au_test_feature_importances.csv",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_plots.txt")
     params:
         forest_plot_folder=data_folder+"plots/",
+        stability_measure=stability_measure,
     output:
         temp(touch("random_forest_plots.done"))
     script:
         "scripts/random_forest_plots.py"
 
 
+# create plots for statistics of each dataset
 rule create_plots:
     input:
         csv="{subdir}/reduced_alignments/reattachment_data_per_taxon_epa.csv",
@@ -255,6 +274,7 @@ rule create_plots:
         "scripts/create_plots.py"
 
 
+# create additional plots for statistics of each dataset
 rule create_other_plots:
     input:
         dynamic_input=dynamic_input,
@@ -270,58 +290,113 @@ rule create_other_plots:
         "scripts/create_other_plots.py"
 
 
-rule write_all_reattached_trees:
+# combine newick of pruned and inferred tree to one file for AU-test
+rule write_pruned_and_inferred_trees:
     input:
-        dynamic_input=dynamic_input,
         full_tree="{subdir}/"+input_alignment+".treefile",
+        inferred_trees="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
     output:
-        reattached_trees="{subdir}/reattached_trees.trees",
-        reattached_trees_order="{subdir}/order_reattached_trees.txt"
+        both_trees="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.nwk",
+    params:
+        seq_id=lambda wildcards: wildcards.seq_id
     benchmark:
-        touch("{subdir}/benchmarking/benchmark_write_all_reattached_trees.txt")
+        touch("{subdir}/benchmarking/benchmark_write_pruned_trees_{seq_id}.txt")
     script:
-        "scripts/write_all_reattached_trees.py"
+        "scripts/write_pruned_and_inferred_trees.py"
 
 
-# SH-test to test model fit of full tree to reattached trees
-rule sh_test_model_fit:
+# AU-test to test model fit of full tree to reattached trees
+rule au_test_model_fit:
     input:
-        msa="{subdir}/"+input_alignment,
-        reattached_trees="{subdir}/reattached_trees.trees",
-        full_tree = "{subdir}/"+input_alignment+".treefile"
+        reduced_msa_au="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
+        trees="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.nwk",
+        full_model="{subdir}/iqtree-model.txt",
     output:
-        touch("{subdir}/sh_test_model_fit.done"),
-        "{subdir}/"+input_alignment+".sh-test.iqtree"
+        # "{subdir}/reduced_alignments/{seq_id}/au-test.iqtree",
+        touch("{subdir}/reduced_alignments/{seq_id}/au_test_model_fit.done"),
     benchmark:
-        touch("{subdir}/benchmarking/benchmark_sh_test_model_fit.txt")
+        touch("{subdir}/benchmarking/benchmark_au_test_model_fit_{seq_id}.txt"),
     shell:
         """
-        iqtree -s {input.msa} -z {input.reattached_trees} --prefix {wildcards.subdir}/{input_alignment}.sh-test -te {input.full_tree} -zb 10000 -zw -au --redo
+        iqtree -s {input.reduced_msa_au} -z {input.trees} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/au-test -m $(cat {input.full_model}) -n 0 -zb 10000 -zw -au -redo
         """
 
 
-rule analyse_sh_test:
+# auxiliary function to check that all AU-tests are done
+def aggregate_all_au_done(wildcards):
+    all_done = []
+    for subdir in subdirs:
+        fasta_files = glob.glob(os.path.join(subdir, "*.fasta"))
+        fasta_files = [os.readlink(file) if os.path.islink(file) else file for file in fasta_files]
+        seq_ids = get_seq_ids(fasta_files[0], "fasta")
+        for seq_id in seq_ids:
+            all_done.append(subdir+"/reduced_alignments/"+seq_id+"/au_test_model_fit.done")
+    return all_done
+
+
+# rule that detects if all au test are done to then run rule analyse_au_test
+rule all_au_test_done_subset:
     input:
-        expand("{subdir}/sh_test_model_fit.done", subdir=get_subdirs(data_folder)),
-        summary_statistics=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=get_subdirs(data_folder)),
-        iqtree_file=expand("{subdir}/"+input_alignment+".sh-test.iqtree", subdir=get_subdirs(data_folder)),
-        reattached_trees_order=expand("{subdir}/order_reattached_trees.txt", subdir=get_subdirs(data_folder)),
-        reattached_trees=expand("{subdir}/reattached_trees.trees", subdir=get_subdirs(data_folder)),
+        aggregate_all_au_done
     output:
-        plot=data_folder+plots_folder+"p_au_proportion_plot.pdf"
+        temp(touch("all_au_test_done.done"))
+
+
+# aggregate output of AU test and transform it to csv for classifier and plotting
+rule analyse_au_test:
+    input:
+        "all_au_test_done.done",
+    output:
+        au_test_results=data_folder+"au_test_result.csv",
     benchmark:
-        touch(data_folder + "benchmarking/benchmark_analuse_sh_test.txt")
+        touch(data_folder + "benchmarking/benchmark_analyse_au_test.txt")
     params:
-        plots_folder=data_folder+plots_folder,
-        subdirs=get_subdirs(data_folder)
+        subdirs=subdirs
     script:
-        "scripts/analyse_sh_test.py"
+        "scripts/analyse_au_test.py"
+
+
+# random forest classification for significant instability
+rule au_test_classifier:
+    input:
+        au_test_results=data_folder+"au_test_result.csv",
+        combined_statistics=data_folder+"rf_regression_combined_statistics.csv",
+    params:
+        plot_folder=data_folder+"plots/",
+        output_file_name=data_folder+"au_test_classification.csv",
+        combined_csv_path=data_folder+"au_test_combined_statistics.csv",
+        parameter_file=data_folder+"best_parameters_au_test_classifier.json",
+    output:
+        touch(data_folder+"au_test_classifier.done"),
+        output_file_name=data_folder+"au_test_classification.csv",
+        model_features_file=data_folder+"au_test_feature_importances.csv",
+        classifier_metrics_csv=data_folder+"au_test_classifier_results.csv",
+    run:
+        from scripts.au_test_classifier import au_test_classification
+        
+        try:
+            au_test_classification(input.combined_statistics, input.au_test_results, 
+            params.output_file_name, output.model_features_file, output.classifier_metrics_csv,
+            params.parameter_file, params.combined_csv_path)
+        except ValueError as e:
+            print(e)
+
+
+# plot signinficant instability prediction results
+rule plot_au_test_classifier:
+    input:
+        all_au_test_results=data_folder+"au_test_result.csv",
+    output:
+        temp(touch("plot_au_test_classifier.done")),
+        pie_plot_file=data_folder+plots_folder+"au_pie_chart.pdf",
+    script:
+        "scripts/plot_au_test_classifier.py"
 
 
 # create single file for each dataset with timing breakdowns for the rules
 rule combine_benchmark_outputs:
     input:
-        data_folder+plots_folder+"p_au_proportion_plot.pdf"
+        "plot_au_test_classifier.done"
     output:
         output_file="{subdir}/benchmarking_data.csv"
     params:
@@ -332,6 +407,7 @@ rule combine_benchmark_outputs:
         "scripts/combine_benchmark_outputs.py"
 
 
+# plot benchmarking results
 rule benchmark_outputs_across_datasets:
     input:
         dfs=expand("{subdir}/benchmarking_data.csv", subdir=get_subdirs(data_folder)),

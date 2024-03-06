@@ -1,8 +1,9 @@
-def random_forest_classification(column_name, output_csv, model_features_csv, input_combined_csv_path, combined_csv_path, classifier_metrics_csv, parameter_file):
+def au_test_classification(combined_statistics, au_test_results, output_csv, model_features_csv, classifier_metrics_csv, parameter_file, combined_csv_path):
     import optuna
     import pandas as pd
     import numpy as np
     import json
+    import os
     from sklearn.model_selection import train_test_split, RandomizedSearchCV
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.impute import SimpleImputer
@@ -15,14 +16,15 @@ def random_forest_classification(column_name, output_csv, model_features_csv, in
         "normalised_tii",
         "dataset",
         "rf_radius",
+        "tii",
         "change_to_low_bootstrap_dist",
-        column_name + "_binary",
+        # "p-AU_binary",
     ]
 
 
-    def train_random_forest_classifier(df, column_name="tii", cross_validate=False):
+    def train_random_forest_classifier(df, column_name, cross_validate=False):
         X = df.drop(cols_to_drop, axis=1)
-        y = df[column_name + "_binary"]
+        y = df[column_name]
         # Split the data into training and testing sets
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
@@ -47,11 +49,10 @@ def random_forest_classification(column_name, output_csv, model_features_csv, in
             {
                 "untuned_model_predicted": untrained_predictions,
                 "actual": y_test,
-                "tii value": y_val,
+                "predicted value": y_val,
             }
         )
 
-        # print out the feature importances to file
         importances = model.feature_importances_
         pd.Series(importances, index=X_train.columns).to_csv(model_features_csv)
 
@@ -116,17 +117,41 @@ def random_forest_classification(column_name, output_csv, model_features_csv, in
         return model_result
 
 
-    def balance_datasets(df):
+    def add_au_test_result(df, au_df, only_au=False):
+        """
+        Add results from au_test in given file au_test_results to df conrtaining all summary statistics
+        """
+        au_df_subset = au_df[["seq_id", "dataset", "p-AU"]]
+        df["seq_id"] = df["seq_id"].str.replace(r"\s+\d+$", "", regex=True)
+        merged_df = pd.merge(df, au_df_subset, on=["seq_id", "dataset"], how="left")
+        if only_au:
+            merged_df["p-AU_binary"] = merged_df["p-AU"].apply(
+                lambda x: 1 if float(x) < 0.05 else 0
+            )
+        else:
+            merged_df["significant_unstable"] = np.where(
+                (merged_df["p-AU"] < 0.05) & (merged_df["tii"] != 0), 1, 0
+            )
+        merged_df.drop("p-AU", axis=1, inplace=True)
+        df = merged_df
+        return df
+
+
+    def balance_datasets(df, only_au=False):
         """
         Subsample rows in df so that we have equal number of stable and unstable rows
-        (tii=0 vs tii!=0)
+        (p-AU<0.05 vs p-AU>=0.05)
         """
         df_list = []
+        if only_au:
+            col_name = "p-AU_binary"
+        else:
+            col_name = "significant_unstable"
         # Assuming df is your original DataFrame
         for dataset in pd.unique(df["dataset"]):
             filtered_df = df[df["dataset"] == dataset]
-            stable_df = filtered_df[filtered_df["tii"] == 0]
-            unstable_df = filtered_df[filtered_df["tii"] != 0]
+            stable_df = filtered_df[filtered_df[col_name] == 0]
+            unstable_df = filtered_df[filtered_df[col_name] == 1]
             num_stable = len(stable_df)
             num_unstable = len(unstable_df)
             # Determine the number to subsample to (the smaller of the two groups)
@@ -141,22 +166,28 @@ def random_forest_classification(column_name, output_csv, model_features_csv, in
         return combined_df
 
 
-    df = pd.read_csv(input_combined_csv_path, index_col=0)
-    df = balance_datasets(
-        df
-    )  # balance datasets -- uncomment to train on imbalanced dataset
-    df[column_name + "_binary"] = [1 if x > 0 else 0 for x in df[column_name]]
-    df.to_csv(combined_csv_path)
+    only_au = False
+    df = pd.read_csv(combined_statistics, index_col=0)
+    au_df = pd.read_csv(au_test_results)
+    df = add_au_test_result(df, au_df, only_au)
+    df = balance_datasets(df, only_au)
     if len(df) < 10:
         with open(output_csv, "w") as f:
-            pass
-        with open(parameter_file, "w") as f:
             pass
         with open(model_features_csv, "w") as f:
             pass
         with open(classifier_metrics_csv, "w") as f:
             pass
-        raise ValueError(f"Not enough samples for {column_name} classification to balance training set.")
+        raise ValueError(f"Not enough samples for classification of significant instability to balance training set.")
 
-    model_result = train_random_forest_classifier(df, column_name, cross_validate=True)
+    df.to_csv(combined_csv_path)
+    if only_au:
+        model_result = train_random_forest_classifier(
+            df, column_name="p-AU_binary", cross_validate=True
+        )
+    else:
+        model_result = train_random_forest_classifier(
+            df, column_name="significant_unstable", cross_validate=True
+        )
+
     model_result.to_csv(output_csv)
