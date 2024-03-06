@@ -154,7 +154,7 @@ def get_reattachment_distances(reduced_tree, reattachment_trees, seq_id):
     return reattachment_distances
 
 
-def normalised_dist_closest_low_bootstrap_node(node, tree, threshold=70, edge=False):
+def normalised_dist_closest_low_bootstrap_node(node, tree, threshold=70):
     """
     Compute topological distance to closet node with bootstrap support < 70
     If edge=True, we take minimum of distance of node and node.up to low bootstrap
@@ -167,27 +167,15 @@ def normalised_dist_closest_low_bootstrap_node(node, tree, threshold=70, edge=Fa
     ]
     if len(low_bootstrap_nodes) == 0:
         return np.nan
-    if edge:
-        l = [
-            min(
-                [
-                    ete_dist(n, node, topology_only=True),
-                    ete_dist(n.up, node, topology_only=True),
-                ]
-            )
-            for n in low_bootstrap_nodes
-        ]
-        min_dist = min(l)
-    else:
-        min_dist = min(
-            [ete_dist(n, node, topology_only=True) for n in low_bootstrap_nodes]
-        )
+    min_dist = min(
+        [ete_dist(n, node, topology_only=True) for n in low_bootstrap_nodes]
+    )
     max_dist = max([ete_dist(n, node, topology_only=True) for n in tree.traverse()])
     return min_dist / max_dist
 
 
 def reattachment_distance_to_low_support_node(
-    seq_id, reattached_tree, bootstrap_threshold=0.1
+    seq_id, reattached_tree
 ):
     """
     Compute (topological) distance of reattachment position in best_reattached_tree to
@@ -222,7 +210,7 @@ def changed_edge_dist_to_low_bootstrap(reduced_tree, full_tree):
             node = reduced_tree.get_common_ancestor(cluster2)
         # find closest low bootstrap node
         dist_to_low_bootstrap = normalised_dist_closest_low_bootstrap_node(
-            node, reduced_tree, edge=True
+            node, reduced_tree
         )
         dist_list.append(dist_to_low_bootstrap)
     return sum(dist_list) / len(dist_list)
@@ -516,7 +504,7 @@ for seq_id in seq_ids:
     #     seq_id, full_mldist_file, reattached_tree
     # )
     dist_reattachment_low_bootstrap_node = reattachment_distance_to_low_support_node(
-        seq_id, reattached_tree, bootstrap_threshold=0.1
+        seq_id, reattached_tree
     )
     seq_and_tree_dist_ratio = seq_and_tree_dist_diff(
         seq_id,
