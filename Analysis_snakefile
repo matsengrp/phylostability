@@ -48,7 +48,6 @@ rule all:
         "random_forest_plots.done",
         # "benchmarking_plots.done",
         "plot_au_test_classifier.done",
-        data_folder+plots_folder+"au_pie_chart.pdf",
 
 
 # Define the rule to extract the best model for iqtree on the full MSA
@@ -230,8 +229,12 @@ rule random_forest_classifier:
         column_to_predict = "tii",
         output_file_name=data_folder+"random_forest_classification.csv",
         subdirs=get_subdirs(data_folder)
-    script:
-        "scripts/random_forest_classifier.py"
+    run:
+        from scripts.random_forest_classifier import random_forest_classification
+        try: 
+            random_forest_classification(params.column_to_predict, output.output_file_name, output.model_features_file, input.combined_csv_path, output.combined_csv_path, output.classifier_metrics_csv, output.parameter_file)
+        except ValueError as e:
+            print(e)
 
 
 # plot random forest results as well as stability measures
@@ -364,12 +367,19 @@ rule au_test_classifier:
         combined_csv_path=data_folder+"au_test_combined_statistics.csv",
         parameter_file=data_folder+"best_parameters_au_test_classifier.json",
     output:
-        temp(touch("au_test_classifier.done")),
+        touch(data_folder+"au_test_classifier.done"),
         output_file_name=data_folder+"au_test_classification.csv",
         model_features_file=data_folder+"au_test_feature_importances.csv",
         classifier_metrics_csv=data_folder+"au_test_classifier_results.csv",
-    script:
-        "scripts/au_test_classifier.py"
+    run:
+        from scripts.au_test_classifier import au_test_classification
+        
+        try:
+            au_test_classification(input.combined_statistics, input.au_test_results, 
+            params.output_file_name, output.model_features_file, output.classifier_metrics_csv,
+            params.parameter_file, params.combined_csv_path)
+        except ValueError as e:
+            print(e)
 
 
 # plot signinficant instability prediction results

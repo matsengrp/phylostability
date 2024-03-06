@@ -73,4 +73,7 @@ all_au_test_results = snakemake.input.all_au_test_results
 pie_plot_file = snakemake.output.pie_plot_file
 
 df = pd.read_csv(all_au_test_results)
-plot_au_test_pie_chart(df, pie_plot_file)
+if len(df) == 0:
+    print("AU-test classification could not be performed, no classification plots are produced")
+else:
+    plot_au_test_pie_chart(df, pie_plot_file)

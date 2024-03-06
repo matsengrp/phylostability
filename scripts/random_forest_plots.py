@@ -51,6 +51,9 @@ def plot_random_forest_regression_results(
     with open(r2_file, "r") as f:
         r2 = float(f.readlines()[0].strip())
     df = pd.read_csv(results_csv)
+    if len(df) == 0:
+        print("Can't plot stability regression results -- no results available for regression because of insufficient size of training set.")
+        return(0)
     df_sorted = df.sort_values(by="actual")
 
     plt.figure(figsize=(6, 6))
@@ -96,6 +99,9 @@ def plot_random_forest_classifier_results(
             .replace(to_replace=True, value="unstable")
             .replace(to_replace=False, value="stable")
         )
+        if len(df) == 0:
+            print("Can't plot stability classifier results -- no results available for classifier because of insufficient size of training set.")
+            return(0)
         conf_m = confusion_matrix(df["actual"], df["predicted"])
 
         roc_df = pd.read_csv(roc_csv)
@@ -127,6 +133,9 @@ def plot_random_forest_classifier_results(
             .replace(to_replace=True, value="unstable")
             .replace(to_replace=False, value="stable")
         )
+        if len(df) == 0:
+            print("Can't plot stability classifier results -- no results available for classifier because of insufficient size of training set.")
+            return(0)
         conf_m = confusion_matrix(df["actual"], df["predicted"])
 
         roc_df = pd.read_csv(roc_csv)
@@ -157,15 +166,19 @@ def plot_random_forest_model_features(model_features_csv, plot_filepath):
         names=["feature_name", "untuned model importance", "importance"],
         skiprows=1,
     )
+    if len(df) == 0:
+        print("Can't plot random forest features -- no stability classifier results available because of insufficient size of balanced training set.")
+        return(0)
     df["new_feature_name"] = list(
         map(lambda x: feature_name_dict[x], df["feature_name"])
     )
 
-    plt.figure(figsize=(10, 6))
-    sns.barplot(data=df, x="new_feature_name", y="importance", color=dark2.colors[0])
-    plt.xticks(rotation=90)
+    plt.figure(figsize=(6, 10))
+    sns.barplot(data=df, y="new_feature_name", x="importance", color=dark2.colors[0])
+    # plt.xticks(rotation=90)
     plt.title("")
-    plt.xlabel("")
+    plt.xlabel("Feature Importance")
+    plt.ylabel("")
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
@@ -179,6 +192,9 @@ def plot_combined_random_forest_model_features(
         names=["feature_name", "untuned model importance", "importance"],
         skiprows=1,
     )
+    if len(classification_df) == 0:
+        print("Can't plot combined random forest features -- no stability classifier results available because of insufficient size of balanced training set -- don't plot combined features.")
+        return(0)
     classification_df["new_feature_name"] = list(
         map(lambda x: feature_name_dict[x], classification_df["feature_name"])
     )
@@ -189,20 +205,24 @@ def plot_combined_random_forest_model_features(
         names=["feature_name", "untuned model importance", "importance"],
         skiprows=1,
     )
+    if len(regression_df) == 0:
+        print("Can't plot combined random forest features -- no stability regression results available because of insufficient size of balanced training set -- don't plot combined features.")
+        return(0)
     regression_df["new_feature_name"] = list(
         map(lambda x: feature_name_dict[x], regression_df["feature_name"])
     )
     regression_df["type"] = "regression"
     df = pd.concat([classification_df, regression_df])
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(6, 10))
     palette = [dark2.colors[0], dark2.colors[1]]
     sns.barplot(
-        data=df, x="new_feature_name", y="importance", hue="type", palette=palette
+        data=df, y="new_feature_name", x="importance", hue="type", palette=palette
     )
-    plt.xticks(rotation=90)
+    # plt.xticks(rotation=90)
     plt.title("")
-    plt.xlabel("")
+    plt.xlabel("Feature Importance")
+    plt.ylabel("")
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
