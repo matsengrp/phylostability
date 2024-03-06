@@ -164,7 +164,7 @@ def plot_random_forest_model_features(model_features_csv, plot_filepath):
         map(lambda x: feature_name_dict[x], df["feature_name"])
     )
 
-    plt.figure(figsize=(6, 10))
+    plt.figure(figsize=(10, 10))
     sns.barplot(data=df, y="new_feature_name", x="importance", color=dark2.colors[0])
     # plt.xticks(rotation=90)
     plt.title("")
@@ -205,7 +205,7 @@ def plot_combined_random_forest_model_features(
     regression_df["type"] = "regression"
     df = pd.concat([classification_df, regression_df])
 
-    plt.figure(figsize=(6, 10))
+    plt.figure(figsize=(10, 10))
     palette = [dark2.colors[0], dark2.colors[1]]
     sns.barplot(
         data=df, y="new_feature_name", x="importance", hue="type", palette=palette
@@ -298,11 +298,12 @@ def plot_stability_measures(
         plt.savefig(normalised_tii_plot_filepath)
         plt.clf()
         # plot distance of instable edges to next low bootstrap support node
-        max_tii = max(df["change_to_low_bootstrap_dist"])
+        cleaned_df = df.dropna(subset=["change_to_low_bootstrap_dist"])
+        max_tii = max(cleaned_df["change_to_low_bootstrap_dist"])
         num_bins = 100  # len(df["normalised_tii"].unique())
         bins = [(i - 0.5) * max_tii / num_bins for i in range(0, num_bins)]
         sns.histplot(
-            data=df, x="change_to_low_bootstrap_dist", bins=bins, color=dark2.colors[0]
+            data=cleaned_df, x="change_to_low_bootstrap_dist", bins=bins, color=dark2.colors[0]
         )
         # Set labels and title
         plt.xlabel("Distance")
