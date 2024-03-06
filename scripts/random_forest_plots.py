@@ -51,9 +51,6 @@ def plot_random_forest_regression_results(
     with open(r2_file, "r") as f:
         r2 = float(f.readlines()[0].strip())
     df = pd.read_csv(results_csv)
-    if len(df) == 0:
-        print("Can't plot stability regression results -- no results available for regression because of insufficient size of training set.")
-        return(0)
     df_sorted = df.sort_values(by="actual")
 
     plt.figure(figsize=(6, 6))
@@ -99,9 +96,6 @@ def plot_random_forest_classifier_results(
             .replace(to_replace=True, value="unstable")
             .replace(to_replace=False, value="stable")
         )
-        if len(df) == 0:
-            print("Can't plot stability classifier results -- no results available for classifier because of insufficient size of training set.")
-            return(0)
         conf_m = confusion_matrix(df["actual"], df["predicted"])
 
         roc_df = pd.read_csv(roc_csv)
@@ -133,9 +127,6 @@ def plot_random_forest_classifier_results(
             .replace(to_replace=True, value="unstable")
             .replace(to_replace=False, value="stable")
         )
-        if len(df) == 0:
-            print("Can't plot stability classifier results -- no results available for classifier because of insufficient size of training set.")
-            return(0)
         conf_m = confusion_matrix(df["actual"], df["predicted"])
 
         roc_df = pd.read_csv(roc_csv)
@@ -414,46 +405,74 @@ plot_stability_measures(
 )
 print("Done plotting stability measures.")
 
-print("Start plotting random forest regression results.")
-random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_results.pdf")
-plot_random_forest_regression_results(
-    results_csv, random_forest_plot_filepath, stability_measure, r2_file
-)
-print("Done plotting random forest regresion results.")
+def empty(csv_file):
+    if os.path.getsize(csv_file) == 0:
+        return True
+    return False
 
-print("Start plotting random forest classifier results.")
-random_forest_plot_filepath = os.path.join(
-    plots_folder, "random_forest_classifier_results.pdf"
-)
-plot_random_forest_classifier_results(
-    classifier_results_csv, classifier_metrics_csv, random_forest_plot_filepath
-)
-print("Done plotting random forest classifier results.")
+if not empty(results_csv):
+    print("Start plotting random forest regression results.")
+    random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_results.pdf")
+    plot_random_forest_regression_results(
+        results_csv, random_forest_plot_filepath, stability_measure, r2_file
+    )
+    print("Done plotting random forest regression results.")
+else:
+    print("Couldn't create plots. No random forest prediction for stability regressor.")
 
-print("Start plotting au test classifier results")
-filepath = os.path.join(plots_folder, "au_test_classifier_results.pdf")
-plot_random_forest_classifier_results(
-    au_test_classifier_results, au_test_classifier_metrics_csv, filepath
-)
-print("Done plotting au test classifier results")
+if not empty(classifier_results_csv):
+    print("Start plotting random forest classifier results.")
+    random_forest_plot_filepath = os.path.join(
+        plots_folder, "random_forest_classifier_results.pdf"
+    )
+    plot_random_forest_classifier_results(
+        classifier_results_csv, classifier_metrics_csv, random_forest_plot_filepath
+    )
+    print("Done plotting random forest classifier results.")
+else:
+    print("Couldn't create plots. No random forest prediction for stability classifier.")
 
+if not empty(au_test_classifier_results):
+    print("Start plotting au test classifier results")
+    filepath = os.path.join(plots_folder, "au_test_classifier_results.pdf")
+    plot_random_forest_classifier_results(
+        au_test_classifier_results, au_test_classifier_metrics_csv, filepath
+    )
+    print("Done plotting au test classifier results")
+else:
+    print("Couldn't create plots. No random forest prediction for AU-test results.")
 
 print("Start plotting feature importances.")
-plot_filepath = os.path.join(plots_folder, "au_test_classifier_features.pdf")
-plot_random_forest_model_features(au_test_features, plot_filepath)
+if not empty(au_test_features):
+    plot_filepath = os.path.join(plots_folder, "au_test_classifier_features.pdf")
+    plot_random_forest_model_features(au_test_features, plot_filepath)
+else:
+    print("Couldn't create plots. No random forest prediction for AU-test results.")
 
-model_features_plot_filepath = os.path.join(
-    plots_folder, "random_forest_model_features.pdf"
-)
-plot_random_forest_model_features(model_features_csv, model_features_plot_filepath)
-model_features_plot_filepath = os.path.join(
-    plots_folder, "discrete_random_forest_model_features.pdf"
-)
-plot_random_forest_model_features(
-    discrete_model_features_csv, model_features_plot_filepath
-)
-plot_filepath = os.path.join(plots_folder, "combined_random_forest_features.pdf")
-plot_combined_random_forest_model_features(
-    discrete_model_features_csv, model_features_csv, plot_filepath
-)
+if not empty(model_features_csv):
+    model_features_plot_filepath = os.path.join(
+        plots_folder, "random_forest_model_features.pdf"
+    )
+    plot_random_forest_model_features(model_features_csv, model_features_plot_filepath)
+else:
+    print("Couldn't create plots. No random forest prediction for stability regressor.")
+
+if not empty(discrete_model_features_csv):
+    model_features_plot_filepath = os.path.join(
+        plots_folder, "discrete_random_forest_model_features.pdf"
+    )
+    plot_random_forest_model_features(
+        discrete_model_features_csv, model_features_plot_filepath
+    )
+else:
+    print("Couldn't create plots. No random forest prediction for stability classifier.")
+
+if not empty(discrete_model_features_csv) and not empty(model_features_csv):
+    plot_filepath = os.path.join(plots_folder, "combined_random_forest_features.pdf")
+    plot_combined_random_forest_model_features(
+        discrete_model_features_csv, model_features_csv, plot_filepath
+    )
+else:
+    print("Couldn't create plots. No random forest prediction for stability regressor or classifier.")
+
 print("Done plotting feature importances.")
