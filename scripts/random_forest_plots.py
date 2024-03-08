@@ -88,73 +88,38 @@ def plot_random_forest_regression_results(
 
 
 def plot_random_forest_classifier_results(
-    results_csv, roc_csv, plot_filepath, subplots=False
+    results_csv, roc_csv, plot_filepath
 ):
-    if subplots == True:
-        df = (
-            pd.read_csv(results_csv)
-            .replace(to_replace=True, value="unstable")
-            .replace(to_replace=False, value="stable")
-        )
-        conf_m = confusion_matrix(df["actual"], df["predicted"])
+    df = (
+        pd.read_csv(results_csv)
+        .replace(to_replace=True, value="unstable")
+        .replace(to_replace=False, value="stable")
+    )
+    roc_df = pd.read_csv(roc_csv)
+    roc_auc = auc(roc_df["fpr"], roc_df["tpr"])
 
-        roc_df = pd.read_csv(roc_csv)
-        roc_auc = auc(roc_df["fpr"], roc_df["tpr"])
-
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
-
-        ax1.plot(
-            roc_df["fpr"],
-            roc_df["tpr"],
-            color=dark2.colors[0],
-            lw=2,
-            label="ROC curve (area={:.2f})".format(roc_auc),
-        )
-        ax1.plot([0, 1], [0, 1], color=dark2.colors[1], lw=2, linestyle="--")
-        ax1.set_xlabel("False Positive Rate")
-        ax1.set_ylabel("True Positive Rate")
-        ax1.set_title("")
-        ax1.legend(loc="lower right")
-        disp = ConfusionMatrixDisplay(confusion_matrix=conf_m)
-        disp.plot(ax=ax2, cmap="Blues", colorbar=False)
-        ax2.set_title("")
-        plt.tight_layout()
-        plt.savefig(plot_filepath)
-        plt.clf()
-    else:
-        df = (
-            pd.read_csv(results_csv)
-            .replace(to_replace=True, value="unstable")
-            .replace(to_replace=False, value="stable")
-        )
-        conf_m = confusion_matrix(df["actual"], df["predicted"])
-
-        roc_df = pd.read_csv(roc_csv)
-        roc_auc = auc(roc_df["fpr"], roc_df["tpr"])
-
-        plt.figure(figsize=(6, 6))
-
-        plt.plot(
-            roc_df["fpr"],
-            roc_df["tpr"],
-            color=dark2.colors[0],
-            lw=2,
-            label="ROC curve (area={:.2f})".format(roc_auc),
-        )
-        plt.plot([0, 1], [0, 1], color=dark2.colors[1], lw=2, linestyle="--")
-        plt.xlabel("False Positive Rate")
-        plt.ylabel("True Positive Rate")
-        plt.title("")
-        plt.legend(loc="lower right")
-        plt.tight_layout()
-        plt.savefig(plot_filepath)
-        plt.clf()
+    plt.figure(figsize=(6, 6))
+    plt.plot(
+        roc_df["fpr"],
+        roc_df["tpr"],
+        color=dark2.colors[0],
+        lw=2,
+        label="ROC curve (area={:.2f})".format(roc_auc),
+    )
+    plt.plot([0, 1], [0, 1], color=dark2.colors[1], lw=2, linestyle="--")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("")
+    plt.legend(loc="lower right")
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
 
 
 def plot_random_forest_model_features(model_features_csv, plot_filepath):
     df = pd.read_csv(
         model_features_csv,
-        names=["feature_name", "untuned model importance", "importance"],
+        names=["feature_name", "importance"],
         skiprows=1,
     )
     if len(df) == 0:
@@ -180,7 +145,7 @@ def plot_combined_random_forest_model_features(
 ):
     classification_df = pd.read_csv(
         classification_features_csv,
-        names=["feature_name", "untuned model importance", "importance"],
+        names=["feature_name", "importance"],
         skiprows=1,
     )
     if len(classification_df) == 0:
@@ -193,7 +158,7 @@ def plot_combined_random_forest_model_features(
 
     regression_df = pd.read_csv(
         regression_features,
-        names=["feature_name", "untuned model importance", "importance"],
+        names=["feature_name", "importance"],
         skiprows=1,
     )
     if len(regression_df) == 0:

@@ -213,26 +213,26 @@ rule random_forest_regression:
 
 
 # classification predicting stability measure
-rule random_forest_classifier:
+rule random_forest_classification:
     input:
-        csvs=expand("{subdir}/reduced_alignments/random_forest_input.csv", subdir=get_subdirs(data_folder)),
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
     output:
         model_features_file=data_folder+"classifier_model_feature_importances.csv",
         output_file_name=data_folder+"random_forest_classification.csv",
-        combined_csv_path=data_folder+"rf_classifier_combined_statistics.csv",
         classifier_metrics_csv=data_folder+"classifier_results.csv",
         parameter_file=data_folder+"best_parameters_classifier.json",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_random_forest_classifier.txt")
     params:
+        data_folder=data_folder,
         column_to_predict = "tii",
-        output_file_name=data_folder+"random_forest_classification.csv",
         subdirs=get_subdirs(data_folder)
     run:
         from scripts.random_forest_classifier import random_forest_classification
         try: 
-            random_forest_classification(params.column_to_predict, output.output_file_name, output.model_features_file, input.combined_csv_path, output.combined_csv_path, output.classifier_metrics_csv, output.parameter_file)
+            random_forest_classification(params.column_to_predict, input.combined_csv_path,
+            output.output_file_name, output.model_features_file, output.classifier_metrics_csv,
+            output.parameter_file, params.data_folder)
         except ValueError as e:
             print(e)
 
@@ -242,9 +242,9 @@ rule random_forest_plots:
     input:
         random_forest_csv=rules.random_forest_regression.output.output_file_name,
         model_features_csv=rules.random_forest_regression.output.model_features_file,
-        random_forest_classifier_csv=rules.random_forest_classifier.output.output_file_name,
-        discrete_model_features_csv=rules.random_forest_classifier.output.model_features_file,
-        classifier_metrics_csv=rules.random_forest_classifier.output.classifier_metrics_csv,
+        random_forest_classifier_csv=rules.random_forest_classification.output.output_file_name,
+        discrete_model_features_csv=rules.random_forest_classification.output.model_features_file,
+        classifier_metrics_csv=rules.random_forest_classification.output.classifier_metrics_csv,
         combined_csv_path=data_folder+"rf_regression_combined_statistics.csv",
         r2_file=data_folder+"regression_r2.txt",
         au_test_classifier_metrics_csv=data_folder+"au_test_classifier_results.csv",
@@ -359,25 +359,22 @@ rule analyse_au_test:
 # random forest classification for significant instability
 rule au_test_classifier:
     input:
-        au_test_results=data_folder+"au_test_result.csv",
         combined_statistics=data_folder+"rf_regression_combined_statistics.csv",
     params:
-        plot_folder=data_folder+"plots/",
-        output_file_name=data_folder+"au_test_classification.csv",
-        combined_csv_path=data_folder+"au_test_combined_statistics.csv",
+        column_to_predict = "significant_unstable",
+        data_folder=data_folder,
         parameter_file=data_folder+"best_parameters_au_test_classifier.json",
     output:
         touch(data_folder+"au_test_classifier.done"),
-        output_file_name=data_folder+"au_test_classification.csv",
         model_features_file=data_folder+"au_test_feature_importances.csv",
         classifier_metrics_csv=data_folder+"au_test_classifier_results.csv",
+        output_file_name=data_folder+"au_test_classification.csv",
     run:
-        from scripts.au_test_classifier import au_test_classification
-        
+        from scripts.random_forest_classifier import random_forest_classification
         try:
-            au_test_classification(input.combined_statistics, input.au_test_results, 
-            params.output_file_name, output.model_features_file, output.classifier_metrics_csv,
-            params.parameter_file, params.combined_csv_path)
+            random_forest_classification(params.column_to_predict, input.combined_statistics,
+            output.output_file_name, output.model_features_file, output.classifier_metrics_csv,
+            params.parameter_file, params.data_folder)
         except ValueError as e:
             print(e)
 
