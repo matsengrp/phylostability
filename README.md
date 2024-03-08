@@ -62,3 +62,8 @@ The following plots summarize results of our stability analysis, including resul
 | rf_radius_num_taxa.pdf | Scatterplot of RF radius vs number of taxa of alignment of the taxon for which we observe that RF radius |
 | rf_radius.pdf | Histogram showing number of times each normalized RF radius is observed |
 | tii.pdf | Histogram showing number of times each TII is observed (not normalized) |
+
+
+The random forests classifiers require a minimum amount of data in each class.
+If there are not enough datasets for all classes in the classifier, there will be an error message.
+The remaining analysis will be performed, but no random forest will be built and therefore not all output plots will be computed.

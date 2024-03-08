@@ -67,7 +67,7 @@ def train_random_forest(
 
     # Evaluate the model
     model_result = pd.DataFrame(
-        {"untuned_model_predicted": untrained_predictions, "actual": y_test}
+        {"actual": y_test}
     )
     mse = mean_squared_error(y_test, untrained_predictions)
 
@@ -124,7 +124,6 @@ def train_random_forest(
         fit_model_importances = fit_model.feature_importances_
         pd.DataFrame(
             {
-                "untuned_model_importance": importances,
                 "model_importance": fit_model_importances,
             },
             index=X.columns,
@@ -146,7 +145,7 @@ def combine_dfs(csvs, subdirs):
     return combined_df
 
 
-def balance_df_stability_meaure(df, min_test_size, bin_file, stability_measure):
+def balance_df_stability_measure(df, min_test_size, bin_file, stability_measure):
     """
     Take balanced subset of df according to TII to avoid skewing predicting
     TIIs that appear most frequently in training set.
@@ -195,7 +194,7 @@ df.to_csv(combined_csv_path)
 if balance_data:
     print("Use bins to get balanced subset for regression.")
     min_test_size = 200  # needs to be adjusted to data
-    df = balance_df_stability_meaure(df, min_test_size, regression_bins, column_name)
+    df = balance_df_stability_measure(df, min_test_size, regression_bins, column_name)
     df.to_csv(rf_regression_balanced_input)
 model_result = train_random_forest(
     df, cols_to_drop, column_name, cross_validate=True, balance_data=balance_data
