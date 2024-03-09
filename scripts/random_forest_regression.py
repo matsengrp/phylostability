@@ -35,7 +35,6 @@ def train_random_forest(
     df,
     cols_to_drop,
     column_name="normalised_tii",
-    cross_validate=False,
     balance_data=False,
 ):
     X = df.drop(cols_to_drop, axis=1)
@@ -49,41 +48,32 @@ def train_random_forest(
         X_test = X_test.drop("stability_bin", axis=1)
         X = X.drop("stability_bin", axis=1)
     else:
-        # Split the data into training and testing sets
-        X_train, X_test, y_train, y_test = train_test_split(
+        X_train_val, X_test, y_train_val, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42
         )
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_train_val, y_train_val, test_size=0.25, random_state=42
+            # Note: test_size=0.25 in this split will actually result in 20% of the original data being set aside for validation,
+            # because 0.25 * 0.8 (remaining after first split) = 0.2
+        )
 
-    imputer = SimpleImputer(missing_values=np.nan, strategy="mean")
-    X_train_imputed = imputer.fit_transform(X_train)
-    X_test_imputed = imputer.transform(X_test)
+        imputer = SimpleImputer(missing_values=np.nan, strategy="mean")
+        # Impute missing values -- train on training set and then apply on validation and test set
+        # Fit on the training data and transform it
+        X_train_imputed = imputer.fit_transform(X_train)
+        # Transform the validation and test sets using the same statistics
+        X_val_imputed = imputer.transform(X_val)
+        X_test_imputed = imputer.transform(X_test)
+        # Convert the result back to a pandas DataFrame
+        X_train_imputed_df = pd.DataFrame(X_train_imputed, columns=X_train.columns, index=X_train.index)
+        X_test_imputed_df = pd.DataFrame(X_test_imputed, columns=X_test.columns, index=X_test.index)
 
-    # Train a random forest regressor
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train_imputed, y_train)
-
-    # Make predictions on the test set
-    untrained_predictions = model.predict(X_test_imputed)
-
-    # Evaluate the model
-    model_result = pd.DataFrame(
-        {"actual": y_test}
-    )
-    mse = mean_squared_error(y_test, untrained_predictions)
-
-    # print out the feature importances to file
-    importances = model.feature_importances_
-    pd.Series(importances, index=X.columns).to_csv(model_features_csv)
-
-    print(f"Naive RF Mean Squared Error: {mse}")
-
-    if cross_validate:
-        # create an optimization function for optuna
+        # Hyperparameter optimisation with optuna
         def objective(trial):
             n_estimators = trial.suggest_int("n_estimators", 10, 1000)
             max_depth = trial.suggest_int("max_depth", 10, 1000, log=True)
-            min_samples_split = trial.suggest_float("min_samples_split", 0.1, 1.0)
-            min_samples_leaf = trial.suggest_float("min_samples_leaf", 0.1, 1.0)
+            min_samples_split = trial.suggest_float("min_samples_split", 0.01, 1, log=True)
+            min_samples_leaf = trial.suggest_float("min_samples_leaf", 0.01, 1, log=True)
             max_features = trial.suggest_categorical("max_features", ["sqrt", "log2"])
             criterion = trial.suggest_categorical(
                 "criterion",
@@ -98,9 +88,9 @@ def train_random_forest(
                 criterion=criterion,
                 random_state=42,
             )
-            model.fit(X_train_imputed, y_train)
-            y_pred = model.predict(X_test_imputed)
-            mse = mean_squared_error(y_test, y_pred)
+            model.fit(X_val_imputed, y_val)
+            y_pred = model.predict(X_val_imputed)
+            mse = mean_squared_error(y_val, y_pred)
             return mse
 
         study = optuna.create_study(direction="minimize")
@@ -108,6 +98,7 @@ def train_random_forest(
         best_params = study.best_params
         with open(parameter_file, "a") as f:
             json.dump(best_params, f, indent=4)
+
         fit_model = RandomForestRegressor(
             n_estimators=best_params["n_estimators"],
             max_depth=best_params["max_depth"],
@@ -120,8 +111,14 @@ def train_random_forest(
         fit_model.fit(X_train_imputed, y_train)
 
         fit_model_predictions = fit_model.predict(X_test_imputed)
+        model_result = pd.DataFrame(
+            {
+                "actual": y_test
+            }
+        )
         model_result["predicted"] = fit_model_predictions
         fit_model_importances = fit_model.feature_importances_
+        
         pd.DataFrame(
             {
                 "model_importance": fit_model_importances,
@@ -188,7 +185,7 @@ def balance_df_stability_measure(df, min_test_size, bin_file, stability_measure)
     return evenly_distributed_df
 
 
-balance_data = True
+balance_data = False
 df = combine_dfs(csvs, subdirs)
 df.to_csv(combined_csv_path)
 if balance_data:
@@ -196,7 +193,13 @@ if balance_data:
     min_test_size = 200  # needs to be adjusted to data
     df = balance_df_stability_measure(df, min_test_size, regression_bins, column_name)
     df.to_csv(rf_regression_balanced_input)
+else:
+    with open(regression_bins, "w") as f:
+        pass
+    with open(rf_regression_balanced_input, "w") as f:
+        pass
+
 model_result = train_random_forest(
-    df, cols_to_drop, column_name, cross_validate=True, balance_data=balance_data
+    df, cols_to_drop, column_name, balance_data=balance_data
 )
 model_result.to_csv(output_csv)
