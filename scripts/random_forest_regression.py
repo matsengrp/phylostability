@@ -72,8 +72,8 @@ def train_random_forest(
         def objective(trial):
             n_estimators = trial.suggest_int("n_estimators", 10, 1000)
             max_depth = trial.suggest_int("max_depth", 10, 1000, log=True)
-            min_samples_split = trial.suggest_float("min_samples_split", 0.01, 1, log=True)
-            min_samples_leaf = trial.suggest_float("min_samples_leaf", 0.01, 1, log=True)
+            min_samples_split = trial.suggest_float("min_samples_split", 0.00001, 1, log=True)
+            min_samples_leaf = trial.suggest_float("min_samples_leaf", 0.00001, 1, log=True)
             max_features = trial.suggest_categorical("max_features", ["sqrt", "log2"])
             criterion = trial.suggest_categorical(
                 "criterion",
