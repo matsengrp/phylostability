@@ -126,22 +126,37 @@ def random_forest_classification(column_name, combined_csv_path, output_csv, mod
             y_balanced_df = pd.DataFrame(y_balanced, columns=[column_name])
             combined_df = pd.concat([X_balanced, y_balanced_df], axis=1)
             combined_df.to_csv(data_folder + "balanced_training_set_" + column_name +"_classifier_" + str(i) +".csv", index=False)
+
+        # Balance test set
+        # Combine X_test and y_test into a single DataFrame for easy subsampling
+        y_test_df = pd.DataFrame(y_test, columns=[column_name]).reset_index(drop=True)
+        X_test_df = pd.concat([X_test_imputed_df.reset_index(drop=True), y_test_df], axis=1)
+        group_0 = X_test_df[X_test_df[column_name] == 0]
+        group_not_0 = X_test_df[X_test_df[column_name] != 0]
+        min_size = min(len(group_0), len(group_not_0))
+        subsampled_group_0 = group_0.sample(n=min_size, random_state=42)
+        subsampled_group_not_0 = group_not_0.sample(n=min_size, random_state=42)
+        balanced_test_df = pd.concat([subsampled_group_0, subsampled_group_not_0]).sample(frac=1, random_state=42).reset_index(drop=True)
+
+        # Split the balanced DataFrame back into X and y components
+        X_test_balanced = balanced_test_df.drop(column_name, axis=1)
+        y_test_balanced = balanced_test_df[column_name]
         
         # Run model on test set
-        predictions = np.array([clf.predict(X_test_imputed_df) for clf in classifiers])
+        predictions = np.array([clf.predict(X_test_balanced) for clf in classifiers])
         model_results = pd.DataFrame(
             {
-                "actual": y_test
+                "actual": y_test_balanced
             }
         )
         pred_col = {f'prediction{i}': predictions[i] for i in range(len(predictions))}
         model_results = pd.concat([model_results, pd.DataFrame(pred_col)], axis=1)
 
-        probabilities = np.array([clf.predict_proba(X_test_imputed_df)[:, 1] for clf in classifiers])
+        probabilities = np.array([clf.predict_proba(X_test_balanced)[:, 1] for clf in classifiers])
         average_probabilities = np.mean(probabilities, axis=0)
 
         # Compute ROC curve and AUC for the average probabilities
-        fpr, tpr, _ = roc_curve(y_test, average_probabilities)
+        fpr, tpr, _ = roc_curve(y_test_balanced, average_probabilities)
         pd.DataFrame({"fpr": fpr, "tpr": tpr}).to_csv(classifier_metrics_csv)
 
         # Aggregating feature importances
