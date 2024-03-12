@@ -12,7 +12,7 @@ csvs = snakemake.input.csvs
 output_csv = snakemake.output.output_file_name
 model_features_csv = snakemake.output.model_features_file
 combined_csv_path = snakemake.output.combined_csv_path
-column_name = snakemake.params.column_to_predict
+stability_measure = snakemake.params.stability_measure
 subdirs = snakemake.params.subdirs
 parameter_file = snakemake.output.parameter_file
 r2_file = snakemake.output.r2_file
@@ -34,11 +34,11 @@ cols_to_drop = [
 def train_random_forest(
     df,
     cols_to_drop,
-    column_name="normalised_tii",
+    index, # 0: normalised_tii, 1: rf_radius
     balance_data=False,
 ):
     X = df.drop(cols_to_drop, axis=1)
-    y = df[column_name]
+    y = df[stability_measure[index]]
 
     if balance_data:
         X_train, X_test, y_train, y_test = train_test_split(
@@ -96,7 +96,7 @@ def train_random_forest(
         study = optuna.create_study(direction="minimize")
         study.optimize(objective, n_trials=200)
         best_params = study.best_params
-        with open(parameter_file, "a") as f:
+        with open(parameter_file[index], "a") as f:
             json.dump(best_params, f, indent=4)
 
         fit_model = RandomForestRegressor(
@@ -124,16 +124,16 @@ def train_random_forest(
                 "model_importance": fit_model_importances,
             },
             index=X.columns,
-        ).to_csv(model_features_csv)
+        ).to_csv(model_features_csv[index])
         R2 = fit_model.score(X_train_imputed, y_train)
-        with open(r2_file, "w") as f:
+        with open(r2_file[index], "w") as f:
             f.write(str(R2) + "\n")
     return model_result
 
 
 def combine_dfs(csvs, subdirs):
     df_list = []
-    for subdir in subdirs:
+    for subdir in [subdir for subdir in subdirs]:
         csv = [f for f in csvs if subdir in f][0]
         temp_df = pd.read_csv(csv, index_col=0)
         temp_df["dataset"] = subdir.split("/")[-1]
@@ -142,11 +142,12 @@ def combine_dfs(csvs, subdirs):
     return combined_df
 
 
-def balance_df_stability_measure(df, min_test_size, bin_file, stability_measure):
+def balance_df_stability_measure(df, min_test_size, bin_file, index):
     """
     Take balanced subset of df according to TII to avoid skewing predicting
     TIIs that appear most frequently in training set.
     Save number of bins and number of samples per bin in bin_file
+    index 0: normalised_tii, index 1: rf_radius
     """
     df_copy = df.copy()  # Leave original df untouched
     reduce_binsize = True
@@ -155,10 +156,10 @@ def balance_df_stability_measure(df, min_test_size, bin_file, stability_measure)
         if num_bins == 1:
             reduce_binsize = False
         df_copy["stability_bin"] = pd.cut(
-            df_copy[stability_measure], bins=num_bins, labels=False, duplicates="drop"
+            df_copy[stability_measure[index]], bins=num_bins, labels=False, duplicates="drop"
         )
         bin_counts = df_copy.groupby("stability_bin").size()
-        bin_counts.to_csv(bin_file)
+        bin_counts.to_csv(bin_file[index])
         min_samples_per_bin = bin_counts.min()
         if (
             min_samples_per_bin * num_bins * 0.2 < min_test_size
@@ -185,21 +186,22 @@ def balance_df_stability_measure(df, min_test_size, bin_file, stability_measure)
     return evenly_distributed_df
 
 
-balance_data = False
-df = combine_dfs(csvs, subdirs)
-df.to_csv(combined_csv_path)
-if balance_data:
-    print("Use bins to get balanced subset for regression.")
-    min_test_size = 200  # needs to be adjusted to data
-    df = balance_df_stability_measure(df, min_test_size, regression_bins, column_name)
-    df.to_csv(rf_regression_balanced_input)
-else:
-    with open(regression_bins, "w") as f:
-        pass
-    with open(rf_regression_balanced_input, "w") as f:
-        pass
+for index in [0,1]:
+    balance_data = False
+    df = combine_dfs(csvs, subdirs)
+    df.to_csv(combined_csv_path)
+    if balance_data:
+        print("Use bins to get balanced subset for regression.")
+        min_test_size = 200  # needs to be adjusted to data
+        df = balance_df_stability_measure(df, min_test_size, regression_bins, index)
+        df.to_csv(rf_regression_balanced_input[index])
+    else:
+        with open(regression_bins[index], "w") as f:
+            pass
+        with open(rf_regression_balanced_input[index], "w") as f:
+            pass
 
-model_result = train_random_forest(
-    df, cols_to_drop, column_name, balance_data=balance_data
-)
-model_result.to_csv(output_csv)
+    model_result = train_random_forest(
+        df, cols_to_drop, index, balance_data=balance_data
+    )
+    model_result.to_csv(output_csv[index])

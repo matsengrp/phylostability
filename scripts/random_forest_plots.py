@@ -376,15 +376,19 @@ def empty(csv_file):
         return True
     return False
 
-if not empty(results_csv):
-    print("Start plotting random forest regression results.")
-    random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_results.pdf")
-    plot_random_forest_regression_results(
-        results_csv, random_forest_plot_filepath, stability_measure, r2_file
-    )
-    print("Done plotting random forest regression results.")
-else:
-    print("Couldn't create plots. No random forest prediction for stability regressor.")
+random_forest_plot_filepath = [
+    os.path.join(plots_folder, "tii_random_forest_regression_results.pdf"),
+    os.path.join(plots_folder, "rf_radius_random_forest_regression_results.pdf")
+]
+for i in [0,1]:
+    if not empty(results_csv[i]):
+        print("Start plotting random forest regression results.")
+        plot_random_forest_regression_results(
+            results_csv[i], random_forest_plot_filepath[i], stability_measure[i], r2_file[i]
+        )
+        print("Done plotting random forest regression results.")
+    else:
+        print("Couldn't create plots. No random forest prediction for stability regressor.")
 
 if not empty(classifier_results_csv):
     print("Start plotting random forest classifier results.")
@@ -415,14 +419,18 @@ if not empty(au_test_features):
 else:
     print("Couldn't create plots. No random forest prediction for AU-test results.")
 
-if not empty(model_features_csv):
-    model_features_plot_filepath = os.path.join(
-        plots_folder, "random_forest_model_features.pdf"
-    )
-    plot_random_forest_model_features(model_features_csv, model_features_plot_filepath)
+random_forest_feature_plots_filepath = [
+    os.path.join(plots_folder, "tii_random_forest_model_features.pdf"),
+    os.path.join(plots_folder, "rf_radius_random_forest_model_features.pdf")
+]
+if not empty(model_features_csv[0]):
+    plot_random_forest_model_features(model_features_csv[0], random_forest_feature_plots_filepath[0])
 else:
-    print("Couldn't create plots. No random forest prediction for stability regressor.")
-
+    print("Couldn't create plots. No random forest prediction for tii regressor.")
+if not empty(model_features_csv[1]):
+    plot_random_forest_model_features(model_features_csv[1], random_forest_feature_plots_filepath[1])
+else:
+    print("Couldn't create plots. No random forest prediction for rf_radius regressor.")
 if not empty(discrete_model_features_csv):
     model_features_plot_filepath = os.path.join(
         plots_folder, "discrete_random_forest_model_features.pdf"
@@ -433,10 +441,10 @@ if not empty(discrete_model_features_csv):
 else:
     print("Couldn't create plots. No random forest prediction for stability classifier.")
 
-if not empty(discrete_model_features_csv) and not empty(model_features_csv):
+if not empty(discrete_model_features_csv) and not empty(model_features_csv[0]):
     plot_filepath = os.path.join(plots_folder, "combined_random_forest_features.pdf")
     plot_combined_random_forest_model_features(
-        discrete_model_features_csv, model_features_csv, plot_filepath
+        discrete_model_features_csv, model_features_csv[0], plot_filepath
     )
 else:
     print("Couldn't create plots. No random forest prediction for stability regressor or classifier.")
