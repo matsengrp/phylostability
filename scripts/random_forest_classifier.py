@@ -142,6 +142,21 @@ def random_forest_classification(column_name, combined_csv_path, output_csv, mod
         X_test_balanced = balanced_test_df.drop(column_name, axis=1)
         y_test_balanced = balanced_test_df[column_name]
         
+        # Balance test set
+        # Combine X_test and y_test into a single DataFrame for easy subsampling
+        y_test_df = pd.DataFrame(y_test, columns=[column_name]).reset_index(drop=True)
+        X_test_df = pd.concat([X_test_imputed_df.reset_index(drop=True), y_test_df], axis=1)
+        group_0 = X_test_df[X_test_df[column_name] == 0]
+        group_not_0 = X_test_df[X_test_df[column_name] != 0]
+        min_size = min(len(group_0), len(group_not_0))
+        subsampled_group_0 = group_0.sample(n=min_size, random_state=42)
+        subsampled_group_not_0 = group_not_0.sample(n=min_size, random_state=42)
+        balanced_test_df = pd.concat([subsampled_group_0, subsampled_group_not_0]).sample(frac=1, random_state=42).reset_index(drop=True)
+
+        # Split the balanced DataFrame back into X and y components
+        X_test_balanced = balanced_test_df.drop(column_name, axis=1)
+        y_test_balanced = balanced_test_df[column_name]
+
         # Run model on test set
         predictions = np.array([clf.predict(X_test_balanced) for clf in classifiers])
         model_results = pd.DataFrame(
