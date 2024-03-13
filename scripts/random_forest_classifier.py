@@ -17,6 +17,8 @@ def random_forest_classification(column_name, combined_csv_path, output_csv, mod
         "rf_radius",
         "change_to_low_bootstrap_dist",
         "tii",
+        "bootstrap_mean",
+        "bootstrap_std",
     ]
 
 

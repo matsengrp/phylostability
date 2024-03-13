@@ -28,6 +28,8 @@ cols_to_drop = [
     "normalised_tii",
     "rf_radius",
     "change_to_low_bootstrap_dist",
+    "bootstrap_mean",
+    "bootstrap_std",
 ]
 
 
