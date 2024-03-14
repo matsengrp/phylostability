@@ -17,7 +17,7 @@ plt.rcParams["ytick.labelsize"] = 16
 paired_color = mpl.colormaps["Paired"]
 
 
-def plot_au_test_pie_chart(df, plot_filepath):    
+def plot_au_test_pie_chart(df, plot_filepath):
     def custom_format(values):
         min_value = min(values)
         new_values = []
@@ -51,7 +51,7 @@ def plot_au_test_pie_chart(df, plot_filepath):
         "unstable & non-significant ({})".format(percentages[3]),
     ]
     # Colors
-    colors = [paired_color.colors[i] for i in [0,1,2,3]]
+    colors = [paired_color.colors[i] for i in [0, 1, 2, 3]]
     # Exploding the 1st slice (optional)
     explode = (0.1, 0, 0, 0)
 
@@ -75,6 +75,8 @@ pie_plot_file = snakemake.output.pie_plot_file
 
 df = pd.read_csv(all_au_test_results)
 if len(df) == 0:
-    print("AU-test classification could not be performed, no classification plots are produced")
+    print(
+        "AU-test classification could not be performed, no classification plots are produced"
+    )
 else:
     plot_au_test_pie_chart(df, pie_plot_file)

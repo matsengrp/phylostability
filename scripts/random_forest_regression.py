@@ -36,7 +36,7 @@ cols_to_drop = [
 def train_random_forest(
     df,
     cols_to_drop,
-    index, # 0: normalised_tii, 1: rf_radius
+    index,  # 0: normalised_tii, 1: rf_radius
     balance_data=False,
 ):
     X = df.drop(cols_to_drop, axis=1)
@@ -47,7 +47,11 @@ def train_random_forest(
             X, y, test_size=0.2, random_state=42, stratify=X["stability_bin"]
         )
         X_train, X_val, y_train, y_val = train_test_split(
-            X_train_val, y_train_val, test_size=0.25, random_state=42, stratify=X_train_val["stability_bin"]
+            X_train_val,
+            y_train_val,
+            test_size=0.25,
+            random_state=42,
+            stratify=X_train_val["stability_bin"],
             # Note: test_size=0.25 in this split will actually result in 20% of the original data being set aside for validation,
             # because 0.25 * 0.8 (remaining after first split) = 0.2
         )
@@ -59,11 +63,14 @@ def train_random_forest(
             X, y, test_size=0.2, random_state=42
         )
         X_train, X_val, y_train, y_val = train_test_split(
-            X_train_val, y_train_val, test_size=0.25, random_state=42
+            X_train_val,
+            y_train_val,
+            test_size=0.25,
+            random_state=42,
             # Note: test_size=0.25 in this split will actually result in 20% of the original data being set aside for validation,
             # because 0.25 * 0.8 (remaining after first split) = 0.2
         )
-    X = X.drop("stability_bin", axis=1) #bc we are using X's columns later
+    X = X.drop("stability_bin", axis=1)  # bc we are using X's columns later
 
     imputer = SimpleImputer(missing_values=np.nan, strategy="mean")
     # Impute missing values -- train on training set and then apply on validation and test set
@@ -73,15 +80,23 @@ def train_random_forest(
     X_val_imputed = imputer.transform(X_val)
     X_test_imputed = imputer.transform(X_test)
     # Convert the result back to a pandas DataFrame
-    X_train_imputed_df = pd.DataFrame(X_train_imputed, columns=X_train.columns, index=X_train.index)
-    X_test_imputed_df = pd.DataFrame(X_test_imputed, columns=X_test.columns, index=X_test.index)
+    X_train_imputed_df = pd.DataFrame(
+        X_train_imputed, columns=X_train.columns, index=X_train.index
+    )
+    X_test_imputed_df = pd.DataFrame(
+        X_test_imputed, columns=X_test.columns, index=X_test.index
+    )
 
     # Hyperparameter optimisation with optuna
     def objective(trial):
         n_estimators = trial.suggest_int("n_estimators", 10, 1000)
         max_depth = trial.suggest_int("max_depth", 10, 1000, log=True)
-        min_samples_split = trial.suggest_float("min_samples_split", 0.00001, 1.0, log=True)
-        min_samples_leaf = trial.suggest_float("min_samples_leaf", 0.00001, 1.0, log=True)
+        min_samples_split = trial.suggest_float(
+            "min_samples_split", 0.00001, 1.0, log=True
+        )
+        min_samples_leaf = trial.suggest_float(
+            "min_samples_leaf", 0.00001, 1.0, log=True
+        )
         max_features = trial.suggest_categorical("max_features", ["sqrt", "log2"])
         criterion = trial.suggest_categorical(
             "criterion",
@@ -119,14 +134,10 @@ def train_random_forest(
     fit_model.fit(X_train_imputed, y_train)
 
     fit_model_predictions = fit_model.predict(X_test_imputed)
-    model_result = pd.DataFrame(
-        {
-            "actual": y_test
-        }
-    )
+    model_result = pd.DataFrame({"actual": y_test})
     model_result["predicted"] = fit_model_predictions
     fit_model_importances = fit_model.feature_importances_
-    
+
     pd.DataFrame(
         {
             "model_importance": fit_model_importances,
@@ -164,7 +175,10 @@ def balance_df_stability_measure(df, min_test_size, bin_file, index):
         if num_bins == 1:
             reduce_binsize = False
         df_copy["stability_bin"] = pd.cut(
-            df_copy[stability_measure[index]], bins=num_bins, labels=False, duplicates="drop"
+            df_copy[stability_measure[index]],
+            bins=num_bins,
+            labels=False,
+            duplicates="drop",
         )
         bin_counts = df_copy.groupby("stability_bin").size()
         bin_counts.to_csv(bin_file[index])
@@ -194,7 +208,7 @@ def balance_df_stability_measure(df, min_test_size, bin_file, index):
     return evenly_distributed_df
 
 
-for index in [0,1]:
+for index in [0, 1]:
     balance_data = True
     df = combine_dfs(csvs, subdirs)
     df.to_csv(combined_csv_path)

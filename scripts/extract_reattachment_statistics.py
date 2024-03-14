@@ -167,16 +167,12 @@ def normalised_dist_closest_low_bootstrap_node(node, tree, threshold=70):
     ]
     if len(low_bootstrap_nodes) == 0:
         return np.nan
-    min_dist = min(
-        [ete_dist(n, node, topology_only=True) for n in low_bootstrap_nodes]
-    )
+    min_dist = min([ete_dist(n, node, topology_only=True) for n in low_bootstrap_nodes])
     max_dist = max([ete_dist(n, node, topology_only=True) for n in tree.traverse()])
     return min_dist / max_dist
 
 
-def reattachment_distance_to_low_support_node(
-    seq_id, reattached_tree
-):
+def reattachment_distance_to_low_support_node(seq_id, reattached_tree):
     """
     Compute (topological) distance of reattachment position in best_reattached_tree to
     nearest low bootstrap node for each seq_id.
