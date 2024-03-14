@@ -34,7 +34,7 @@ def extract_table_from_file(filename):
             if reading_table and line.strip():
                 this_line = [l for l in line.split() if l not in ["+", "-"]]
                 table_data.append(this_line)
-                break # only save first tree, which is pruned tree
+                break  # only save first tree, which is pruned tree
     # Convert the table data to a pandas DataFrame
     columns = [
         "Tree",
@@ -66,8 +66,10 @@ def extract_table_from_file(filename):
 
     return df
 
+
 def get_seq_ids(input_file, filetype):
     return [record.id for record in SeqIO.parse(input_file, filetype)]
+
 
 # au_files = snakemake.input.au_files
 
@@ -78,11 +80,15 @@ subdirs = snakemake.params.subdirs
 au_files = []
 for subdir in subdirs:
     fasta_files = glob.glob(os.path.join(subdir, "*.fasta"))
-    fasta_files = [os.readlink(file) if os.path.islink(file) else file for file in fasta_files]
+    fasta_files = [
+        os.readlink(file) if os.path.islink(file) else file for file in fasta_files
+    ]
     seq_ids = get_seq_ids(fasta_files[0], "fasta")
     for seq_id in seq_ids:
-        au_files.append(subdir+"/reduced_alignments/"+seq_id+"/pruned_and_inferred_tree.nwk")
-        au_files.append(subdir+"/reduced_alignments/"+seq_id+"/au-test.iqtree")
+        au_files.append(
+            subdir + "/reduced_alignments/" + seq_id + "/pruned_and_inferred_tree.nwk"
+        )
+        au_files.append(subdir + "/reduced_alignments/" + seq_id + "/au-test.iqtree")
 
 df_list = []
 
@@ -90,7 +96,7 @@ datasets = set([file.split("/")[2] for file in au_files])
 
 
 for dataset in datasets:
-    dataset_files = [f for f in au_files if dataset+"/" in f]
+    dataset_files = [f for f in au_files if dataset + "/" in f]
     for seq_id in set([f.split("/")[4] for f in dataset_files]):
         this_seq_id_files = [f for f in dataset_files if seq_id in f]
         both_trees_file = [f for f in this_seq_id_files if "nwk" in f][0]
@@ -98,13 +104,15 @@ for dataset in datasets:
         df = extract_table_from_file(iqtree_file)
         df["dataset"] = dataset
         df["seq_id"] = seq_id
-    
+
         with open(both_trees_file, "r") as f:
             trees = f.readlines()
         pruned_tree = Tree(trees[0].strip())
         inferred_tree = Tree(trees[1].strip())
-        tii = pruned_tree.robinson_foulds(inferred_tree, unrooted_trees = True)[0]
-        normalised_tii = tii/pruned_tree.robinson_foulds(inferred_tree, unrooted_trees = True)[1]
+        tii = pruned_tree.robinson_foulds(inferred_tree, unrooted_trees=True)[0]
+        normalised_tii = (
+            tii / pruned_tree.robinson_foulds(inferred_tree, unrooted_trees=True)[1]
+        )
         df["tii"] = tii
         df["normalised_tii"] = normalised_tii
         df["ID"] = df["dataset"] + " " + df["seq_id"] + " " + df["tii"].astype(str)

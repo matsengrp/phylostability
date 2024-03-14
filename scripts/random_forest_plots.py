@@ -87,9 +87,7 @@ def plot_random_forest_regression_results(
     plt.clf()
 
 
-def plot_random_forest_classifier_results(
-    results_csv, roc_csv, plot_filepath
-):
+def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
     df = (
         pd.read_csv(results_csv)
         .replace(to_replace=True, value="unstable")
@@ -123,8 +121,10 @@ def plot_random_forest_model_features(model_features_csv, plot_filepath):
         skiprows=1,
     )
     if len(df) == 0:
-        print("Can't plot random forest features -- no stability classifier results available because of insufficient size of balanced training set.")
-        return(0)
+        print(
+            "Can't plot random forest features -- no stability classifier results available because of insufficient size of balanced training set."
+        )
+        return 0
     df["new_feature_name"] = list(
         map(lambda x: feature_name_dict[x], df["feature_name"])
     )
@@ -149,8 +149,10 @@ def plot_combined_random_forest_model_features(
         skiprows=1,
     )
     if len(classification_df) == 0:
-        print("Can't plot combined random forest features -- no stability classifier results available because of insufficient size of balanced training set -- don't plot combined features.")
-        return(0)
+        print(
+            "Can't plot combined random forest features -- no stability classifier results available because of insufficient size of balanced training set -- don't plot combined features."
+        )
+        return 0
     classification_df["new_feature_name"] = list(
         map(lambda x: feature_name_dict[x], classification_df["feature_name"])
     )
@@ -162,8 +164,10 @@ def plot_combined_random_forest_model_features(
         skiprows=1,
     )
     if len(regression_df) == 0:
-        print("Can't plot combined random forest features -- no stability regression results available because of insufficient size of balanced training set -- don't plot combined features.")
-        return(0)
+        print(
+            "Can't plot combined random forest features -- no stability regression results available because of insufficient size of balanced training set -- don't plot combined features."
+        )
+        return 0
     regression_df["new_feature_name"] = list(
         map(lambda x: feature_name_dict[x], regression_df["feature_name"])
     )
@@ -268,7 +272,10 @@ def plot_stability_measures(
         num_bins = 100  # len(df["normalised_tii"].unique())
         bins = [(i - 0.5) * max_tii / num_bins for i in range(0, num_bins)]
         sns.histplot(
-            data=cleaned_df, x="change_to_low_bootstrap_dist", bins=bins, color=dark2.colors[0]
+            data=cleaned_df,
+            x="change_to_low_bootstrap_dist",
+            bins=bins,
+            color=dark2.colors[0],
         )
         # Set labels and title
         plt.xlabel("Distance")
@@ -371,24 +378,31 @@ plot_stability_measures(
 )
 print("Done plotting stability measures.")
 
+
 def empty(csv_file):
     if os.path.getsize(csv_file) == 0:
         return True
     return False
 
+
 random_forest_plot_filepath = [
     os.path.join(plots_folder, "tii_random_forest_regression_results.pdf"),
-    os.path.join(plots_folder, "rf_radius_random_forest_regression_results.pdf")
+    os.path.join(plots_folder, "rf_radius_random_forest_regression_results.pdf"),
 ]
-for i in [0,1]:
+for i in [0, 1]:
     if not empty(results_csv[i]):
         print("Start plotting random forest regression results.")
         plot_random_forest_regression_results(
-            results_csv[i], random_forest_plot_filepath[i], stability_measure[i], r2_file[i]
+            results_csv[i],
+            random_forest_plot_filepath[i],
+            stability_measure[i],
+            r2_file[i],
         )
         print("Done plotting random forest regression results.")
     else:
-        print("Couldn't create plots. No random forest prediction for stability regressor.")
+        print(
+            "Couldn't create plots. No random forest prediction for stability regressor."
+        )
 
 if not empty(classifier_results_csv):
     print("Start plotting random forest classifier results.")
@@ -400,7 +414,9 @@ if not empty(classifier_results_csv):
     )
     print("Done plotting random forest classifier results.")
 else:
-    print("Couldn't create plots. No random forest prediction for stability classifier.")
+    print(
+        "Couldn't create plots. No random forest prediction for stability classifier."
+    )
 
 if not empty(au_test_classifier_results):
     print("Start plotting au test classifier results")
@@ -421,14 +437,18 @@ else:
 
 random_forest_feature_plots_filepath = [
     os.path.join(plots_folder, "tii_random_forest_model_features.pdf"),
-    os.path.join(plots_folder, "rf_radius_random_forest_model_features.pdf")
+    os.path.join(plots_folder, "rf_radius_random_forest_model_features.pdf"),
 ]
 if not empty(model_features_csv[0]):
-    plot_random_forest_model_features(model_features_csv[0], random_forest_feature_plots_filepath[0])
+    plot_random_forest_model_features(
+        model_features_csv[0], random_forest_feature_plots_filepath[0]
+    )
 else:
     print("Couldn't create plots. No random forest prediction for tii regressor.")
 if not empty(model_features_csv[1]):
-    plot_random_forest_model_features(model_features_csv[1], random_forest_feature_plots_filepath[1])
+    plot_random_forest_model_features(
+        model_features_csv[1], random_forest_feature_plots_filepath[1]
+    )
 else:
     print("Couldn't create plots. No random forest prediction for rf_radius regressor.")
 if not empty(discrete_model_features_csv):
@@ -439,7 +459,9 @@ if not empty(discrete_model_features_csv):
         discrete_model_features_csv, model_features_plot_filepath
     )
 else:
-    print("Couldn't create plots. No random forest prediction for stability classifier.")
+    print(
+        "Couldn't create plots. No random forest prediction for stability classifier."
+    )
 
 if not empty(discrete_model_features_csv) and not empty(model_features_csv[0]):
     plot_filepath = os.path.join(plots_folder, "combined_random_forest_features.pdf")
@@ -447,6 +469,8 @@ if not empty(discrete_model_features_csv) and not empty(model_features_csv[0]):
         discrete_model_features_csv, model_features_csv[0], plot_filepath
     )
 else:
-    print("Couldn't create plots. No random forest prediction for stability regressor or classifier.")
+    print(
+        "Couldn't create plots. No random forest prediction for stability regressor or classifier."
+    )
 
 print("Done plotting feature importances.")
