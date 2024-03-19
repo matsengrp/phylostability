@@ -381,6 +381,7 @@ rule au_test_classifier:
 # plot signinficant instability prediction results
 rule plot_au_test_classifier:
     input:
+        data_folder+"au_test_classifier.done",
         all_au_test_results=data_folder+"au_test_result.csv",
     output:
         temp(touch("plot_au_test_classifier.done")),
