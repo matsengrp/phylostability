@@ -58,6 +58,7 @@ def train_random_forest(
         X_train = X_train.drop("stability_bin", axis=1)
         X_test = X_test.drop("stability_bin", axis=1)
         X_val = X_val.drop("stability_bin", axis=1)
+        X = X.drop("stability_bin", axis=1)  # bc we are using X's columns later
     else:
         X_train_val, X_test, y_train_val, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42
@@ -70,7 +71,6 @@ def train_random_forest(
             # Note: test_size=0.25 in this split will actually result in 20% of the original data being set aside for validation,
             # because 0.25 * 0.8 (remaining after first split) = 0.2
         )
-    X = X.drop("stability_bin", axis=1)  # bc we are using X's columns later
 
     imputer = SimpleImputer(missing_values=np.nan, strategy="mean")
     # Impute missing values -- train on training set and then apply on validation and test set
@@ -209,7 +209,7 @@ def balance_df_stability_measure(df, min_test_size, bin_file, index):
 
 
 for index in [0, 1]:
-    balance_data = True
+    balance_data = False
     df = combine_dfs(csvs, subdirs)
     df.to_csv(combined_csv_path)
     if balance_data:
