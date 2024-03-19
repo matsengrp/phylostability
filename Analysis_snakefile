@@ -80,7 +80,7 @@ rule remove_sequence:
     input:
         msa="{subdir}/"+input_alignment
     output:
-        reduced_msa=temp("{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta"),
+        reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
     benchmark:
         touch("{subdir}/benchmarking/benchmark_remove_sequence_{seq_id}.txt")
     params:
@@ -304,26 +304,10 @@ rule write_pruned_and_inferred_trees:
         "scripts/write_pruned_and_inferred_trees.py"
 
 
-# this is a hacky way of allowing to re-run pipeline for paper without re-running iqtree,
-# bc in remove_sequence, reduced_msa is temp() and we added in au_test_model_fit later,
-# which needs reduced_alignment.fasta
-rule remove_sequence_au_test:
-    input:
-        msa="{subdir}/"+input_alignment
-    output:
-        reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment_au.fasta",
-    benchmark:
-        touch("{subdir}/benchmarking/benchmark_remove_sequence_au_{seq_id}.txt")
-    params:
-        seq_id=lambda wildcards: wildcards.seq_id
-    script:
-        "scripts/remove_sequence.py"
-
-
 # AU-test to test model fit of full tree to reattached trees
 rule au_test_model_fit:
     input:
-        reduced_msa_au="{subdir}/reduced_alignments/{seq_id}/reduced_alignment_au.fasta",
+        reduced_msa_au="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
         trees="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.nwk",
         full_model="{subdir}/iqtree-model.txt",
     output:
