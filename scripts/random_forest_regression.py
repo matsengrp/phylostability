@@ -209,7 +209,7 @@ def balance_df_stability_measure(df, min_test_size, bin_file, index):
 
 
 for index in [0, 1]:
-    balance_data = True
+    balance_data = False
     df = combine_dfs(csvs, subdirs)
     df.to_csv(combined_csv_path)
     if balance_data:

@@ -495,7 +495,9 @@ for seq_id in seq_ids:
         reattachment_branch_length / branch_length_normalisation
     )
     taxon_height = calculate_taxon_height(reattached_tree, seq_id)
-    norm_taxon_height = taxon_height / sum_branch_lengths
+    if taxon_height < 0:
+        print("ERROR calculating taxon height for ", full_tree_file, " taxon: ", seq_id)
+    norm_taxon_height = taxon_height
     # order_diff = get_order_of_distances_to_seq_id(
     #     seq_id, full_mldist_file, reattached_tree
     # )
