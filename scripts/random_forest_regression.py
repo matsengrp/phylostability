@@ -30,6 +30,7 @@ cols_to_drop = [
     "change_to_low_bootstrap_dist",
     "bootstrap_mean",
     "bootstrap_std",
+    "num_leaves",
 ]
 
 

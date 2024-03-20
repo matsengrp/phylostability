@@ -27,6 +27,7 @@ def random_forest_classification(
         "tii",
         "bootstrap_mean",
         "bootstrap_std",
+        "num_leaves",
     ]
 
     def train_random_forest_classifier(df, column_name):
