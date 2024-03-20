@@ -408,9 +408,18 @@ def get_rf_radius(full_tree, reduced_tree, seq_id):
     normalising_constant = max(
         [
             ete_dist(node, reattachment_position, topology_only=True)
-            for node in full_tree.iter_descendants()
+            for node in full_tree.traverse()
+            if not node.is_leaf()
         ]
     )
+    if rf_radius > normalising_constant:
+        print("Error: Normalised RF radius greater than 1!")
+        print("seq_id: ", seq_id)
+        print("Changed edges:", changed_edges)
+        print("RF radius: ", rf_radius)
+        print("Normalising constant:", normalising_constant)
+        print(full_tree)
+        print(reduced_tree)
     return rf_radius / normalising_constant
 
 
