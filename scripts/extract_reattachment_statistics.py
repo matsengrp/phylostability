@@ -168,7 +168,13 @@ def normalised_dist_closest_low_bootstrap_node(node, tree, threshold=70):
     if len(low_bootstrap_nodes) == 0:
         return np.nan
     min_dist = min([ete_dist(n, node, topology_only=True) for n in low_bootstrap_nodes])
-    max_dist = max([ete_dist(n, node, topology_only=True) for n in tree.traverse()])
+    max_dist = max(
+        [
+            ete_dist(n, node, topology_only=True)
+            for n in tree.traverse()
+            if not n.is_leaf()
+        ]
+    )
     return min_dist / max_dist
 
 
