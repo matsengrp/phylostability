@@ -346,6 +346,7 @@ rule analyse_au_test:
     input:
         "all_au_test_done.done",
     output:
+        temp(touch("analyse_au_test.done")),
         au_test_results=data_folder+"au_test_result.csv",
     benchmark:
         touch(data_folder + "benchmarking/benchmark_analyse_au_test.txt")
@@ -358,13 +359,14 @@ rule analyse_au_test:
 # random forest classification for significant instability
 rule au_test_classifier:
     input:
+        "analyse_au_test.done",
         combined_statistics=data_folder+"rf_regression_combined_statistics.csv",
     params:
         column_to_predict = "significant_unstable",
         data_folder=data_folder,
         parameter_file=data_folder+"best_parameters_au_test_classifier.json",
     output:
-        touch(data_folder+"au_test_classifier.done"),
+        temp(touch(data_folder+"au_test_classifier.done")),
         model_features_file=data_folder+"au_test_feature_importances.csv",
         classifier_metrics_csv=data_folder+"au_test_classifier_results.csv",
         output_file_name=data_folder+"au_test_classification.csv",
