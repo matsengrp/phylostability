@@ -32,7 +32,7 @@ feature_name_dict = {
     "taxon_height": "insertion height",
     "num_likely_reattachments": "#insertion locations",
     "nj_tii": "NJ TII",
-    "dist_reattachment_low_bootstrap_node": "distance to low bootstrap node",
+    "dist_reattachment_low_bootstrap_node": "distance to low bootstrap edge",
     "dist_diff_reattachment_sibling": "dist diff insertion sibling",
     "bootstrap_mean": "bootstrap mean",
     "bootstrap_std": "bootstrap SD",
