@@ -15,7 +15,14 @@ IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 
 
 def get_subdirs(data_folder):
-    return [f.path for f in os.scandir(data_folder) if f.is_dir() and "plot" not in f.path and "benchmarking" not in f.path and "rf_radius" not in f.path and "normalised_tii" not in f.path]
+    return [
+        f.path for f in os.scandir(data_folder) if f.is_dir()
+        and "plot" not in f.path
+        and "benchmarking" not in f.path
+        and "rf_radius" not in f.path
+        and "normalised_tii" not in f.path
+        and "unbalanced_no_non_taxon" not in f.path
+    ]
 
 
 subdirs = get_subdirs(data_folder)
@@ -338,7 +345,7 @@ rule all_au_test_done_subset:
     input:
         aggregate_all_au_done
     output:
-        temp(touch("all_au_test_done.done"))
+        touch("all_au_test_done.done")
 
 
 # aggregate output of AU test and transform it to csv for classifier and plotting
