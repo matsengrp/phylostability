@@ -36,8 +36,8 @@ feature_name_dict = {
     "dist_diff_reattachment_sibling": "dist diff insertion sibling",
     "bootstrap_mean": "bootstrap mean",
     "bootstrap_std": "bootstrap SD",
-    "reattachment_distances_mean": "dist to insertion mean",
-    "reattachment_distances_std": "dist to insertion SD",
+    "reattachment_distances_mean": "insertion distances mean",
+    "reattachment_distances_std": "insertion distances SD",
     "seq_and_tree_dist_ratio_mean": "distance ratio mean",
     "seq_and_tree_dist_ratio_std": "distance ratio SD",
     "seq_distance_ratios_closest_seq_mean": "ratio diff closest sequence mean",
@@ -54,25 +54,21 @@ def plot_random_forest_regression_results(
     df_sorted = df.sort_values(by="actual")
 
     plt.figure(figsize=(6, 6))
-    ax = sns.scatterplot(
-        data=df_sorted, x="actual", y="predicted", color=dark2.colors[0]
-    )
+    plt.hexbin(df_sorted['actual'], df_sorted['predicted'], gridsize=50, cmap='Greys')
+    # plt.colorbar()
+    plt.xlabel('Actual')
+    plt.ylabel('Predicted')
 
     # Determine the common maximum limit for both axes
     common_limit = max(df["actual"].max(), df["predicted"].max()) + 0.01
 
-    textstr = f"R²= {r2:.2f}"  # Formats the string to display R² with 2 decimal places
-    props = dict(boxstyle="square", facecolor="white", alpha=0.5)
-
-    # Position: x, y, text, properties of the box
-    ax.text(
-        0.05,
-        0.95,
-        textstr,
-        transform=ax.transAxes,
-        fontsize=14,
-        verticalalignment="top",
-        bbox=props,
+    text_str = f"R²= {r2:.2f}"  # Formats the string to display R² with 2 decimal places
+    plt.text(
+        x=0.05, y=0.95, s=text_str,
+        ha='left', va='top',
+        transform=plt.gca().transAxes,  # Use the current axes for the coordinate system
+        fontsize=12,
+        bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray")
     )
 
     # Set the same limits for both the x-axis and y-axis
@@ -83,6 +79,7 @@ def plot_random_forest_regression_results(
     plt.xlabel("Actual")
     plt.ylabel("Predicted")
     plt.tight_layout()
+    plt.show()
     plt.savefig(plot_filepath)
     plt.clf()
 
