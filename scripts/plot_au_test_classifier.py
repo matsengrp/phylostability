@@ -14,10 +14,10 @@ plt.rcParams["xtick.labelsize"] = 16
 plt.rcParams["ytick.labelsize"] = 16
 
 # Colour for plots
-paired_color = mpl.colormaps["Paired"]
+dark2 = mpl.colormaps["Dark2"]
 
 
-def plot_au_test_pie_chart(df, plot_filepath):    
+def plot_au_test_pie_chart(df, plot_filepath):
     def custom_format(values):
         min_value = min(values)
         new_values = []
@@ -34,32 +34,30 @@ def plot_au_test_pie_chart(df, plot_filepath):
         return new_values
 
     # Pie Chart
-    condition1 = ((df["normalised_tii"] == 0.0) & (df["p-AU"] < 0.05)).sum()
-    condition2 = ((df["normalised_tii"] == 0.0) & (df["p-AU"] >= 0.05)).sum()
-    condition3 = ((df["normalised_tii"] > 0.0) & (df["p-AU"] < 0.05)).sum()
-    condition4 = ((df["normalised_tii"] > 0.0) & (df["p-AU"] >= 0.05)).sum()
+    condition1 = ((df["normalised_tii"] == 0.0).sum())
+    condition2 = ((df["normalised_tii"] > 0.0) & (df["p-AU"] < 0.05)).sum()
+    condition3 = ((df["normalised_tii"] > 0.0) & (df["p-AU"] >= 0.05)).sum()
 
     # Data to plot
-    sizes = [condition1, condition2, condition3, condition4]
+    sizes = [condition1, condition2, condition3]
     total = sum(sizes)
     percentages = custom_format([100 * (size / total) for size in sizes])
 
     labels = [
-        "stable & significant ({}) \n".format(percentages[0]),
-        "stable & non-significant ({})".format(percentages[1]),
-        "unstable & significant ({})".format(percentages[2]),
-        "unstable & non-significant ({})".format(percentages[3]),
+        "stable ({}) \n".format(percentages[0]),
+        "unstable & significant ({})".format(percentages[1]),
+        "unstable & non-significant ({})".format(percentages[2]),
     ]
     # Colors
-    colors = [paired_color.colors[i] for i in [0,1,2,3]]
+    colors = [dark2.colors[i] for i in [2, 1, 0]]
     # Exploding the 1st slice (optional)
-    explode = (0.1, 0, 0, 0)
+    # explode = (0.1, 0, 0, 0)
 
     # Plot
     plt.figure(figsize=(12, 4))
     plt.pie(
         sizes,
-        explode=explode,
+        # explode=explode,
         labels=labels,
         colors=colors,
         # autopct="%1.1f%%",
@@ -75,6 +73,8 @@ pie_plot_file = snakemake.output.pie_plot_file
 
 df = pd.read_csv(all_au_test_results)
 if len(df) == 0:
-    print("AU-test classification could not be performed, no classification plots are produced")
+    print(
+        "AU-test classification could not be performed, no classification plots are produced"
+    )
 else:
     plot_au_test_pie_chart(df, pie_plot_file)

@@ -167,16 +167,18 @@ def normalised_dist_closest_low_bootstrap_node(node, tree, threshold=70):
     ]
     if len(low_bootstrap_nodes) == 0:
         return np.nan
-    min_dist = min(
-        [ete_dist(n, node, topology_only=True) for n in low_bootstrap_nodes]
+    min_dist = min([ete_dist(n, node, topology_only=True) for n in low_bootstrap_nodes])
+    max_dist = max(
+        [
+            ete_dist(n, node, topology_only=True)
+            for n in tree.traverse()
+            if not n.is_leaf()
+        ]
     )
-    max_dist = max([ete_dist(n, node, topology_only=True) for n in tree.traverse()])
     return min_dist / max_dist
 
 
-def reattachment_distance_to_low_support_node(
-    seq_id, reattached_tree
-):
+def reattachment_distance_to_low_support_node(seq_id, reattached_tree):
     """
     Compute (topological) distance of reattachment position in best_reattached_tree to
     nearest low bootstrap node for each seq_id.
@@ -412,7 +414,8 @@ def get_rf_radius(full_tree, reduced_tree, seq_id):
     normalising_constant = max(
         [
             ete_dist(node, reattachment_position, topology_only=True)
-            for node in full_tree.iter_descendants()
+            for node in full_tree.traverse()
+            if not node.is_leaf()
         ]
     )
     return rf_radius / normalising_constant
@@ -499,7 +502,9 @@ for seq_id in seq_ids:
         reattachment_branch_length / branch_length_normalisation
     )
     taxon_height = calculate_taxon_height(reattached_tree, seq_id)
-    norm_taxon_height = taxon_height / sum_branch_lengths
+    if taxon_height < 0:
+        print("ERROR calculating taxon height for ", full_tree_file, " taxon: ", seq_id)
+    norm_taxon_height = taxon_height
     # order_diff = get_order_of_distances_to_seq_id(
     #     seq_id, full_mldist_file, reattached_tree
     # )

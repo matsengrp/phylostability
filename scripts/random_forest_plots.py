@@ -32,12 +32,12 @@ feature_name_dict = {
     "taxon_height": "insertion height",
     "num_likely_reattachments": "#insertion locations",
     "nj_tii": "NJ TII",
-    "dist_reattachment_low_bootstrap_node": "distance to low bootstrap node",
+    "dist_reattachment_low_bootstrap_node": "distance to low bootstrap edge",
     "dist_diff_reattachment_sibling": "dist diff insertion sibling",
     "bootstrap_mean": "bootstrap mean",
     "bootstrap_std": "bootstrap SD",
-    "reattachment_distances_mean": "dist to insertion mean",
-    "reattachment_distances_std": "dist to insertion SD",
+    "reattachment_distances_mean": "insertion distances mean",
+    "reattachment_distances_std": "insertion distances SD",
     "seq_and_tree_dist_ratio_mean": "distance ratio mean",
     "seq_and_tree_dist_ratio_std": "distance ratio SD",
     "seq_distance_ratios_closest_seq_mean": "ratio diff closest sequence mean",
@@ -54,25 +54,21 @@ def plot_random_forest_regression_results(
     df_sorted = df.sort_values(by="actual")
 
     plt.figure(figsize=(6, 6))
-    ax = sns.scatterplot(
-        data=df_sorted, x="actual", y="predicted", color=dark2.colors[0]
-    )
+    plt.hexbin(df_sorted['actual'], df_sorted['predicted'], gridsize=50, cmap='Greys')
+    # plt.colorbar()
+    plt.xlabel('Actual')
+    plt.ylabel('Predicted')
 
     # Determine the common maximum limit for both axes
     common_limit = max(df["actual"].max(), df["predicted"].max()) + 0.01
 
-    textstr = f"R²= {r2:.2f}"  # Formats the string to display R² with 2 decimal places
-    props = dict(boxstyle="square", facecolor="white", alpha=0.5)
-
-    # Position: x, y, text, properties of the box
-    ax.text(
-        0.05,
-        0.95,
-        textstr,
-        transform=ax.transAxes,
-        fontsize=14,
-        verticalalignment="top",
-        bbox=props,
+    text_str = f"R²= {r2:.2f}"  # Formats the string to display R² with 2 decimal places
+    plt.text(
+        x=0.05, y=0.95, s=text_str,
+        ha='left', va='top',
+        transform=plt.gca().transAxes,  # Use the current axes for the coordinate system
+        fontsize=12,
+        bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray")
     )
 
     # Set the same limits for both the x-axis and y-axis
@@ -83,83 +79,49 @@ def plot_random_forest_regression_results(
     plt.xlabel("Actual")
     plt.ylabel("Predicted")
     plt.tight_layout()
+    plt.show()
     plt.savefig(plot_filepath)
     plt.clf()
 
 
-def plot_random_forest_classifier_results(
-    results_csv, roc_csv, plot_filepath, subplots=False
-):
-    if subplots == True:
-        df = (
-            pd.read_csv(results_csv)
-            .replace(to_replace=True, value="unstable")
-            .replace(to_replace=False, value="stable")
-        )
-        conf_m = confusion_matrix(df["actual"], df["predicted"])
+def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
+    df = (
+        pd.read_csv(results_csv)
+        .replace(to_replace=True, value="unstable")
+        .replace(to_replace=False, value="stable")
+    )
+    roc_df = pd.read_csv(roc_csv)
+    roc_auc = auc(roc_df["fpr"], roc_df["tpr"])
 
-        roc_df = pd.read_csv(roc_csv)
-        roc_auc = auc(roc_df["fpr"], roc_df["tpr"])
-
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
-
-        ax1.plot(
-            roc_df["fpr"],
-            roc_df["tpr"],
-            color=dark2.colors[0],
-            lw=2,
-            label="ROC curve (area={:.2f})".format(roc_auc),
-        )
-        ax1.plot([0, 1], [0, 1], color=dark2.colors[1], lw=2, linestyle="--")
-        ax1.set_xlabel("False Positive Rate")
-        ax1.set_ylabel("True Positive Rate")
-        ax1.set_title("")
-        ax1.legend(loc="lower right")
-        disp = ConfusionMatrixDisplay(confusion_matrix=conf_m)
-        disp.plot(ax=ax2, cmap="Blues", colorbar=False)
-        ax2.set_title("")
-        plt.tight_layout()
-        plt.savefig(plot_filepath)
-        plt.clf()
-    else:
-        df = (
-            pd.read_csv(results_csv)
-            .replace(to_replace=True, value="unstable")
-            .replace(to_replace=False, value="stable")
-        )
-        conf_m = confusion_matrix(df["actual"], df["predicted"])
-
-        roc_df = pd.read_csv(roc_csv)
-        roc_auc = auc(roc_df["fpr"], roc_df["tpr"])
-
-        plt.figure(figsize=(6, 6))
-
-        plt.plot(
-            roc_df["fpr"],
-            roc_df["tpr"],
-            color=dark2.colors[0],
-            lw=2,
-            label="ROC curve (area={:.2f})".format(roc_auc),
-        )
-        plt.plot([0, 1], [0, 1], color=dark2.colors[1], lw=2, linestyle="--")
-        plt.xlabel("False Positive Rate")
-        plt.ylabel("True Positive Rate")
-        plt.title("")
-        plt.legend(loc="lower right")
-        plt.tight_layout()
-        plt.savefig(plot_filepath)
-        plt.clf()
+    plt.figure(figsize=(6, 6))
+    plt.plot(
+        roc_df["fpr"],
+        roc_df["tpr"],
+        color=dark2.colors[0],
+        lw=2,
+        label="ROC curve (area={:.2f})".format(roc_auc),
+    )
+    plt.plot([0, 1], [0, 1], color=dark2.colors[1], lw=2, linestyle="--")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("")
+    plt.legend(loc="lower right")
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
 
 
 def plot_random_forest_model_features(model_features_csv, plot_filepath):
     df = pd.read_csv(
         model_features_csv,
-        names=["feature_name", "untuned model importance", "importance"],
+        names=["feature_name", "importance"],
         skiprows=1,
     )
     if len(df) == 0:
-        print("Can't plot random forest features -- no stability classifier results available because of insufficient size of balanced training set.")
-        return(0)
+        print(
+            "Can't plot random forest features -- no stability classifier results available because of insufficient size of balanced training set."
+        )
+        return 0
     df["new_feature_name"] = list(
         map(lambda x: feature_name_dict[x], df["feature_name"])
     )
@@ -180,12 +142,14 @@ def plot_combined_random_forest_model_features(
 ):
     classification_df = pd.read_csv(
         classification_features_csv,
-        names=["feature_name", "untuned model importance", "importance"],
+        names=["feature_name", "importance"],
         skiprows=1,
     )
     if len(classification_df) == 0:
-        print("Can't plot combined random forest features -- no stability classifier results available because of insufficient size of balanced training set -- don't plot combined features.")
-        return(0)
+        print(
+            "Can't plot combined random forest features -- no stability classifier results available because of insufficient size of balanced training set -- don't plot combined features."
+        )
+        return 0
     classification_df["new_feature_name"] = list(
         map(lambda x: feature_name_dict[x], classification_df["feature_name"])
     )
@@ -193,12 +157,14 @@ def plot_combined_random_forest_model_features(
 
     regression_df = pd.read_csv(
         regression_features,
-        names=["feature_name", "untuned model importance", "importance"],
+        names=["feature_name", "importance"],
         skiprows=1,
     )
     if len(regression_df) == 0:
-        print("Can't plot combined random forest features -- no stability regression results available because of insufficient size of balanced training set -- don't plot combined features.")
-        return(0)
+        print(
+            "Can't plot combined random forest features -- no stability regression results available because of insufficient size of balanced training set -- don't plot combined features."
+        )
+        return 0
     regression_df["new_feature_name"] = list(
         map(lambda x: feature_name_dict[x], regression_df["feature_name"])
     )
@@ -303,7 +269,10 @@ def plot_stability_measures(
         num_bins = 100  # len(df["normalised_tii"].unique())
         bins = [(i - 0.5) * max_tii / num_bins for i in range(0, num_bins)]
         sns.histplot(
-            data=cleaned_df, x="change_to_low_bootstrap_dist", bins=bins, color=dark2.colors[0]
+            data=cleaned_df,
+            x="change_to_low_bootstrap_dist",
+            bins=bins,
+            color=dark2.colors[0],
         )
         # Set labels and title
         plt.xlabel("Distance")
@@ -406,20 +375,31 @@ plot_stability_measures(
 )
 print("Done plotting stability measures.")
 
+
 def empty(csv_file):
     if os.path.getsize(csv_file) == 0:
         return True
     return False
 
-if not empty(results_csv):
-    print("Start plotting random forest regression results.")
-    random_forest_plot_filepath = os.path.join(plots_folder, "random_forest_results.pdf")
-    plot_random_forest_regression_results(
-        results_csv, random_forest_plot_filepath, stability_measure, r2_file
-    )
-    print("Done plotting random forest regression results.")
-else:
-    print("Couldn't create plots. No random forest prediction for stability regressor.")
+
+random_forest_plot_filepath = [
+    os.path.join(plots_folder, "tii_random_forest_regression_results.pdf"),
+    os.path.join(plots_folder, "rf_radius_random_forest_regression_results.pdf"),
+]
+for i in [0, 1]:
+    if not empty(results_csv[i]):
+        print("Start plotting random forest regression results.")
+        plot_random_forest_regression_results(
+            results_csv[i],
+            random_forest_plot_filepath[i],
+            stability_measure[i],
+            r2_file[i],
+        )
+        print("Done plotting random forest regression results.")
+    else:
+        print(
+            "Couldn't create plots. No random forest prediction for stability regressor."
+        )
 
 if not empty(classifier_results_csv):
     print("Start plotting random forest classifier results.")
@@ -431,7 +411,9 @@ if not empty(classifier_results_csv):
     )
     print("Done plotting random forest classifier results.")
 else:
-    print("Couldn't create plots. No random forest prediction for stability classifier.")
+    print(
+        "Couldn't create plots. No random forest prediction for stability classifier."
+    )
 
 if not empty(au_test_classifier_results):
     print("Start plotting au test classifier results")
@@ -450,14 +432,22 @@ if not empty(au_test_features):
 else:
     print("Couldn't create plots. No random forest prediction for AU-test results.")
 
-if not empty(model_features_csv):
-    model_features_plot_filepath = os.path.join(
-        plots_folder, "random_forest_model_features.pdf"
+random_forest_feature_plots_filepath = [
+    os.path.join(plots_folder, "tii_random_forest_model_features.pdf"),
+    os.path.join(plots_folder, "rf_radius_random_forest_model_features.pdf"),
+]
+if not empty(model_features_csv[0]):
+    plot_random_forest_model_features(
+        model_features_csv[0], random_forest_feature_plots_filepath[0]
     )
-    plot_random_forest_model_features(model_features_csv, model_features_plot_filepath)
 else:
-    print("Couldn't create plots. No random forest prediction for stability regressor.")
-
+    print("Couldn't create plots. No random forest prediction for tii regressor.")
+if not empty(model_features_csv[1]):
+    plot_random_forest_model_features(
+        model_features_csv[1], random_forest_feature_plots_filepath[1]
+    )
+else:
+    print("Couldn't create plots. No random forest prediction for rf_radius regressor.")
 if not empty(discrete_model_features_csv):
     model_features_plot_filepath = os.path.join(
         plots_folder, "discrete_random_forest_model_features.pdf"
@@ -466,14 +456,18 @@ if not empty(discrete_model_features_csv):
         discrete_model_features_csv, model_features_plot_filepath
     )
 else:
-    print("Couldn't create plots. No random forest prediction for stability classifier.")
+    print(
+        "Couldn't create plots. No random forest prediction for stability classifier."
+    )
 
-if not empty(discrete_model_features_csv) and not empty(model_features_csv):
+if not empty(discrete_model_features_csv) and not empty(model_features_csv[0]):
     plot_filepath = os.path.join(plots_folder, "combined_random_forest_features.pdf")
     plot_combined_random_forest_model_features(
-        discrete_model_features_csv, model_features_csv, plot_filepath
+        discrete_model_features_csv, model_features_csv[0], plot_filepath
     )
 else:
-    print("Couldn't create plots. No random forest prediction for stability regressor or classifier.")
+    print(
+        "Couldn't create plots. No random forest prediction for stability regressor or classifier."
+    )
 
 print("Done plotting feature importances.")

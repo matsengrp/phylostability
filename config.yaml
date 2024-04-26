@@ -1,4 +1,4 @@
 data_folder: "harrington_data"
 num_samples: 4
-num_cores: 36
+num_cores: 10
 stability_measure : "normalised_tii"
