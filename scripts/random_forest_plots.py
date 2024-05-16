@@ -54,7 +54,7 @@ def plot_random_forest_regression_results(
     df_sorted = df.sort_values(by="actual")
 
     plt.figure(figsize=(6, 6))
-    plt.hexbin(df_sorted['actual'], df_sorted['predicted'], gridsize=50, cmap='Greys')
+    plt.hexbin(df_sorted['actual'], df_sorted['predicted'], gridsize=50, cmap='binary')
     # plt.colorbar()
     plt.xlabel('Actual')
     plt.ylabel('Predicted')
