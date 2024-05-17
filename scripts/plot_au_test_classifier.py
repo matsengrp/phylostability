@@ -23,7 +23,7 @@ def plot_au_test_pie_chart(df, plot_filepath):
         new_values = []
         for value in values:
             if value == 0:
-                return "0%"
+                new_values.append("0%")
             else:
                 # Determine the number of decimal places needed
                 decimal_places = abs(int(math.floor(math.log10(abs(value)))))

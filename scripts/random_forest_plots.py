@@ -9,7 +9,9 @@ import matplotlib as mpl
 import pandas as pd
 import os
 import math
-from sklearn.metrics import confusion_matrix, auc, ConfusionMatrixDisplay
+from sklearn.metrics import auc
+from matplotlib.colors import LogNorm
+
 
 # Font sizes for figures
 plt.rcParams.update({"font.size": 12})  # Adjust this value as needed
@@ -46,16 +48,17 @@ feature_name_dict = {
 
 
 def plot_random_forest_regression_results(
-    results_csv, plot_filepath, stability_measure, r2_file
+    results_csv, plot_filepath, log_plot_filepath, stability_measure, r2_file
 ):
     with open(r2_file, "r") as f:
         r2 = float(f.readlines()[0].strip())
     df = pd.read_csv(results_csv)
     df_sorted = df.sort_values(by="actual")
 
-    plt.figure(figsize=(6, 6))
-    plt.hexbin(df_sorted['actual'], df_sorted['predicted'], gridsize=50, cmap='binary')
-    # plt.colorbar()
+    hb = plt.hexbin(df_sorted['actual'], df_sorted['predicted'], gridsize=50, cmap='Grays')
+    cb = plt.colorbar(hb)  # Display a color bar to interpret the log scale
+    cb.set_label('Counts')  # Label the color bar to indicate log scale
+
     plt.xlabel('Actual')
     plt.ylabel('Predicted')
 
@@ -79,8 +82,27 @@ def plot_random_forest_regression_results(
     plt.xlabel("Actual")
     plt.ylabel("Predicted")
     plt.tight_layout()
-    plt.show()
     plt.savefig(plot_filepath)
+    plt.clf()
+
+
+    # Additional plot with counts log transformed for better visibility of data points
+    hb = plt.hexbin(df_sorted['actual'], df_sorted['predicted'], gridsize=50, cmap='Grays', norm=LogNorm())
+    plt.xlabel('Actual')
+    plt.ylabel('Predicted')
+
+    cb = plt.colorbar(hb)  # Display a color bar to interpret the log scale
+    cb.set_label('log(Counts)')  # Label the color bar to indicate log scale
+
+    print("Maximum values:")
+    print("Predicted:", max(df["predicted"]))
+    print("Actual:", max(df["actual"]))
+
+    plt.title("")
+    plt.xlabel("Actual")
+    plt.ylabel("Predicted")
+    plt.tight_layout()
+    plt.savefig(log_plot_filepath)
     plt.clf()
 
 
@@ -386,12 +408,19 @@ random_forest_plot_filepath = [
     os.path.join(plots_folder, "tii_random_forest_regression_results.pdf"),
     os.path.join(plots_folder, "rf_radius_random_forest_regression_results.pdf"),
 ]
+
+random_forest_log_plot_filepath = [
+    os.path.join(plots_folder, "tii_random_forest_regression_results_log.pdf"),
+    os.path.join(plots_folder, "rf_radius_random_forest_regression_results_log.pdf"),
+]
+
 for i in [0, 1]:
     if not empty(results_csv[i]):
         print("Start plotting random forest regression results.")
         plot_random_forest_regression_results(
             results_csv[i],
             random_forest_plot_filepath[i],
+            random_forest_log_plot_filepath[i],
             stability_measure[i],
             r2_file[i],
         )
