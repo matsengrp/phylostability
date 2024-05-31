@@ -118,6 +118,17 @@ def random_forest_classification(
         classifiers = []
         X_balanced_sets = []
         y_balanced_sets = []
+        if len(y_small) == 0:
+            with open(output_csv, "w") as f:
+                pass
+            with open(model_features_csv, "w") as f:
+                pass
+            with open(classifier_metrics_csv, "w") as f:
+                pass
+            raise ValueError(
+                f"Not enough samples for classification of significant instability to balance training set."
+            )
+
         num_classifiers = int(len(y_large) / len(y_small))
         print("Total number of classifiers: ", num_classifiers)
         for i in range(num_classifiers):

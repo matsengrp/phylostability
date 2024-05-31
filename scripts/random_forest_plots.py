@@ -9,7 +9,9 @@ import matplotlib as mpl
 import pandas as pd
 import os
 import math
-from sklearn.metrics import confusion_matrix, auc, ConfusionMatrixDisplay
+from sklearn.metrics import auc
+from matplotlib.colors import SymLogNorm
+
 
 # Font sizes for figures
 plt.rcParams.update({"font.size": 12})  # Adjust this value as needed
@@ -44,23 +46,22 @@ feature_name_dict = {
     "seq_distance_ratios_closest_seq_std": "ratio diff closest sequence SD",
 }
 
-
 def plot_random_forest_regression_results(
-    results_csv, plot_filepath, stability_measure, r2_file
+    results_csv, plot_filepath, log_plot_filepath, r2_file
 ):
     with open(r2_file, "r") as f:
         r2 = float(f.readlines()[0].strip())
     df = pd.read_csv(results_csv)
     df_sorted = df.sort_values(by="actual")
 
-    plt.figure(figsize=(6, 6))
-    plt.hexbin(df_sorted['actual'], df_sorted['predicted'], gridsize=50, cmap='Greys')
+    # plt.figure(figsize=(6, 6))
+    hb = plt.hexbin(df_sorted['actual'], df_sorted['predicted'], gridsize=50, cmap='Grays')
+    cb = plt.colorbar(hb)  # Display a color bar to interpret the log scale
+    cb.set_label('Counts')  # Label the color bar to indicate log scale
+
     # plt.colorbar()
     plt.xlabel('Actual')
     plt.ylabel('Predicted')
-
-    # Determine the common maximum limit for both axes
-    common_limit = max(df["actual"].max(), df["predicted"].max()) + 0.01
 
     text_str = f"R²= {r2:.2f}"  # Formats the string to display R² with 2 decimal places
     plt.text(
@@ -71,16 +72,27 @@ def plot_random_forest_regression_results(
         bbox=dict(boxstyle="round", facecolor="white", edgecolor="gray")
     )
 
-    # Set the same limits for both the x-axis and y-axis
-    plt.xlim(-0.01, common_limit)
-    plt.ylim(-0.01, common_limit)
+    plt.title("")
+    plt.xlabel("Actual")
+    plt.ylabel("Predicted")
+    plt.tight_layout()
+    plt.savefig(plot_filepath)
+    plt.clf()
+
+    # plt.figure(figsize=(6, 6))
+    hb = plt.hexbin(df_sorted['actual'], df_sorted['predicted'], gridsize=50, cmap='Grays', norm=SymLogNorm(linthresh=0.1, linscale=1.0))
+    # plt.colorbar()
+    plt.xlabel('Actual')
+    plt.ylabel('Predicted')
+
+    cb = plt.colorbar(hb)  # Display a color bar to interpret the log scale
+    cb.set_label('Counts (log$_{10}$ scale)')  # Label the color bar to indicate log scale
 
     plt.title("")
     plt.xlabel("Actual")
     plt.ylabel("Predicted")
     plt.tight_layout()
-    plt.show()
-    plt.savefig(plot_filepath)
+    plt.savefig(log_plot_filepath)
     plt.clf()
 
 
@@ -386,13 +398,19 @@ random_forest_plot_filepath = [
     os.path.join(plots_folder, "tii_random_forest_regression_results.pdf"),
     os.path.join(plots_folder, "rf_radius_random_forest_regression_results.pdf"),
 ]
+
+random_forest_log_plot_filepath = [
+    os.path.join(plots_folder, "tii_random_forest_regression_results_log.pdf"),
+    os.path.join(plots_folder, "rf_radius_random_forest_regression_results_log.pdf"),
+]
+
 for i in [0, 1]:
     if not empty(results_csv[i]):
         print("Start plotting random forest regression results.")
         plot_random_forest_regression_results(
             results_csv[i],
             random_forest_plot_filepath[i],
-            stability_measure[i],
+            random_forest_log_plot_filepath[i],
             r2_file[i],
         )
         print("Done plotting random forest regression results.")
