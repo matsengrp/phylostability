@@ -163,7 +163,7 @@ def normalised_dist_closest_low_bootstrap_node(node, tree, threshold=70):
     low_bootstrap_nodes = [
         n
         for n in tree.traverse()
-        if not n.is_leaf() and not n.is_root() and n != node and n.support < threshold
+        if not n.is_leaf() and not n.is_root() and n.support < threshold
     ]
     if len(low_bootstrap_nodes) == 0:
         return np.nan
@@ -408,12 +408,12 @@ def get_rf_radius(full_tree, reduced_tree, seq_id):
             node = full_tree.get_common_ancestor(cluster2)
         node_dist = ete_dist(node, reattachment_position, topology_only=True)
         node_up_dist = ete_dist(node.up, reattachment_position, topology_only=True)
-        dist = max(node_dist, node_up_dist)
+        dist = max(node_dist, node_up_dist) - 1
         if dist > rf_radius:
             rf_radius = dist
     normalising_constant = max(
         [
-            ete_dist(node, reattachment_position, topology_only=True)
+            ete_dist(node, reattachment_position, topology_only=True) - 1
             for node in full_tree.traverse()
             if not node.is_leaf()
         ]
