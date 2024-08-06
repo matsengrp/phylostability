@@ -23,8 +23,10 @@ tar -xvf cnsls020.tgz
 cd consel/src; make; make install; make clean; cd ..
 -->
 
-The [Pypythia utility](https://github.com/amkozlov/raxml-ng) contains extensive documentation for installing and running also.
+The [PyPythia utility](https://github.com/tschuelia/PyPythia) can be installed using conda. 
+It also requires a local build of [raxml-ng](https://github.com/amkozlov/raxml-ng) contains extensive documentation for installing and running also.
 <!-- To obtain on linux/unix:
+conda install -c conda-forge pypythia
 wget https://github.com/amkozlov/raxml-ng/releases/download/1.2.2/raxml-ng_v1.2.2_linux_x86_64.zip
 unzip raxml-ng_v1.2.2_linux_x86_64.zip
 >
