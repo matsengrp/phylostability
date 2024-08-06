@@ -1,7 +1,8 @@
 #!/bin/bash
 
 data_dir=$1 # e.g. "/path/to/harrington_data/selected_data"
-which_raxml=$2
+alignment_name=$2 # e.g. "full_alignment.fasta"
+which_raxml=$3 # e.g. /path/to/raxml-ng
 excluded_dirs="benchmarking normalised_tii plots rf_radius"
 
 for dir in $data_dir/*/; do
@@ -10,8 +11,11 @@ for dir in $data_dir/*/; do
   echo "$latest_dir: $listfound"
   listfound=$(echo $excluded_dirs | grep -w -q $latest_dir)
   if [ "$listfound" == "" ]; then
-    if [ -f $dir/full_alignment.fasta ]; then
-      pythia -m $dir/full_alignment.fasta -r $which_raxml -o $dir/pythia_difficulty.txt
+    if [ -f $dir/$alignment_name ]; then
+      if ! [ -f $dir/pythia_difficulty.txt ]; then
+        echo "$(date): $dir"
+        pythia -m $dir/$alignment_name -r $which_raxml -o $dir/pythia_difficulty.txt
+      fi
     fi
   fi
 done

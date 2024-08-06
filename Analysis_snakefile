@@ -12,6 +12,7 @@ input_alignment="full_alignment.fasta"
 data_folder=config["data_folder"]+"/selected_data/"
 plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
+path_to_consel=config["path_to_consel"]
 
 
 def get_subdirs(data_folder):
@@ -104,12 +105,13 @@ rule run_iqtree_on_full_dataset:
     output:
         temp(touch("{subdir}/run_iqtree_on_full_dataset.done")),
         tree="{subdir}/"+input_alignment+".treefile",
-        mldist="{subdir}/"+input_alignment+".mldist"
+        mldist="{subdir}/"+input_alignment+".mldist",
+        sitelh="{subdir}/"+input_alignment+".sitelh"
     benchmark:
         touch("{subdir}/benchmarking/benchmark_run_iqtree_on_full_dataset.txt")
     shell:
         """
-        iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {input.msa} -bb 1000 -redo
+        iqtree -s {input.msa} -m $(cat {input.full_model}) -wsl --prefix {input.msa} -bb 1000 -redo
         """
 
 
@@ -123,12 +125,13 @@ rule run_iqtree_restricted_alignments:
         done=temp(touch("{subdir}/reduced_alignments/{seq_id}/run_iqtree_restricted_alignments.done")),
         tree="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
         mlfile="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.iqtree",
-        mldist="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist"
+        mldist="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.mldist",
+        sitelh="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.sitelh"
     benchmark:
         touch("{subdir}/benchmarking/benchmark_run_iqtree_restricted_alignments_{seq_id}.txt")
     shell:
         """
-        iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa} -bb 1000 -redo
+        iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) -wsl --prefix {input.reduced_msa} -bb 1000 -redo
         """
 
 
@@ -398,6 +401,38 @@ rule plot_au_test_classifier:
     script:
         "scripts/plot_au_test_classifier.py"
 
+
+# combine sitelh files of pruned and inferred tree to one file for CONSEL
+#rule write_pruned_and_inferred_sitelh_files:
+#    input:
+#        full_tree_sitelh="{subdir}/"+input_alignment+".sitelh"
+#        inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.sitelh",
+#    output:
+#        both_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.sitelh"
+#    params:
+#        seq_id=lambda wildcards: wildcards.seq_id
+#    benchmark:
+#        touch("{subdir}/benchmarking/benchmark_write_pruned_trees_sitelh_{seq_id}.txt")
+#    shell:
+#        """
+#        cat {full_tree_sitelh} > {output.both_trees_sitelh}
+#        echo "2$(cut -c 2- {input.inferred_trees_sitelh})" >> {output.both_trees_sitelh}
+#        """
+
+
+# run CONSEL to test model fit of full tree to reattached trees
+#rule consel_comparison:
+#    input:
+#        sitelh_file="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.sitelh"
+#    output:
+#        touch("{subdir}/reduced_alignments/{seq_id}/consel_test_model_fit.done"),
+#    benchmark:
+#        touch("{subdir}/benchmarking/benchmark_consel_test_model_fit_{seq_id}.txt"),
+#    shell:
+#        """
+#        {path_to_consel}/makermt --puzzle {input.reduced_msa_sl}
+#        {path_to_consel}/consel {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/pruned_and_inferred_tree
+#        """
 
 # create single file for each dataset with timing breakdowns for the rules
 rule combine_benchmark_outputs:

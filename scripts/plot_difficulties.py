@@ -12,7 +12,7 @@ msa_name = []
 msa_difficulty = []
 for subdir in glob.glob(main_dir+"/*/"):
     if os.path.isfile(subdir+"pythia_difficulty.txt"):
-        msa_name.append(subdir.split("/")[-1])
+        msa_name.append(subdir.split("/")[-2])
         with open(subdir+"pythia_difficulty.txt", "r") as f:
             msa_difficulty.append(float(f.readlines()[0].strip()))
 msa_difficulties = pd.DataFrame({"name":msa_name, "difficulty":msa_difficulty})
