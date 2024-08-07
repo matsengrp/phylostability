@@ -408,29 +408,26 @@ rule plot_au_test_classifier:
 #        full_tree_sitelh="{subdir}/"+input_alignment+".sitelh"
 #        inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.sitelh",
 #    output:
-#        both_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.sitelh"
+#        both_trees_txtfile="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.txt"
 #    params:
 #        seq_id=lambda wildcards: wildcards.seq_id
 #    benchmark:
 #        touch("{subdir}/benchmarking/benchmark_write_pruned_trees_sitelh_{seq_id}.txt")
-#    shell:
-#        """
-#        cat {full_tree_sitelh} > {output.both_trees_sitelh}
-#        echo "2$(cut -c 2- {input.inferred_trees_sitelh})" >> {output.both_trees_sitelh}
-#        """
+#    script:
+#        "scripts/combine_sitelh_files.py"
 
 
 # run CONSEL to test model fit of full tree to reattached trees
 #rule consel_comparison:
 #    input:
-#        sitelh_file="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.sitelh"
+#        paup_file="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.txt"
 #    output:
 #        touch("{subdir}/reduced_alignments/{seq_id}/consel_test_model_fit.done"),
 #    benchmark:
 #        touch("{subdir}/benchmarking/benchmark_consel_test_model_fit_{seq_id}.txt"),
 #    shell:
 #        """
-#        {path_to_consel}/makermt --puzzle {input.reduced_msa_sl}
+#        {path_to_consel}/makermt --paup {input.paup_file}
 #        {path_to_consel}/consel {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/pruned_and_inferred_tree
 #        """
 
