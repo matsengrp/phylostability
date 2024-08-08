@@ -111,7 +111,7 @@ rule run_iqtree_on_full_dataset:
         touch("{subdir}/benchmarking/benchmark_run_iqtree_on_full_dataset.txt")
     shell:
         """
-        iqtree -s {input.msa} -m $(cat {input.full_model}) -wsl --prefix {input.msa} -bb 1000 -redo
+        iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {input.msa} -bb 1000 -redo
         """
 
 
@@ -131,7 +131,7 @@ rule run_iqtree_restricted_alignments:
         touch("{subdir}/benchmarking/benchmark_run_iqtree_restricted_alignments_{seq_id}.txt")
     shell:
         """
-        iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) -wsl --prefix {input.reduced_msa} -bb 1000 -redo
+        iqtree -s {input.reduced_msa} -m $(cat {input.full_model}) --prefix {input.reduced_msa} -bb 1000 -redo
         """
 
 
@@ -402,11 +402,40 @@ rule plot_au_test_classifier:
         "scripts/plot_au_test_classifier.py"
 
 
+#rule write_full_sitelh:
+#    input:
+#        full_msa="{subdir}/"+input_alignment,
+#        trees="{subdir}/"+input_alignment+".treefile",
+#        full_model="{subdir}/iqtree-model.txt",
+#    output:
+#        touch("{subdir}/write_full_sitelh.done"),
+#    benchmark:
+#        touch("{subdir}/benchmarking/benchmark_write_full_sitelh.txt"),
+#    shell:
+#        """
+#        iqtree -s {input.full_msa} -z {input.trees} --prefix {wildcards.subdir}/consel- -m $(cat {input.full_model}) -n 0 -wsl -redo
+#        """
+
+
+#rule write_inferred_sitelh:
+#    input:
+#        reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
+#        trees="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
+#        full_model="{subdir}/iqtree-model.txt",
+#    output:
+#        touch("{subdir}/reduced_alignments/{seq_id}/write_inferred_sitelh.done"),
+#    benchmark:
+#        touch("{subdir}/benchmarking/benchmark_write_inferred_sitelh{seq_id}.txt"),
+#    shell:
+#        """
+#        iqtree -s {input.reduced_msa} -z {input.trees} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel- -m $(cat {input.full_model}) -n 0 -wsl -redo
+#        """
+
 # combine sitelh files of pruned and inferred tree to one file for CONSEL
 #rule write_pruned_and_inferred_sitelh_files:
 #    input:
-#        full_tree_sitelh="{subdir}/"+input_alignment+".sitelh"
-#        inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.sitelh",
+#        full_tree_sitelh="{subdir}/consel-"+input_alignment+".sitelh"
+#        inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/consel-reduced_alignment.sitelh",
 #    output:
 #        both_trees_txtfile="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.txt"
 #    params:
@@ -429,6 +458,7 @@ rule plot_au_test_classifier:
 #        """
 #        {path_to_consel}/makermt --paup {input.paup_file}
 #        {path_to_consel}/consel {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/pruned_and_inferred_tree
+#        rm {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/pruned_and_inferred_tree.rmt
 #        """
 
 # create single file for each dataset with timing breakdowns for the rules
