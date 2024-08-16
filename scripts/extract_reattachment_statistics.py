@@ -153,18 +153,26 @@ def get_reattachment_distances(reduced_tree, reattachment_trees, seq_id):
         )
     return reattachment_distances
 
-
-def normalised_dist_closest_low_bootstrap_node(node, tree, threshold=70):
+def normalised_dist_closest_low_bootstrap_node(node, tree, threshold=70, exclude_node=False):
     """
-    Compute topological distance to closet node with bootstrap support < 70
+    Compute topological distance of `node` to closest node with bootstrap support < 70
     If edge=True, we take minimum of distance of node and node.up to low bootstrap
     support node.
+    If exclude_node=True, do not consider the node itself when finding closest low bootstrap
+    node.
     """
-    low_bootstrap_nodes = [
-        n
-        for n in tree.traverse()
-        if not n.is_leaf() and not n.is_root() and n.support < threshold
-    ]
+    if exclude_node:
+        low_bootstrap_nodes = [
+            n
+            for n in tree.traverse()
+            if not n.is_leaf() and not n.is_root() and not n==node and n.support < threshold
+        ]
+    else:
+        low_bootstrap_nodes = [
+            n
+            for n in tree.traverse()
+            if not n.is_leaf() and not n.is_root() and n.support < threshold
+        ]
     if len(low_bootstrap_nodes) == 0:
         return np.nan
     min_dist = min([ete_dist(n, node, topology_only=True) for n in low_bootstrap_nodes])
@@ -185,7 +193,7 @@ def reattachment_distance_to_low_support_node(seq_id, reattached_tree):
     """
     reattachment_node = reattached_tree.search_nodes(name=seq_id)[0].up
     dist = normalised_dist_closest_low_bootstrap_node(
-        reattachment_node, reattached_tree
+        reattachment_node, reattached_tree, exclude_node=True
     )
     return dist
 
