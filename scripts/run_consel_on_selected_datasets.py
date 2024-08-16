@@ -12,7 +12,11 @@ print("\n".join(subdirs))
 if len(sys.argv) > 3:
     subdir_list = sys.argv[3]
     subdirs = pd.read_csv(subdir_list, header=None)
-    subdirs = subdirs[0]
+    subdirs = [x + "/" for x in subdirs[0]]
+
+rerun = False
+if len(sys.argv) > 4:
+    rerun = True
 
 
 which_consel = path_to_consel + "/consel"
@@ -44,7 +48,7 @@ for subdir in subdirs:
         full_model = " ".join(f.readlines())
 
     # check we've re-run IQTree using the -wsl flag to get the site-wise likelihoods out
-    if not os.path.isfile(full_tree_sitelh): 
+    if rerun or (not os.path.isfile(full_tree_sitelh)):
         os.system("iqtree -s " + full_msa \
                   + " -z " + pruned_tree \
                   + " -m " + full_model \
@@ -56,10 +60,14 @@ for subdir in subdirs:
         reduced_fasta = taxon_path + "without_taxon.fasta"
         reduced_msa = taxon_path + "reduced_alignment.fasta"
         reduced_tree = reduced_msa + ".treefile"
+        if not (os.path.isfile(reduced_msa)):
+            reduced_msa = reduced_fasta
         inferred_tree_sitelh = reduced_msa + ".consel.sitelh"
+        if not (os.path.isfile(inferred_tree_sitelh)):
+            inferred_tree_sitelh = taxon_path + "reduced_alignment.fasta.consel.sitelh"
 
-        if not os.path.isfile(inferred_tree_sitelh): 
-            os.system("iqtree -s " + reduced_fasta \
+        if rerun or (not os.path.isfile(inferred_tree_sitelh)):
+            os.system("iqtree -s " + reduced_msa \
                       + " -z " + reduced_tree \
                       + " -m " + full_model \
                       + " -n 0 " \
