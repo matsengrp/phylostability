@@ -22,6 +22,7 @@ def get_subdirs(data_folder):
         and "rf_radius" not in f.path
         and "normalised_tii" not in f.path
         and "unbalanced_no_non_taxon" not in f.path
+        and "notebook" not in f.path
     ]
 
 
@@ -38,6 +39,8 @@ def get_seq_ids(input_file, filetype):
 def dynamic_input(wildcards):
     subdir = wildcards.subdir
     fasta_files = glob.glob(os.path.join(subdir, "*.fasta"))
+    if not fasta_files:
+        return []
     fasta_files = [os.readlink(file) if os.path.islink(file) else file for file in fasta_files]
     seq_ids = get_seq_ids(fasta_files[0], "fasta")
 
