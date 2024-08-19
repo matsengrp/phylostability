@@ -18,13 +18,11 @@ else:
 full_pv_df["consel-p-AU"] = -1.0
 
 def read_pv_from_file(fn, col_to_read=3):
-    print(fn)
     with open(fn, "r") as f: 
         return f.readlines()[3].split()[col_to_read].strip()
 
 for subdir in subdirs:
     ds_name = subdir.split("/")[-2]
-    #if all(os.path.isfile(t_p + "consel.pv") for t_p in glob.glob(subdir+"/reduced_alignments/*/")):
     for taxon_path in glob.glob(subdir+"/reduced_alignments/*/"):
         taxon_name = taxon_path.split("/")[-2]
         if os.path.isfile(taxon_path + "consel.pv"):
@@ -36,6 +34,8 @@ for subdir in subdirs:
 
             pv_output = float(read_pv_from_file(taxon_path+"consel_pv_output"))
             full_pv_df.loc[(full_pv_df["dataset"] == ds_name) & (full_pv_df["seq_id"] == taxon_name), "consel-p-AU"] = pv_output
+        else:
+            print("Error: " + ds_name + "/" + taxon_name)
 
 full_pv_df.to_csv(full_pv_file.split(".csv")[0] + "_with_consel_pv.csv")
 

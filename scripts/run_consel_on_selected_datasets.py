@@ -8,7 +8,7 @@ data_dir = sys.argv[1]
 path_to_consel = sys.argv[2]
 
 subdirs = [x.split("/")[-2] + "/" for x in glob.glob(data_dir+"/*/") if os.path.isdir(x + "reduced_alignments/")]
-print("\n".join(subdirs))
+
 if len(sys.argv) > 3:
     subdir_list = sys.argv[3]
     subdirs = pd.read_csv(subdir_list, header=None)
@@ -48,13 +48,6 @@ for subdir in subdirs:
         full_model = " ".join(f.readlines())
 
     # check we've re-run IQTree using the -wsl flag to get the site-wise likelihoods out
-    if rerun or (not os.path.isfile(full_tree_sitelh)):
-        os.system("iqtree -s " + full_msa \
-                  + " -z " + pruned_tree \
-                  + " -m " + full_model \
-                  + " -n 0 " \
-                  + " -wsl --prefix " + full_msa + ".consel")
-
     for taxon_path in glob.glob(full_path+"/reduced_alignments/*/"):
         taxon = taxon_path.split("/")[-2]
         reduced_fasta = taxon_path + "without_taxon.fasta"
@@ -66,6 +59,15 @@ for subdir in subdirs:
         if not (os.path.isfile(inferred_tree_sitelh)):
             inferred_tree_sitelh = taxon_path + "reduced_alignment.fasta.consel.sitelh"
 
+        pruned_tree_base = taxon_path + "pruned_tree.nwk"
+        os.system("head -1 " + taxon_path + "pruned_and_inferred_tree.nwk > " + taxon_path + pruned_tree_base)
+        if rerun or (not os.path.isfile(pruned_tree_base + ".consel.sitelh")):
+            os.system("iqtree -s " + reduced_msa \
+                      + " -z " + pruned_tree_base \
+                      + " -m " + full_model \
+                      + " -n 0 " \
+                      + " -wsl --prefix " + pruned_tree_base + ".consel")
+
         if rerun or (not os.path.isfile(inferred_tree_sitelh)):
             os.system("iqtree -s " + reduced_msa \
                       + " -z " + reduced_tree \
@@ -73,7 +75,7 @@ for subdir in subdirs:
                       + " -n 0 " \
                       + " -wsl --prefix " + reduced_msa + ".consel")
 
-        combine_sitelh_files(full_tree_sitelh, inferred_tree_sitelh, taxon_path+"consel.txt")
+        combine_sitelh_files(pruned_tree_base + ".consel.sitelh", inferred_tree_sitelh, taxon_path+"consel.txt")
         os.system(which_makermt + " --paup " + taxon_path + "consel.txt")
         os.system(which_consel + " " + taxon_path + "consel")
 
