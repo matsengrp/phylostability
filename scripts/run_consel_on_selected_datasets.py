@@ -60,7 +60,7 @@ for subdir in subdirs:
             inferred_tree_sitelh = taxon_path + "reduced_alignment.fasta.consel.sitelh"
 
         pruned_tree_base = taxon_path + "pruned_tree.nwk"
-        os.system("head -1 " + taxon_path + "pruned_and_inferred_tree.nwk > " + taxon_path + pruned_tree_base)
+        os.system("head -1 " + taxon_path + "pruned_and_inferred_tree.nwk > " + pruned_tree_base)
         if rerun or (not os.path.isfile(pruned_tree_base + ".consel.sitelh")):
             os.system("iqtree -s " + reduced_msa \
                       + " -z " + pruned_tree_base \

@@ -13,6 +13,7 @@ data_folder=config["data_folder"]+"/selected_data/"
 plots_folder="plots/"
 IQTREE_SUFFIXES=["iqtree", "log", "treefile", "ckp.gz"]
 path_to_consel=config["path_to_consel"]
+path_to_raxml=config["path_to_raxml"]
 
 
 def get_subdirs(data_folder):
@@ -401,38 +402,23 @@ rule plot_au_test_classifier:
     script:
         "scripts/plot_au_test_classifier.py"
 
-
-#rule write_full_sitelh:
-#    input:
-#        full_msa="{subdir}/"+input_alignment,
-#        trees="{subdir}/"+input_alignment+".treefile",
-#        full_model="{subdir}/iqtree-model.txt",
-#    output:
-#        touch("{subdir}/write_full_sitelh.done"),
-#    benchmark:
-#        touch("{subdir}/benchmarking/benchmark_write_full_sitelh.txt"),
-#    shell:
-#        """
-#        iqtree -s {input.full_msa} -z {input.trees} --prefix {wildcards.subdir}/consel- -m $(cat {input.full_model}) -n 0 -wsl -redo
-#        """
-
-
-#rule write_inferred_sitelh:
+#rule write_pruned_and_inferred_sitelh_files:
 #    input:
 #        reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
-#        trees="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
+#        trees="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.nwk",
 #        full_model="{subdir}/iqtree-model.txt",
 #    output:
 #        touch("{subdir}/reduced_alignments/{seq_id}/write_inferred_sitelh.done"),
 #    benchmark:
-#        touch("{subdir}/benchmarking/benchmark_write_inferred_sitelh{seq_id}.txt"),
+#        touch("{subdir}/benchmarking/benchmark_write_pruned_and_inferred_sitelh_files{seq_id}.txt"),
 #    shell:
 #        """
-#        iqtree -s {input.reduced_msa} -z {input.trees} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel- -m $(cat {input.full_model}) -n 0 -wsl -redo
+#        iqtree -s {input.reduced_msa} -z $(head -1 {input.trees}) --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel- -m $(cat {input.full_model}) -n 0 -wsl
+#        iqtree -s {input.reduced_msa} -z $(tail -1 {input.trees}) --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel- -m $(cat {input.full_model}) -n 0 -wsl
 #        """
 
 # combine sitelh files of pruned and inferred tree to one file for CONSEL
-#rule write_pruned_and_inferred_sitelh_files:
+#rule combine_sitelh_files:
 #    input:
 #        full_tree_sitelh="{subdir}/consel-"+input_alignment+".sitelh"
 #        inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/consel-reduced_alignment.sitelh",
@@ -441,7 +427,7 @@ rule plot_au_test_classifier:
 #    params:
 #        seq_id=lambda wildcards: wildcards.seq_id
 #    benchmark:
-#        touch("{subdir}/benchmarking/benchmark_write_pruned_trees_sitelh_{seq_id}.txt")
+#        touch("{subdir}/benchmarking/benchmark_combine_sitelh_files{seq_id}.txt")
 #    script:
 #        "scripts/combine_sitelh_files.py"
 
@@ -453,12 +439,26 @@ rule plot_au_test_classifier:
 #    output:
 #        touch("{subdir}/reduced_alignments/{seq_id}/consel_test_model_fit.done"),
 #    benchmark:
-#        touch("{subdir}/benchmarking/benchmark_consel_test_model_fit_{seq_id}.txt"),
+#        touch("{subdir}/benchmarking/benchmark_consel_comparison{seq_id}.txt"),
 #    shell:
 #        """
 #        {path_to_consel}/makermt --paup {input.paup_file}
 #        {path_to_consel}/consel {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/pruned_and_inferred_tree
 #        rm {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/pruned_and_inferred_tree.rmt
+#        """
+
+
+# run pypythia to calculate difficulty on all MSAs
+#rule calculate_msa_difficulty:
+#    input:
+#         alignment_name="{subdir}/" + input_alignment
+#    output:
+#         output_file="{subdir}/pythia_difficulty.txt"
+#    benchmark:
+#        touch("{subdir}/benchmarking/benchmark_calculate_msa_difficulty.txt")
+#    shell:
+#        """
+#        pythia -m {input.alignment_name} -r {path_to_raxml} -o {output.output_file}/pythia_difficulty.txt
 #        """
 
 # create single file for each dataset with timing breakdowns for the rules
