@@ -413,15 +413,15 @@ rule plot_au_test_classifier:
 #        touch("{subdir}/benchmarking/benchmark_write_pruned_and_inferred_sitelh_files{seq_id}.txt"),
 #    shell:
 #        """
-#        iqtree -s {input.reduced_msa} -z $(head -1 {input.trees}) --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel- -m $(cat {input.full_model}) -n 0 -wsl
-#        iqtree -s {input.reduced_msa} -z $(tail -1 {input.trees}) --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel- -m $(cat {input.full_model}) -n 0 -wsl
+#        iqtree -s {input.reduced_msa} -z $(head -1 {input.trees}) --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_pruned_ -m $(cat {input.full_model}) -n 0 -wsl
+#        iqtree -s {input.reduced_msa} -z $(tail -1 {input.trees}) --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_inferred_ -m $(cat {input.full_model}) -n 0 -wsl
 #        """
 
 # combine sitelh files of pruned and inferred tree to one file for CONSEL
 #rule combine_sitelh_files:
 #    input:
-#        full_tree_sitelh="{subdir}/consel-"+input_alignment+".sitelh"
-#        inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/consel-reduced_alignment.sitelh",
+#        full_tree_sitelh="{subdir}/reduced_alignments/{seq_id}/consel_pruned_reduced_alignment.sitelh",
+#        inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/consel_inferred_reduced_alignment.sitelh",
 #    output:
 #        both_trees_txtfile="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.txt"
 #    params:
