@@ -2,12 +2,14 @@ import optuna
 import pandas as pd
 import numpy as np
 import json
+import os
 
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_squared_error
 
+data_dir = snakemake.params.data_folder
 csvs = snakemake.input.csvs
 output_csv = snakemake.output.output_file_name
 model_features_csv = snakemake.output.model_features_file
@@ -28,8 +30,9 @@ cols_to_drop = [
     "normalised_tii",
     "rf_radius",
     "change_to_low_bootstrap_dist",
-    "bootstrap_mean",
-    "bootstrap_std",
+    # "bootstrap_mean",
+    # "bootstrap_std",
+    # "difficulty",
     "num_leaves",
 ]
 
@@ -80,13 +83,6 @@ def train_random_forest(
     # Transform the validation and test sets using the same statistics
     X_val_imputed = imputer.transform(X_val)
     X_test_imputed = imputer.transform(X_test)
-    # Convert the result back to a pandas DataFrame
-    X_train_imputed_df = pd.DataFrame(
-        X_train_imputed, columns=X_train.columns, index=X_train.index
-    )
-    X_test_imputed_df = pd.DataFrame(
-        X_test_imputed, columns=X_test.columns, index=X_test.index
-    )
 
     # Hyperparameter optimisation with optuna
     def objective(trial):
@@ -112,16 +108,23 @@ def train_random_forest(
             criterion=criterion,
             random_state=42,
         )
-        model.fit(X_val_imputed, y_val)
+        model.fit(X_train_imputed, y_train)
         y_pred = model.predict(X_val_imputed)
         mse = mean_squared_error(y_val, y_pred)
         return mse
 
-    study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=200)
-    best_params = study.best_params
-    with open(parameter_file[index], "a") as f:
-        json.dump(best_params, f, indent=4)
+    if os.path.exists(parameter_file[index]):
+        print(parameter_file[index])
+        # load best hparams, if file exists already
+        with open(parameter_file[index], "r") as f:
+            best_params = json.load(f)
+        print("Loaded best parameters:", best_params)
+    else:
+        study = optuna.create_study(direction="minimize")
+        study.optimize(objective, n_trials=200)
+        best_params = study.best_params
+        with open(parameter_file[index], "w") as f:
+             json.dump(best_params, f, indent=4)
 
     fit_model = RandomForestRegressor(
         n_estimators=best_params["n_estimators"],
@@ -130,7 +133,7 @@ def train_random_forest(
         min_samples_leaf=best_params["min_samples_leaf"],
         max_features=best_params["max_features"],
         criterion=best_params["criterion"],
-        random_state=42,
+        # random_state=42,
     )
     fit_model.fit(X_train_imputed, y_train)
 
@@ -209,10 +212,41 @@ def balance_df_stability_measure(df, min_test_size, bin_file, index):
     return evenly_distributed_df
 
 
+def get_difficulty_df(data_dir):
+    # Add difficulty to df
+    # Directory containing all dataset directories
+
+    # Initialize lists to store dataset names and difficulty values
+    dataset_names = []
+    difficulty_values = []
+
+    # Iterate over each directory in the base directory
+    for dataset_name in os.listdir(data_dir):
+        dataset_path = os.path.join(data_dir, dataset_name)
+        # Check if it is a directory
+        if os.path.isdir(dataset_path):
+            # Construct the path to the pythia_difficulty.txt file
+            difficulty_file_path = os.path.join(dataset_path, 'pythia_difficulty.txt')
+            if os.path.isfile(difficulty_file_path):
+                # Read the float value from the file
+                with open(difficulty_file_path, 'r') as file:
+                    difficulty_value = float(file.read().strip())
+                    # Store the dataset name and difficulty value
+                    dataset_names.append(dataset_name)
+                    difficulty_values.append(difficulty_value)
+
+    # Create a pandas DataFrame
+    data = {'dataset': dataset_names, 'difficulty': difficulty_values}
+    difficulty_df = pd.DataFrame(data)
+    return difficulty_df
+
+
+balance_data = False
+df = combine_dfs(csvs, subdirs)
+difficulty_df = get_difficulty_df(data_dir)
+df = pd.merge(df, difficulty_df, on='dataset', how='left')
+df.to_csv(combined_csv_path)
 for index in [0, 1]:
-    balance_data = False
-    df = combine_dfs(csvs, subdirs)
-    df.to_csv(combined_csv_path)
     if balance_data:
         print("Use bins to get balanced subset for regression.")
         min_test_size = 200  # needs to be adjusted to data

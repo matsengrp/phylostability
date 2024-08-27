@@ -44,6 +44,7 @@ feature_name_dict = {
     "seq_and_tree_dist_ratio_std": "distance ratio SD",
     "seq_distance_ratios_closest_seq_mean": "ratio diff closest sequence mean",
     "seq_distance_ratios_closest_seq_std": "ratio diff closest sequence SD",
+    "difficulty": "pythia difficulty"
 }
 
 def plot_random_forest_regression_results(
@@ -96,12 +97,7 @@ def plot_random_forest_regression_results(
     plt.clf()
 
 
-def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
-    df = (
-        pd.read_csv(results_csv)
-        .replace(to_replace=True, value="unstable")
-        .replace(to_replace=False, value="stable")
-    )
+def plot_random_forest_classifier_results(roc_csv, plot_filepath):
     roc_df = pd.read_csv(roc_csv)
     roc_auc = auc(roc_df["fpr"], roc_df["tpr"])
 
@@ -121,6 +117,7 @@ def plot_random_forest_classifier_results(results_csv, roc_csv, plot_filepath):
     plt.tight_layout()
     plt.savefig(plot_filepath)
     plt.clf()
+
 
 
 def plot_random_forest_model_features(model_features_csv, plot_filepath):
@@ -425,7 +422,7 @@ if not empty(classifier_results_csv):
         plots_folder, "random_forest_classifier_results.pdf"
     )
     plot_random_forest_classifier_results(
-        classifier_results_csv, classifier_metrics_csv, random_forest_plot_filepath
+        classifier_metrics_csv, random_forest_plot_filepath
     )
     print("Done plotting random forest classifier results.")
 else:
@@ -437,7 +434,7 @@ if not empty(au_test_classifier_results):
     print("Start plotting au test classifier results")
     filepath = os.path.join(plots_folder, "au_test_classifier_results.pdf")
     plot_random_forest_classifier_results(
-        au_test_classifier_results, au_test_classifier_metrics_csv, filepath
+        au_test_classifier_metrics_csv, filepath
     )
     print("Done plotting au test classifier results")
 else:
@@ -449,7 +446,9 @@ if not empty(au_test_features):
     plot_random_forest_model_features(au_test_features, plot_filepath)
 else:
     print("Couldn't create plots. No random forest prediction for AU-test results.")
+print("Done plotting AU test random classifier results")
 
+print("Start plotting feature importances.")
 random_forest_feature_plots_filepath = [
     os.path.join(plots_folder, "tii_random_forest_model_features.pdf"),
     os.path.join(plots_folder, "rf_radius_random_forest_model_features.pdf"),
