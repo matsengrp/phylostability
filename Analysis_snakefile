@@ -219,6 +219,7 @@ rule random_forest_regression:
 	params:
 		stability_measure=["normalised_tii", "rf_radius"],
 		subdirs=get_subdirs(data_folder),
+		data_folder=data_folder,
 	script:
 		"scripts/random_forest_regression.py"
 
@@ -314,7 +315,7 @@ rule write_pruned_and_inferred_trees:
 		touch("{subdir}/benchmarking/benchmark_write_pruned_trees_{seq_id}.txt")
 	script:
 		"scripts/write_pruned_and_inferred_trees.py"
-
+ 
 
 # AU-test to test model fit of full tree to reattached trees
 rule au_test_model_fit:
@@ -323,7 +324,7 @@ rule au_test_model_fit:
 		trees="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.nwk",
 		full_model="{subdir}/iqtree-model.txt",
 	output:
-		# "{subdir}/reduced_alignments/{seq_id}/au-test.iqtree",
+		"{subdir}/reduced_alignments/{seq_id}/au-test.iqtree",
 		touch("{subdir}/reduced_alignments/{seq_id}/au_test_model_fit.done"),
 	benchmark:
 		touch("{subdir}/benchmarking/benchmark_au_test_model_fit_{seq_id}.txt"),
@@ -405,75 +406,75 @@ rule plot_au_test_classifier:
 
 rule write_pruned_and_inferred_sitelh_files:
    input:
-       reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
-       trees="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.nwk",
-       full_model="{subdir}/iqtree-model.txt",
+	   reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
+	   trees="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.nwk",
+	   full_model="{subdir}/iqtree-model.txt",
    output:
 	   touch("{subdir}/reduced_alignments/{seq_id}/write_inferred_sitelh.done"),
    benchmark:
-       touch("{subdir}/benchmarking/benchmark_write_pruned_and_inferred_sitelh_files{seq_id}.txt"),
+	   touch("{subdir}/benchmarking/benchmark_write_pruned_and_inferred_sitelh_files{seq_id}.txt"),
    shell:
-       """
-       iqtree -s {input.reduced_msa} -z $(head -1 {input.trees}) --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_pruned_ -m $(cat {input.full_model}) -n 0 -wsl
-       iqtree -s {input.reduced_msa} -z $(tail -1 {input.trees}) --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_inferred_ -m $(cat {input.full_model}) -n 0 -wsl
-       """
+	   """
+	   iqtree -s {input.reduced_msa} -z $(head -1 {input.trees}) --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_pruned_ -m $(cat {input.full_model}) -n 0 -wsl
+	   iqtree -s {input.reduced_msa} -z $(tail -1 {input.trees}) --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_inferred_ -m $(cat {input.full_model}) -n 0 -wsl
+	   """
 
 # combine sitelh files of pruned and inferred tree to one file for CONSEL
 rule combine_sitelh_files:
    input:
-       full_tree_sitelh="{subdir}/reduced_alignments/{seq_id}/consel_pruned_reduced_alignment.sitelh",
-       inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/consel_inferred_reduced_alignment.sitelh",
+	   full_tree_sitelh="{subdir}/reduced_alignments/{seq_id}/consel_pruned_reduced_alignment.sitelh",
+	   inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/consel_inferred_reduced_alignment.sitelh",
    output:
-       both_trees_txtfile="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.txt"
+	   both_trees_txtfile="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.txt"
    params:
-       seq_id=lambda wildcards: wildcards.seq_id
+	   seq_id=lambda wildcards: wildcards.seq_id
    benchmark:
-       touch("{subdir}/benchmarking/benchmark_combine_sitelh_files{seq_id}.txt")
+	   touch("{subdir}/benchmarking/benchmark_combine_sitelh_files{seq_id}.txt")
    script:
-       "scripts/combine_sitelh_files.py"
+	   "scripts/combine_sitelh_files.py"
 
 
 # run CONSEL to test model fit of full tree to reattached trees
 rule consel_comparison:
    input:
-       paup_file="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.txt"
+	   paup_file="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.txt"
    output:
-       touch("{subdir}/reduced_alignments/{seq_id}/consel_test_model_fit.done"),
+	   touch("{subdir}/reduced_alignments/{seq_id}/consel_test_model_fit.done"),
    benchmark:
-       touch("{subdir}/benchmarking/benchmark_consel_comparison{seq_id}.txt"),
+	   touch("{subdir}/benchmarking/benchmark_consel_comparison{seq_id}.txt"),
    shell:
-       """
-       {path_to_consel}/makermt --paup {input.paup_file}
-       {path_to_consel}/consel {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/pruned_and_inferred_tree
-       rm {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/pruned_and_inferred_tree.rmt
-       """
+	   """
+	   {path_to_consel}/makermt --paup {input.paup_file}
+	   {path_to_consel}/consel {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/pruned_and_inferred_tree
+	   rm {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/pruned_and_inferred_tree.rmt
+	   """
 
 
 # run pypythia to calculate difficulty on all MSAs
 rule calculate_msa_difficulty:
-   input:
-        alignment_name="{subdir}/" + input_alignment
-   output:
-        output_file="{subdir}/pythia_difficulty.txt"
-   benchmark:
-       touch("{subdir}/benchmarking/benchmark_calculate_msa_difficulty.txt")
-   shell:
-       """
-       pythia -m {input.alignment_name} -r {path_to_raxml} -o {output.output_file}
-       """
+	input:
+		alignment_name="{subdir}/"+input_alignment
+	output:
+		output_file="{subdir}/pythia_difficulty.txt"
+	benchmark:
+		touch("{subdir}/benchmarking/benchmark_calculate_msa_difficulty.txt")
+	shell:
+		"""
+		pythia -m {input.alignment_name} -r {path_to_raxml} -o {output.output_file}
+		"""
 
 
 rule plot_msa_difficulty:
-   input:
-        alignment_name=expand("{subdir}/pythia_difficulty.txt", subdir=get_subdirs(data_folder))
-   output:
-        plot=data_folder+plots_folder+"pythia_difficulty.pdf"
-   benchmark:
-       touch("benchmarking/benchmark_plot_msa_difficulty.txt")
-   shell:
-       """
-       python scripts/plot_difficulties.py {data_folder} {output.plot} {data_folder}/pythia_difficulties.csv
-       """
+	input:
+		alignment_name=expand("{subdir}/pythia_difficulty.txt", subdir=get_subdirs(data_folder))
+	output:
+		plot=data_folder+plots_folder+"pythia_difficulty.pdf"
+	benchmark:
+		touch("benchmarking/benchmark_plot_msa_difficulty.txt")
+	shell:
+		"""
+		python scripts/plot_difficulties.py {data_folder} {output.plot} {data_folder}/pythia_difficulties.csv
+		"""
 
 
 # create single file for each dataset with timing breakdowns for the rules
