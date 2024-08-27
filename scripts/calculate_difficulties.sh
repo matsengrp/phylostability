@@ -8,14 +8,16 @@ excluded_dirs="benchmarking normalised_tii plots rf_radius"
 for dir in $data_dir/*/; do
   latest_dir="${dir%/}"
   latest_dir="${latest_dir##*/}"
-  echo "$latest_dir: $listfound"
   listfound=$(echo $excluded_dirs | grep -w -q $latest_dir)
   if [ "$listfound" == "" ]; then
     if [ -f $dir/$alignment_name ]; then
+      echo "Alignment:"
+      echo $dir/$alignment_name
       if ! [ -f $dir/pythia_difficulty.txt ]; then
         echo "$(date): $dir"
         pythia -m $dir/$alignment_name -r $which_raxml -o $dir/pythia_difficulty.txt
       fi
     fi
   fi
+  touch $data_dir/"run_pythia.done"
 done

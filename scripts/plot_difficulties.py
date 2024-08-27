@@ -33,7 +33,7 @@ bin_width = 0.02
 
 # Calculate bin edges, offset to center bins around integers
 min_bin = min(msa_difficulty) - (min(msa_difficulty) % bin_width) - (bin_width / 2)
-max_bin = max(msa_difficulty) + (bin_width - (max(msa_difficulty) % bin_width)) + (bin_width / 2)
+max_bin = max(msa_difficulty) + (bin_width - (max(msa_difficulty) % bin_width)) + (bin_width / 2) + 0.02
 bins = np.arange(min_bin, max_bin, bin_width)
 
 plt.figure()

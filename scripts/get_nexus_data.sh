@@ -16,7 +16,7 @@ shopt -s nocasematch
 # Loop through Nexus files
 for dir in "${directories[@]}"; do
     if [[ $dir =~ plots || $dir == selected_data || $dir == benchmarking ]]; then
-        echo "Skippind directory $dir"
+        echo "Skipping directory $dir"
         continue
     fi
     echo "Processing directory $dir"
