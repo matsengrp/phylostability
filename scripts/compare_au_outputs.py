@@ -19,7 +19,11 @@ full_pv_df["consel-p-AU"] = -1.0
 
 def read_pv_from_file(fn, col_to_read=3):
     with open(fn, "r") as f: 
-        return f.readlines()[3].split()[col_to_read].strip()
+        lines = f.readlines()
+        if lines[3].split()[1].strip() == "1":
+            return lines[3].split()[col_to_read].strip()
+        else:
+            return lines[4].split()[col_to_read].strip()
 
 for subdir in subdirs:
     ds_name = subdir.split("/")[-2]
