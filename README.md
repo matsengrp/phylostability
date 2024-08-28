@@ -24,13 +24,14 @@ cd consel/src; make; make install; make clean; cd ..
 -->
 The line defining `path_to_consel` in the file `config.yaml` should be updated to reflect the local build of CONSEL
 
-The [PyPythia utility](https://github.com/tschuelia/PyPythia) can be installed using conda. 
 It also requires a local build of [raxml-ng](https://github.com/amkozlov/raxml-ng), which is extensively documented. 
 <!-- To obtain on linux/unix:
 conda install -c conda-forge pypythia
 wget https://github.com/amkozlov/raxml-ng/releases/download/1.2.2/raxml-ng_v1.2.2_linux_x86_64.zip
 unzip raxml-ng_v1.2.2_linux_x86_64.zip
->
+
+update: pypythia is not included in environment.yml
+-->
 The line defining `path_to_raxml` in the file `config.yaml` should be updated to reflect the local build of RAxML
 
 ## Running the pipeline

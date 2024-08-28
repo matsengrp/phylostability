@@ -12,3 +12,4 @@ dependencies:
   - epa-ng
   - scikit-learn
   - optuna
+  - pypythia=1.1.4
