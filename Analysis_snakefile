@@ -372,7 +372,7 @@ rule analyse_au_test:
 # random forest classification for significant instability
 rule au_test_classifier:
 	input:
-		"analyse_au_test.done",
+		"all_consel_test_done.done",
 		combined_statistics=data_folder+"rf_regression_combined_statistics.csv",
 	params:
 		column_to_predict = "significant_unstable",
@@ -448,6 +448,40 @@ rule consel_comparison:
 	   {path_to_consel}/consel {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/pruned_and_inferred_tree
 	   rm {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/pruned_and_inferred_tree.rmt
 	   """
+
+# auxiliary function to check that all AU-tests are done
+def aggregate_all_consel_done(wildcards):
+	all_done = []
+	for subdir in subdirs:
+		fasta_files = glob.glob(os.path.join(subdir, "*.fasta"))
+		fasta_files = [os.readlink(file) if os.path.islink(file) else file for file in fasta_files]
+		seq_ids = get_seq_ids(fasta_files[0], "fasta")
+		for seq_id in seq_ids:
+			all_done.append(subdir+"/reduced_alignments/"+seq_id+"/consel_test_model_fit.done")
+	return all_done
+
+
+# rule that detects if all au test are done to then run rule analyse_au_test
+rule all_consel_test_done_subset:
+	input:
+		aggregate_all_consel_done
+	output:
+		touch("all_consel_test_done.done")
+
+
+# aggregate output of AU test and transform it to csv for classifier and plotting
+rule add_consel_to_au:
+	input:
+		"all_consel_test_done.done",
+		au_test_results=data_folder+"au_test_result.csv",
+	output:
+		temp(touch("all_consel_test_done.done")),
+	benchmark:
+		touch(data_folder + "benchmarking/benchmark_add_consel_to_au.txt")
+	params:
+		subdirs=subdirs
+	script:
+		"scripts/compare_au_outputs.py {data_folder} {input.au_test_results} {path_to_consel}"
 
 
 # run pypythia to calculate difficulty on all MSAs
