@@ -10,7 +10,8 @@ the_dir = sys.argv[1]
 full_pv_file = sys.argv[2] # e.g. au_test_result.csv
 path_to_consel = sys.argv[3] # e.g. consel/bin/
 
-subdirs = [x for x in glob.glob(the_dir+"/*/") if os.path.isfile(x + "full_alignment.fasta.consel.sitelh")]
+subdirs = [x for x in glob.glob(the_dir+"/*/") if os.path.isfile(x + "full_alignment.fasta")]
+
 if os.path.isfile(full_pv_file.split(".csv")[0]+"_with_consel_pv.csv"):
     full_pv_df = pd.read_csv(full_pv_file.split(".csv")[0] + "_with_consel_pv.csv", index_col=0)
 else:
@@ -27,12 +28,12 @@ def read_pv_from_file(fn, col_to_read=3):
 
 for subdir in subdirs:
     ds_name = subdir.split("/")[-2]
-    for taxon_path in glob.glob(subdir+"/reduced_alignments/*/"):
+    for taxon_path in glob.glob(subdir+"reduced_alignments/*/"):
         taxon_name = taxon_path.split("/")[-2]
-        if os.path.isfile(taxon_path + "consel.pv"):
+        consel_output = taxon_path + "pruned_and_inferred_tree.pv"
+        if os.path.isfile(consel_output):
             if not (os.path.isfile(taxon_path + "consel_pv_output")):
-                consel_output = taxon_path + "consel.pv"
-                os.system(path_to_consel + "catpv " \
+                os.system(path_to_consel + "/catpv " \
                           + consel_output \
                           + " | sed -r 's/#|//g' > " + taxon_path + "consel_pv_output")
 
