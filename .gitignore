@@ -179,6 +179,7 @@ cython_debug/
 **.done
 *.phy
 *.trees
+*.sitelh
 
 # epa-ng
 *.jplace
