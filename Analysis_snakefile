@@ -373,6 +373,7 @@ rule analyse_au_test:
 rule au_test_classifier:
 	input:
 		"all_consel_test_done.done",
+		data_folder+"au_test_result_with_consel_pv.csv",
 		combined_statistics=data_folder+"rf_regression_combined_statistics.csv",
 	params:
 		column_to_predict = "significant_unstable",
@@ -397,27 +398,55 @@ rule au_test_classifier:
 rule plot_au_test_classifier:
 	input:
 		data_folder+"au_test_classifier.done",
-		all_au_test_results=data_folder+"au_test_result.csv",
+		all_au_test_results=data_folder+"au_test_result_with_consel_pv.csv",
 	output:
 		touch("plot_au_test_classifier.done"),
 		pie_plot_file=data_folder+plots_folder+"au_pie_chart.pdf",
 	script:
 		"scripts/plot_au_test_classifier.py"
 
-rule write_pruned_and_inferred_sitelh_files:
+
+rule write_pruned_tree:
+	input:
+		trees="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.nwk",
+	output:
+		pruned_tree="{subdir}/reduced_alignments/{seq_id}/pruned_tree.nwk"
+	shell:
+		"""
+		echo $(head -1 {input.trees}) > {output.pruned_tree}
+		"""
+
+
+rule write_pruned_sitelh_files:
    input:
 	   reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
-	   trees="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.nwk",
+	   pruned_tree="{subdir}/reduced_alignments/{seq_id}/pruned_tree.nwk",
 	   full_model="{subdir}/iqtree-model.txt",
    output:
-	   touch("{subdir}/reduced_alignments/{seq_id}/write_inferred_sitelh.done"),
+	   touch("{subdir}/reduced_alignments/{seq_id}/write_pruned_sitelh.done"),
+	   full_tree_sitelh="{subdir}/reduced_alignments/{seq_id}/consel_pruned_reduced_alignment.sitelh",
    benchmark:
-	   touch("{subdir}/benchmarking/benchmark_write_pruned_and_inferred_sitelh_files{seq_id}.txt"),
+	   touch("{subdir}/benchmarking/benchmark_write_pruned_sitelh_files{seq_id}.txt"),
    shell:
 	   """
-	   iqtree -s {input.reduced_msa} -z $(head -1 {input.trees}) --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_pruned_ -m $(cat {input.full_model}) -n 0 -wsl
-	   iqtree -s {input.reduced_msa} -z $(tail -1 {input.trees}) --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_inferred_ -m $(cat {input.full_model}) -n 0 -wsl
+	   iqtree -s {input.reduced_msa} -z {input.pruned_tree} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_pruned_reduced_alignment -m $(cat {input.full_model}) -n 0 -wsl
 	   """
+
+
+rule write_inferred_sitelh_files:
+	input:
+		reduced_msa="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta",
+		inferred_tree="{subdir}/reduced_alignments/{seq_id}/reduced_alignment.fasta.treefile",
+		full_model="{subdir}/iqtree-model.txt",
+	output:
+		touch("{subdir}/reduced_alignments/{seq_id}/write_inferred_sitelh.done"),
+		inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/consel_inferred_reduced_alignment.sitelh",
+	benchmark:
+		touch("{subdir}/benchmarking/benchmark_write_inferred_sitelh_files{seq_id}.txt"),
+	shell:
+		"""
+		iqtree -s {input.reduced_msa} -z {input.inferred_tree} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_inferred_reduced_alignment -m $(cat {input.full_model}) -n 0 -wsl
+		"""
 
 # combine sitelh files of pruned and inferred tree to one file for CONSEL
 rule combine_sitelh_files:
@@ -475,13 +504,15 @@ rule add_consel_to_au:
 		"all_consel_test_done.done",
 		au_test_results=data_folder+"au_test_result.csv",
 	output:
-		temp(touch("all_consel_test_done.done")),
+		data_folder+"au_test_result_with_consel_pv.csv",
 	benchmark:
 		touch(data_folder + "benchmarking/benchmark_add_consel_to_au.txt")
 	params:
-		subdirs=subdirs
-	script:
-		"scripts/compare_au_outputs.py {data_folder} {input.au_test_results} {path_to_consel}"
+		data_folder=data_folder
+	shell:
+		"""
+		python scripts/compare_au_outputs.py {params.data_folder} {input.au_test_results} {path_to_consel}
+		"""
 
 
 # run pypythia to calculate difficulty on all MSAs
