@@ -16,6 +16,23 @@ This directory should contain subdirectories which themselves contain alignments
 Python packages that are required for running this pipeline can be found in `environment.yml`.
 A conda environment called *phylostability* for our analysis can be installed using `conda env create -f environment.yml`.
 
+The non-python utility [CONSEL](http://stat.sys.i.kyoto-u.ac.jp/prog/consel/) can be downloaded and installed separately using the instructions included on the homepage.
+<!-- To obtain on linux/unix:
+wget http://stat.sys.i.kyoto-u.ac.jp/prog/consel/pub/cnsls020.tgz 
+tar -xvf cnsls020.tgz
+cd consel/src; make; make install; make clean; cd ..
+-->
+The line defining `path_to_consel` in the file `config.yaml` should be updated to reflect the local build of CONSEL
+
+It also requires a local build of [raxml-ng](https://github.com/amkozlov/raxml-ng), which is extensively documented. 
+<!-- To obtain on linux/unix:
+conda install -c conda-forge pypythia
+wget https://github.com/amkozlov/raxml-ng/releases/download/1.2.2/raxml-ng_v1.2.2_linux_x86_64.zip
+unzip raxml-ng_v1.2.2_linux_x86_64.zip
+
+update: pypythia is not included in environment.yml
+-->
+The line defining `path_to_raxml` in the file `config.yaml` should be updated to reflect the local build of RAxML
 
 ## Running the pipeline
 

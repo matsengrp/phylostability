@@ -179,6 +179,16 @@ cython_debug/
 **.done
 *.phy
 *.trees
+*.sitelh
+*.ci
+*.pv
+*.rmt
+*.vt
+*.json
+*consel_pv_output
 
 # epa-ng
 *.jplace
+
+# consel
+consel/*

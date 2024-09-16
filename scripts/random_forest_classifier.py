@@ -11,6 +11,7 @@ def random_forest_classification(
     import pandas as pd
     import numpy as np
     import json
+    import os
     from sklearn.model_selection import train_test_split, RandomizedSearchCV
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.impute import SimpleImputer
@@ -25,12 +26,15 @@ def random_forest_classification(
         "rf_radius",
         "change_to_low_bootstrap_dist",
         "tii",
-        "bootstrap_mean",
-        "bootstrap_std",
+        # "bootstrap_mean",
+        # "bootstrap_std",
+        # "difficulty",
         "num_leaves",
     ]
 
-    def train_random_forest_classifier(df, column_name):
+    def train_random_forest_classifier(
+        df, column_name, parameter_file, classifier_metrics_csv, model_features_csv
+    ):
         X = df.drop(cols_to_drop, axis=1)
         y = df[column_name]
         X = X.drop([column_name], axis=1)
@@ -96,9 +100,16 @@ def random_forest_classification(
             f1 = f1_score(y_val, y_pred)
             return f1
 
-        study = optuna.create_study(direction="maximize")
-        study.optimize(objective, n_trials=200)
-        best_params = study.best_params
+        if os.path.exists(parameter_file):
+            # load best hparams, if file exists already
+            with open(parameter_file, "r") as f:
+                best_params = json.load(f)
+            print("Loaded best parameters:", best_params)
+        else:
+            study = optuna.create_study(direction="maximize")
+            study.optimize(objective, n_trials=200)
+            best_params = study.best_params
+
         with open(parameter_file, "w") as f:
             json.dump(best_params, f, indent=4)
 
@@ -259,36 +270,48 @@ def random_forest_classification(
             """
             Add results from au_test in given file au_test_results to df containing all summary statistics
             """
-            au_df_subset = au_df[["seq_id", "dataset", "p-AU"]]
+            au_df_subset = au_df[["seq_id", "dataset", "consel-p-AU"]]
             df["seq_id"] = df["seq_id"].str.replace(r"\s+\d+$", "", regex=True)
             merged_df = pd.merge(df, au_df_subset, on=["seq_id", "dataset"], how="left")
             if only_au:
-                merged_df["p-AU_binary"] = merged_df["p-AU"].apply(
+                merged_df["consel-p-AU_binary"] = merged_df["consel-p-AU"].apply(
                     lambda x: 1 if float(x) < 0.05 else 0
                 )
             else:
                 merged_df["significant_unstable"] = np.where(
-                    (merged_df["p-AU"] < 0.05) & (merged_df["tii"] != 0), 1, 0
+                    (merged_df["consel-p-AU"] < 0.05) & (merged_df["tii"] != 0), 1, 0
                 )
-            merged_df.drop("p-AU", axis=1, inplace=True)
+            merged_df.drop("consel-p-AU", axis=1, inplace=True)
             df = merged_df
             return df
 
         only_au = False
-        au_test_results = data_folder + "au_test_result.csv"
+        au_test_results = data_folder + "au_test_result_with_consel_pv.csv"
         au_df = pd.read_csv(au_test_results)
         df = add_au_test_result(df, au_df, only_au)
         df.to_csv(data_folder + "au_test_combined_statistics.csv")
         if only_au:
-            model_result = train_random_forest_classifier(df, column_name="p-AU_binary")
+            model_result = train_random_forest_classifier(
+                df,
+                "consel-p-AU_binary",
+                parameter_file,
+                classifier_metrics_csv,
+                model_features_csv,
+            )
         else:
             model_result = train_random_forest_classifier(
-                df, column_name="significant_unstable"
+                df,
+                "significant_unstable",
+                parameter_file,
+                classifier_metrics_csv,
+                model_features_csv,
             )
     else:  # classifying stability (TII=0 vs !=0)
         df[column_name + "_binary"] = [1 if x > 0 else 0 for x in df[column_name]]
         column_name = column_name + "_binary"
-        model_result = train_random_forest_classifier(df, column_name)
+        model_result = train_random_forest_classifier(
+            df, column_name, parameter_file, classifier_metrics_csv, model_features_csv
+        )
 
     if not isinstance(model_result, pd.DataFrame):
         with open(output_csv, "w") as f:

@@ -3,6 +3,8 @@ import os
 data_folder = config["data_folder"]
 num_samples= config["num_samples"]
 
+if not os.path.exists(data_folder+"/selected_data/"):
+    os.makedirs(data_folder+"/selected_data/")
 
 rule all:
     input:

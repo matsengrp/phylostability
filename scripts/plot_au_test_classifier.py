@@ -35,8 +35,8 @@ def plot_au_test_pie_chart(df, plot_filepath):
 
     # Pie Chart
     condition1 = ((df["normalised_tii"] == 0.0).sum())
-    condition2 = ((df["normalised_tii"] > 0.0) & (df["p-AU"] < 0.05)).sum()
-    condition3 = ((df["normalised_tii"] > 0.0) & (df["p-AU"] >= 0.05)).sum()
+    condition2 = ((df["normalised_tii"] > 0.0) & (df["consel-p-AU"] < 0.05)).sum()
+    condition3 = ((df["normalised_tii"] > 0.0) & (df["consel-p-AU"] >= 0.05)).sum()
 
     # Data to plot
     sizes = [condition1, condition2, condition3]
