@@ -9,8 +9,9 @@ import matplotlib as mpl
 import pandas as pd
 import os
 import math
+import numpy as np
 from sklearn.metrics import auc
-from matplotlib.colors import SymLogNorm
+from matplotlib import colors
 
 
 # Font sizes for figures
@@ -80,14 +81,40 @@ def plot_random_forest_regression_results(
     plt.savefig(plot_filepath)
     plt.clf()
 
-    # plt.figure(figsize=(6, 6))
-    hb = plt.hexbin(df_sorted['actual'], df_sorted['predicted'], gridsize=50, cmap='Grays', norm=SymLogNorm(linthresh=0.1, linscale=1.0))
-    # plt.colorbar()
-    plt.xlabel('Actual')
-    plt.ylabel('Predicted')
+    class CustomNormalize(colors.Normalize):
+        def __init__(self, vmin=None, vmax=None, clip=False):
+            super().__init__(vmin, vmax, clip)
 
-    cb = plt.colorbar(hb)  # Display a color bar to interpret the log scale
-    cb.set_label('Counts (log$_{10}$ scale)')  # Label the color bar to indicate log scale
+        def __call__(self, value, clip=None):
+            # Map values to normalized range [0, 1]
+            return np.ma.masked_array(
+                np.interp(value, [0, 1, 10, 100, 1000], [0, 0.25, 0.5, 0.75, 1]),
+                mask=np.isnan(value),
+            )
+
+        def inverse(self, value):
+            # Map back from normalized range [0, 1] to original values
+            return np.interp(value, [0, 0.25, 0.5, 0.75, 1], [0, 1, 10, 100, 1000])
+
+    # Retrieve the counts from the hexbin plot
+    counts = hb.get_array()
+
+    # Create the hexbin plot with custom normalization
+    plt.clf()
+    hb = plt.hexbin(
+        df_sorted['actual'],
+        df_sorted['predicted'],
+        gridsize=50,
+        cmap='Greys',
+        norm=CustomNormalize(vmin=0, vmax=1000)
+    )
+
+    # Add a colorbar
+    cbar = plt.colorbar(hb, label='Counts (log$_{10}$ scale)')
+
+    # Set custom ticks for the colorbar
+    cbar.set_ticks([0, 1, 10, 100])  # Include max count
+    cbar.set_ticklabels(['0', '1', '10', '100'])
 
     plt.title("")
     plt.xlabel("Actual")
