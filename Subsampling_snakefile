@@ -2,6 +2,7 @@ import os
 
 data_folder = config["data_folder"]
 num_samples= config["num_samples"]
+file_extension = config["file_extension"]
 
 if not os.path.exists(data_folder+"/selected_data/"):
     os.makedirs(data_folder+"/selected_data/")
@@ -21,9 +22,10 @@ rule get_nexus_data:
         touch(data_folder+"/get_nexus_data.done"),
         data_folder+"/nexus_data.csv"
     params:
-        data=data_folder
+        data=data_folder,
+        ext=file_extension
     shell:
-        "./scripts/get_nexus_data.sh  {params.data}"
+        "./scripts/get_nexus_data.sh  {params.data} {params.ext}"
 
 
 rule select_datasets:
@@ -34,6 +36,7 @@ rule select_datasets:
         selected_datasets_csv=data_folder+"/selected_datasets.csv",
         num_samples=num_samples,
         data=data_folder,
+        ext=file_extension
     output:
         temp(touch(data_folder+"/select_datasets.done")),
     script:

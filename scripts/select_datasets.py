@@ -5,12 +5,15 @@ from Bio.Nexus import Nexus
 
 data_csv = snakemake.input.data_csv
 data_folder = snakemake.params.data
+file_extension = snakemake.params.ext
 selected_file = snakemake.params.selected_datasets_csv
 N = snakemake.params.num_samples
 
 
 # Function to check if Nexus file has alignment
 def has_alignment(nexus_file):
+    if file_extension == "fasta":
+        return True
     try:
         nexus = Nexus.Nexus(nexus_file)
         return bool(nexus.matrix)
@@ -74,7 +77,9 @@ os.makedirs(os.path.join(data_folder, selected_data_dir), exist_ok=True)
 for index, row in selected_datasets.iterrows():
     original_file_path = os.path.join(data_folder, row["file"])
     filename = "_".join(row["file"].split("/"))
-    this_row_dir = os.path.join(data_folder, selected_data_dir, filename[:-4])
+    if "fa" in file_extension:
+        filename=row["file"].split("/")[0] + ".fasta"
+    this_row_dir = os.path.join(data_folder, selected_data_dir, filename[:-(len(file_extension) + 1)])
     os.makedirs(this_row_dir, exist_ok=True)
     symlink_path = os.path.join(this_row_dir, os.path.basename(row["file"]))
 
