@@ -18,13 +18,14 @@ else:
     full_pv_df = pd.read_csv(full_pv_file, index_col=0)
 full_pv_df["consel-p-AU"] = -1.0
 
-def read_pv_from_file(fn, col_to_read=3):
+def read_pv_from_file(fn, cols_to_read=[3,9]):
+    # col 3 is AU-test, 9 is SH-test
     with open(fn, "r") as f: 
         lines = f.readlines()
         if lines[3].split()[1].strip() == "1":
-            return lines[3].split()[col_to_read].strip()
+            return [lines[3].split()[i].strip() for i in cols_to_read]
         else:
-            return lines[4].split()[col_to_read].strip()
+            return [lines[4].split()[i].strip() for i in cols_to_read]
 
 for subdir in subdirs:
     ds_name = subdir.split("/")[-2]
@@ -37,8 +38,9 @@ for subdir in subdirs:
                           + consel_output \
                           + " | sed -r 's/#|//g' > " + taxon_path + "consel_pv_output")
 
-            pv_output = float(read_pv_from_file(taxon_path+"consel_pv_output"))
-            full_pv_df.loc[(full_pv_df["dataset"] == ds_name) & (full_pv_df["seq_id"] == taxon_name), "consel-p-AU"] = pv_output
+            pv_outputs = read_pv_from_file(taxon_path+"consel_pv_output")
+            full_pv_df.loc[(full_pv_df["dataset"] == ds_name) & (full_pv_df["seq_id"] == taxon_name), "consel-p-AU"] = float(pv_outputs[0])
+            full_pv_df.loc[(full_pv_df["dataset"] == ds_name) & (full_pv_df["seq_id"] == taxon_name), "consel-p-SH"] = float(pv_outputs[1])
         else:
             print("Error: " + ds_name + "/" + taxon_name)
 
