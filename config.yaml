@@ -1,5 +1,7 @@
-data_folder: "harrington_data"
+data_folder: "adaptive-evolution"
+file_extension: "fasta"
 num_samples: 4
 num_cores: 10
+stability_measure : "normalised_tii"
 path_to_consel : "consel/bin"
-path_to_raxml: "raxml-ng/raxml-ng"
+path_to_raxml : "./raxml-ng"
