@@ -26,6 +26,11 @@ def get_subdirs(data_folder):
 		and "unbalanced_no_non_taxon" not in f.path
 	]
 
+if not os.path.exists(data_folder):
+    os.mkdir(data_folder)
+
+if not os.path.exists(data_folder + "plots/"):
+    os.mkdir(data_folder + "plots/")
 
 subdirs = get_subdirs(data_folder)
 for subdir in subdirs:
@@ -513,6 +518,15 @@ rule add_consel_to_au:
 		"""
 		python scripts/compare_au_outputs.py {params.data_folder} {input.au_test_results} {path_to_consel}
 		"""
+
+# deduplicate sequences for pythia calculation
+rule deduplicate_alignment:
+    input:
+        alignment_name="{subdir}/" + input_alignment
+    output:
+        output_file="{subdir}/" + input_alignment + "_dedup"
+    script:
+        "scripts/deduplicate_fasta.py"
 
 
 # run pypythia to calculate difficulty on all MSAs
