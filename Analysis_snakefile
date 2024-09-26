@@ -520,20 +520,11 @@ rule add_consel_to_au:
 		python scripts/compare_au_outputs.py {params.data_folder} {input.au_test_results} {path_to_consel}
 		"""
 
-# deduplicate sequences for pythia calculation
-rule deduplicate_alignment:
-	input:
-		alignment_name="{subdir}/"+input_alignment
-	output:
-		output_file="{subdir}/"+input_alignment+"_dedup"
-	script:
-		"scripts/deduplicate_fasta.py"
-
 
 # run pypythia to calculate difficulty on all MSAs
 rule calculate_msa_difficulty:
 	input:
-		alignment_name="{subdir}/"+input_alignment+"_dedup"
+		alignment_name="{subdir}/"+input_alignment
 	output:
 		output_file="{subdir}/pythia_difficulty.txt"
 	benchmark:
