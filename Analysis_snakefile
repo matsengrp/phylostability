@@ -112,8 +112,7 @@ rule run_iqtree_on_full_dataset:
 	output:
 		temp(touch("{subdir}/run_iqtree_on_full_dataset.done")),
 		tree="{subdir}/"+input_alignment+".treefile",
-		mldist="{subdir}/"+input_alignment+".mldist",
-		sitelh="{subdir}/"+input_alignment+".sitelh"
+		mldist="{subdir}/"+input_alignment+".mldist"
 	benchmark:
 		touch("{subdir}/benchmarking/benchmark_run_iqtree_on_full_dataset.txt")
 	shell:
