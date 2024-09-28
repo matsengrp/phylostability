@@ -118,7 +118,7 @@ rule run_iqtree_on_full_dataset:
 		touch("{subdir}/benchmarking/benchmark_run_iqtree_on_full_dataset.txt")
 	shell:
 		"""
-		iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {input.msa} -bb 1000 -redo -wsl
+		iqtree -s {input.msa} -m $(cat {input.full_model}) --prefix {input.msa} -bb 1000 -redo
 		"""
 
 
@@ -167,6 +167,7 @@ rule epa_reattachment:
 		without_taxon_msa="{subdir}/reduced_alignments/{seq_id}/without_taxon.fasta",
 	output:
 		epa_result="{subdir}/reduced_alignments/{seq_id}/epa_result.jplace",
+		done=temp(touch("{subdir}/reduced_alignments/{seq_id}/epa_reattachment.done"))
 	benchmark:
 		touch("{subdir}/benchmarking/benchmark_epa_reattachment_{seq_id}.txt")
 	params:
@@ -181,6 +182,8 @@ rule epa_reattachment:
 # convert epa-ng output to actual trees
 rule write_reattached_trees:
 	input:
+		rules.run_iqtree_restricted_alignments.output.done,
+		rules.epa_reattachment.output.done,
 		epa_result="{subdir}/reduced_alignments/{seq_id}/epa_result.jplace",
 		restricted_trees="{subdir}/reduced_alignments/{seq_id}/without_taxon.fasta.treefile",
 	output:
@@ -428,37 +431,23 @@ rule write_pruned_sitelh_files:
 	        pruned_tree="{subdir}/reduced_alignments/{seq_id}/pruned_tree.nwk",
 	        full_model="{subdir}/iqtree-model.txt",
 	output:
-	        touch("{subdir}/reduced_alignments/{seq_id}/write_pruned_sitelh.done"),
+	        done=touch("{subdir}/reduced_alignments/{seq_id}/write_pruned_sitelh.done"),
 	        full_tree_sitelh="{subdir}/reduced_alignments/{seq_id}/consel_pruned_reduced_alignment.sitelh",
 	benchmark:
 	        touch("{subdir}/benchmarking/benchmark_write_pruned_sitelh_files{seq_id}.txt"),
 	shell:
 	        """
-	        iqtree -s {input.reduced_msa} -z {input.pruned_tree} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_pruned_reduced_alignment -m $(cat {input.full_model}) -n 0 -wsl
+	        iqtree -s {input.reduced_msa} -z {input.pruned_tree} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_pruned_reduced_alignment -m $(cat {input.full_model}) -n 0 -wsl -redo
 	        """
 
-
-rule write_inferred_sitelh_files:
-	input:
-		rules.run_iqtree_restricted_alignments.output.done,
-		reduced_msa="{subdir}/reduced_alignments/{seq_id}/without_taxon.fasta",
-		inferred_tree="{subdir}/reduced_alignments/{seq_id}/without_taxon.fasta.treefile",
-		full_model="{subdir}/iqtree-model.txt",
-	output:
-		touch("{subdir}/reduced_alignments/{seq_id}/write_inferred_sitelh.done"),
-		inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/consel_inferred_reduced_alignment.sitelh",
-	benchmark:
-		touch("{subdir}/benchmarking/benchmark_write_inferred_sitelh_files{seq_id}.txt"),
-	shell:
-		"""
-		iqtree -s {input.reduced_msa} -z {input.inferred_tree} --prefix {wildcards.subdir}/reduced_alignments/{wildcards.seq_id}/consel_inferred_reduced_alignment -m $(cat {input.full_model}) -n 0 -wsl
-		"""
 
 # combine sitelh files of pruned and inferred tree to one file for CONSEL
 rule combine_sitelh_files:
 	input:
+		rules.run_iqtree_restricted_alignments.output.done,
+		rules.write_pruned_sitelh_files.output.done,
 	        full_tree_sitelh="{subdir}/reduced_alignments/{seq_id}/consel_pruned_reduced_alignment.sitelh",
-		inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/consel_inferred_reduced_alignment.sitelh",
+		inferred_trees_sitelh="{subdir}/reduced_alignments/{seq_id}/without_taxon.fasta.sitelh",
 	output:
 	        both_trees_txtfile="{subdir}/reduced_alignments/{seq_id}/pruned_and_inferred_tree.txt"
 	params:

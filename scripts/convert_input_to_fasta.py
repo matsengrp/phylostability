@@ -74,6 +74,9 @@ for subdir in [
                 continue
             SeqIO.convert(nexus_file, "nexus", msa_file, "fasta")
 
+    # replace forward slashes in fasta
+    os.system("sed -i 's/\//_/g' " + msa_file)
+
     # If sequences are labelled by integers, we update those labels to s_1, s_2, ...
     # to make sure that we don't get problems with reading trees with bootstrap support
     # or internal node names later.
@@ -106,6 +109,10 @@ for subdir in [
         if is_integer(record.id):
             record.id = f"s_{i + 1}"
             record.description = f"s_{i + 1}"
+        # insure all records are unique
+        simplified_record_id = "_".join(str(record.id).split("/")) + "_" + str(i)
+        record.id = simplified_record_id
+        record.desription = simplified_record_id
 
         # Add unique sequences to new list
         if str(record.seq) not in seen_sequences:
