@@ -101,6 +101,7 @@ for subdir in [
         record.seq = Seq(str(record.seq).replace("N", "-"))
 
     # Store unique sequences
+    seen_ids = set()
     seen_sequences = set()
     unique_records = []
 
@@ -109,14 +110,10 @@ for subdir in [
         if is_integer(record.id):
             record.id = f"s_{i + 1}"
             record.description = f"s_{i + 1}"
-        # insure all records are unique
-        simplified_record_id = "_".join(str(record.id).split("/")) + "_" + str(i)
-        record.id = simplified_record_id
-        record.desription = simplified_record_id
-
         # Add unique sequences to new list
-        if str(record.seq) not in seen_sequences:
+        if (str(record.seq) not in seen_sequences) and (str(record.id) not in seen_ids):
             seen_sequences.add(str(record.seq))
+            seen_ids.add(str(record.id))
             unique_records.append(record)
 
     # Write the modified records to a new FASTA file

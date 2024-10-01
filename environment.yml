@@ -1,6 +1,7 @@
 name: phylostability
 channels:
-  - defaults
+  - conda-forge
+  - bioconda
 dependencies:
   - snakemake
   - iqtree
@@ -13,3 +14,4 @@ dependencies:
   - scikit-learn
   - optuna
   - pypythia=1.1.4
+  - pandas
