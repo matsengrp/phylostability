@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# This script converts the newick/fasta combination from the script 'generate-usher-trees.sh' into a DAG protobuf file. It is needed because the protobuf tree that usher generates is often condensed, and so its leafset does not match the leafsets of the iqtree outputs.
+# This script converts the newick/fasta combination from the script 'generate-usher-trees.sh' into a DAG protobuf file. 
+# It is needed because the protobuf tree that usher generates is often condensed, and so its leafset does not match the leafsets of the iqtree outputs.
+# Usher also outputs an uncondensed version of the tree in newick format, in a file called 'uncondensed-final-tree.nh', and this script converts that newick into a DAG protobuf.
 #
 # The code assumes a filestructure consisting of a main directory 'main_dir', 
 # containing subdirectories, each of which contains a newick and vcf suitable for larch input.

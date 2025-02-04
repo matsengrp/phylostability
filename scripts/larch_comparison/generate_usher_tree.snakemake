@@ -51,8 +51,9 @@ rule all:
     input:
         base_filename+".vcf",
         base_filename+".fasta",
-        base_filename+".pb",
-        base_filename+".txt"
+        base_filename+"_MAT.pb",
+        base_filename+".txt",
+        "uncondensed-final-tree.nh"
 
 
 rule create_reference_sequence_file:
@@ -157,10 +158,10 @@ rule create_mat_protobuf:
         nh_file=input_newick_file,
         vcf_file=rules.create_vcf_from_fasta.output.vcf_file
     output:
-        protobuf_name=base_filename+".pb"
+        protobuf_name=base_filename+"_MAT.pb"
     conda:
         "usher"
     shell:
         """
-        usher -t {input.nh_file} -v {input.vcf_file} -o {base_filename}.pb --write-uncondensed-final-tree
+        usher -t {input.nh_file} -v {input.vcf_file} -o {base_filename}_MAT.pb --write-uncondensed-final-tree
         """
