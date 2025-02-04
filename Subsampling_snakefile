@@ -3,6 +3,7 @@ import os
 data_folder = config["data_folder"]
 num_samples= config["num_samples"]
 file_extension = config["file_extension"]
+max_msa_size = config["max_msa_size"]
 
 if not os.path.exists(data_folder+"/selected_data/"):
     os.makedirs(data_folder+"/selected_data/")
@@ -36,7 +37,8 @@ rule select_datasets:
         selected_datasets_csv=data_folder+"/selected_datasets.csv",
         num_samples=num_samples,
         data=data_folder,
-        ext=file_extension
+        ext=file_extension,
+        max_msa_size=max_msa_size
     output:
         temp(touch(data_folder+"/select_datasets.done")),
     script:

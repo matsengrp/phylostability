@@ -117,4 +117,29 @@ for subdir in [
             unique_records.append(record)
 
     # Write the modified records to a new FASTA file
-    SeqIO.write(unique_records, msa_file, "fasta")
+    SeqIO.write(unique_records, msa_file + "_intermediate", "fasta")
+
+    seen_ids = set()
+    write_out = 1
+    with open(msa_file + "_intermediate", "r") as f_in:
+        with open(msa_file, "w") as f_out:
+            for line in f_in:
+                if "> " in line:
+                    seq = ">" + line.split()[1].replace(".","").replace("_","").replace("-", "")
+                    if seq not in seen_ids:
+                        f_out.write(seq+"\n")
+                        seen_ids.add(seq)
+                        write_out = 1
+                    else:
+                        write_out = 0
+                elif ">" in line:
+                    seq = line.split()[0].replace(".","").replace("_","").replace("-", "")
+                    if seq not in seen_ids:
+                        f_out.write(seq+"\n")
+                        seen_ids.add(seq)
+                        write_out = 1
+                    else:
+                        write_out = 0
+                else:
+                    if write_out:
+                        f_out.write(line)

@@ -8,6 +8,7 @@ data_folder = snakemake.params.data
 file_extension = snakemake.params.ext
 selected_file = snakemake.params.selected_datasets_csv
 N = snakemake.params.num_samples
+max_num_taxa = snakemake.params.max_msa_size
 
 
 # Function to check if Nexus file has alignment
@@ -33,6 +34,7 @@ df = pd.read_csv(data_csv)
 
 # Filter out already selected datasets
 df = df[~df["file"].isin(selected_datasets["file"])]
+df = df[df["taxa"] < max_num_taxa]
 
 if len(df) == 0:
     exit(0)

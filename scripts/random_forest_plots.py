@@ -265,7 +265,10 @@ def plot_stability_measures(
         max_tii = max(df["normalised_tii"])
         num_bins = 100  # len(df["normalised_tii"].unique())
         bins = [(i - 0.5) * max_tii / num_bins for i in range(0, num_bins)]
-        sns.histplot(data=df, x="normalised_tii", bins=bins, color=dark2.colors[0])
+        if len(set(df["dataset"])) < 10: 
+            sns.histplot(data=df, x="normalised_tii", bins=bins, hue="dataset")
+        else:
+            sns.histplot(data=df, x="normalised_tii", bins=bins, color=dark2.colors[0])
         # Set labels and title
         plt.xlabel("TII")
         plt.title("")
