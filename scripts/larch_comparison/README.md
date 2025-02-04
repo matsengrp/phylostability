@@ -1,10 +1,11 @@
 ## Overview
 This folder contains the scripts necessary to generate MP DAGs to compare to the result of the stability workflow.
-It is not built into a pipeline like snakemake, but is organized into a series of scripts, each of which requires its own conda environment in order to be run. 
+It is not built into a pipeline like snakemake, but is organized into a series of scripts, each of which requires its own conda environment in order to be run.
+The yml to generate each conda env is described in the corresponding script's header.
 
 ### Setting up parsimony DAGs to compare to ML output
 In order to generate MP DAGs, let `MAIN_DIR` be the path to a completed run of the stability analysis. 
-This will be something of the form  `/path/to/main/data/directory/selected_data/`.
+This directory will be something of the form  `/path/to/main/data/directory/selected_data/`.
 
 Then run the following commands:
 ```
@@ -20,7 +21,7 @@ conda activate larch
 conda activate historydag
 ./compare_parsimony_dags_to_ML_trees.sh MAIN_DIR larch_DAG.pb full_alignment.fasta.treefile dag_comparsion_output.csv
 ```
-This will create a csv, each row of which corresponds to a dataset in the analysis, and  containing the following columns of data:
+This will create a csv in `MAIN_DIR`, each row of which corresponds to a dataset in the analysis, and  containing the following columns of data:
 - `dataset` The name of the dataset in question
 - `DAG parsimony score` The best parsimony score for any tree found by larch-usher
 - `tree best parsimony score` The parsimony score obtained by running Fitch-Sankoff on the ML tree
@@ -30,4 +31,3 @@ This will create a csv, each row of which corresponds to a dataset in the analys
 - `num histories` The number of MP trees in the DAG
 - `average pairwise RF distance` average RF distance between the MP DAG and the ML tree
 - `reference sequence hamming distance` the hamming distance between the DAG's referenc sequence and the tree root's referenc sequence obtained by running Fitch-Sankoff.
-- 
