@@ -19,7 +19,7 @@ conda activate larch
 ./make_parsimony_dags.sh MAIN_DIR 80 larch_INPUT_DAG.pb larch_INPUT.vcf larch_OUTPUT_DAG.pb
 
 conda activate historydag
-./compare_parsimony_dags_to_ML_trees.sh MAIN_DIR larch_OUTPUT_DAG.pb full_alignment.fasta.treefile dag_comparsion_output.csv
+./compare_parsimony_dags_to_ML_trees.sh MAIN_DIR larch_OUTPUT_DAG.pb full_alignment.fasta.treefile larch_INPUT.fasta dag_comparsion_output.csv
 ```
 This will create a csv in `MAIN_DIR`, each row of which corresponds to a dataset in the analysis, and  containing the following columns of data:
 - `dataset` The name of the dataset in question
