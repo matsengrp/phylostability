@@ -12,14 +12,20 @@ Then run the following commands:
 conda activate usher
 ./generate_usher_trees.sh MAIN_DIR full_alignment.fasta generate_usher_tree.snakemake
 
-conda activate historydag
+conda activate extended-historydag
 ./convert_usher_outputs_to_larch_inputs.sh MAIN_DIR larch_INPUT.fasta uncondensed-final-tree.nh larch_INPUT_DAG.pb
 
 conda activate larch
 ./make_parsimony_dags.sh MAIN_DIR 80 larch_INPUT_DAG.pb larch_INPUT.vcf larch_OUTPUT_DAG.pb
 
-conda activate historydag
+conda activate extended-historydag
 ./compare_parsimony_dags_to_ML_trees.sh MAIN_DIR larch_OUTPUT_DAG.pb full_alignment.fasta.treefile larch_INPUT.fasta dag_comparsion_output.csv
+
+./create_mds_plots.sh MAIN_DIR larch_OUTPUT_DAG.pb full_alignment.fasta.treefile 10000 larch_mds_plot.png
+
+./compare_larch_modes_to_iqtree_results.sh MAIN_DIR larch_subset_newicks full_alignment.fasta.treefile 10000 comparison_mds.svg larch_INPUT.fasta iqtree-model.txt
+
+
 ```
 This will create a csv in `MAIN_DIR`, each row of which corresponds to a dataset in the analysis, and  containing the following columns of data:
 - `dataset` The name of the dataset in question
