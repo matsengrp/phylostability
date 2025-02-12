@@ -6,6 +6,7 @@ The yml to generate each conda env is described in the corresponding script's he
 ### Setting up parsimony DAGs to compare to ML output
 In order to generate MP DAGs, let `MAIN_DIR` be the path to a completed run of the stability analysis. 
 This directory will be something of the form  `/path/to/main/data/directory/selected_data/`.
+Also needed is a local install of consel. 
 
 Then run the following commands:
 ```
@@ -24,6 +25,8 @@ conda activate extended-historydag
 ./create_mds_plots.sh MAIN_DIR larch_OUTPUT_DAG.pb full_alignment.fasta.treefile 10000 larch_mds_plot.png
 
 ./compare_larch_modes_to_iqtree_results.sh MAIN_DIR larch_subset_newicks full_alignment.fasta.treefile 10000 comparison_mds.svg larch_INPUT.fasta iqtree-model.txt
+
+./compare_iqtree_on_mds_clusters.sh MAIN_DIR full_alignment.fasta.iqtree iqtree-model.txt full_alignment.fasta.sitelh dag_comparison.csv dag_comparison_output.csv /path/to/consel/bin
 
 
 ```

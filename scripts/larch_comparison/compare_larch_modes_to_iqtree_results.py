@@ -44,8 +44,10 @@ def get_best_k(data, k_max=12):
     best_s_locs = [x[-1] for x in  sorted(sek_vals)[-2:]]
     slope_ratios = [(make_frac(sek_vals[i][1] - x[1],x[1] - sek_vals[i+2][1]), i + 1) for i, x in enumerate(sek_vals[1:-1])]
     best_e_locs = [x[-1] + 2 for x in sorted(slope_ratios)[-2:]]
+
+    # if inertia is overall significantly low, or if the overally curve is near-linear, there is no elbow
     biggest_slope_change = slope_ratios[best_e_locs[-1] - 3][0]
-    if biggest_slope_change < .5:
+    if max([x[1] for x in sek_vals]) < 0.005 or biggest_slope_change < .5:
         best_e_locs = [2]
     fig,ax1=plt.subplots()
 

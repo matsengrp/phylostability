@@ -22,7 +22,7 @@ clusterplotfilename="comparison_mds_with_clustering.svg"
 for sd in $maindir/*/; do
   if [[ -f $sd/$larchnewicks && -f $sd/$treefile && -f $sd/$outputfile && -f $sd/$fastafile ]]; then
     if [[ -f $sd/larch_dm/mds && -f $sd/larch_dm/dm_dim ]]; then
-      conda activate extended-historydag
+      conda activate historydag
       if ! [ -f $sd/larch_dm/cluster_centroids_nwks ]; then
         echo "creating MDS clusters for $sd"
         mds_dim=$( cat $sd/larch_dm/dm_dim | awk '{print $1}' )
@@ -42,6 +42,7 @@ for sd in $maindir/*/; do
         conda activate phylostability
         numclusters=$( wc -l $sd/larch_dm/cluster_centroids_idxs | awk '{print $1}' )
         echo "extracting topological mean for $numclusters clusters and running iqtree"
+        rm -rf $sd/larch_dm/iqtree_cluster_comparison/
         mkdir -p $sd/larch_dm/iqtree_cluster_comparison
         for cluster in `seq 1 1 $numclusters`; do
           nwkline=$((2*cluster - 1))
@@ -52,10 +53,10 @@ for sd in $maindir/*/; do
           # run iqtree with specified model & topology
           found_model=$(grep "Model of substitution" -i "$sd/larch_dm/iqtree_cluster_comparison/cluster_$cluster""_model.iqtree")
           found_model=${found_model:23}
-          iqtree -g "$sd/larch_dm/iqtree_cluster_comparison/cluster_$cluster" -s $sd/$fastafile --prefix "$sd/larch_dm/iqtree_cluster_comparison/cluster_$cluster" -m "$found_model" -bb 1000 -redo
+          iqtree -g "$sd/larch_dm/iqtree_cluster_comparison/cluster_$cluster" -s $sd/$fastafile --prefix "$sd/larch_dm/iqtree_cluster_comparison/cluster_$cluster" -wsl -m "$found_model" -bb 1000 -redo
           old_model="$(cat $sd/$oldmodel)"
           if [[ $old_model != $found_model ]]; then
-            iqtree -g "$sd/larch_dm/iqtree_cluster_comparison/cluster_$cluster" -s $sd/$fastafile --prefix "$sd/larch_dm/iqtree_cluster_comparison/cluster_$cluster""_oldmodel" -m "$old_model" -bb 1000 -redo
+            iqtree -g "$sd/larch_dm/iqtree_cluster_comparison/cluster_$cluster" -s $sd/$fastafile --prefix "$sd/larch_dm/iqtree_cluster_comparison/cluster_$cluster""_oldmodel" -wsl -m "$old_model" -bb 1000 -redo
           fi
         done
       fi
